@@ -1,0 +1,27 @@
+{
+  "name": "@perf/serializer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Ultra-high-performance TypeScript serializer with Symbol.serializable contract and JIT-compiled binary codecs.",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "bench": "vitest bench --run",
+    "bench:watch": "vitest bench",
+    "type-check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@vitejs/devtools": "^0.1.24",
+    "magic-string": "^0.30.21",
+    "oxc-parser": "^0.132.0",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.14",
+    "vitest": "^4.1.7"
+  }
+}

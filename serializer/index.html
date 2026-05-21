@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@perf/serializer — examples</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f7f7f8;
+        --fg: #1c1c1f;
+        --muted: #6b6b75;
+        --pre-bg: #ffffff;
+        --pre-border: #e4e4e8;
+        --accent: #2f74ff;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #16161a;
+          --fg: #ececf0;
+          --muted: #9a9aa3;
+          --pre-bg: #1f1f25;
+          --pre-border: #2f2f37;
+          --accent: #6ea8ff;
+        }
+      }
+      body {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        background: var(--bg);
+        color: var(--fg);
+        padding: 2rem 1.5rem;
+        max-width: 56rem;
+        margin: 0 auto;
+        line-height: 1.5;
+      }
+      h1 {
+        font-size: 1.15rem;
+        margin: 0 0 0.5rem;
+        font-weight: 600;
+      }
+      .hint {
+        color: var(--muted);
+        margin: 0 0 1.5rem;
+        font-size: 0.875rem;
+      }
+      .hint code {
+        color: var(--accent);
+      }
+      #out {
+        background: var(--pre-bg);
+        border: 1px solid var(--pre-border);
+        border-radius: 8px;
+        padding: 1rem 1.25rem;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-size: 0.875rem;
+        min-height: 18rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>@perf/serializer — examples</h1>
+    <p class="hint">
+      Six demonstrations from <code>src/main.ts</code>. The Vite AOT plugin in
+      <code>vite.config.ts</code> inlines every <code>type(…)</code> call at
+      build time, so no runtime <code>new Function</code> is involved.
+    </p>
+    <pre id="out"></pre>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
