@@ -3,7 +3,7 @@
     "target": "esnext",
     "module": "esnext",
     "moduleResolution": "bundler",
-    "lib": ["ESNext"],
+    "lib": ["ESNext", "DOM"],
     "strict": true,
     "noImplicitAny": true,
     "noImplicitOverride": true,
@@ -14,7 +14,10 @@
     "noEmit": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "verbatimModuleSyntax": false
+    "verbatimModuleSyntax": false,
+    "paths": {
+      "@perf/serializer": ["./plugin/index.ts"],
+    }
   },
-  "include": ["plugin/**/*.ts", "src/**/*.ts", "test/**/*.ts", "vite.config.ts"]
+  "include": ["plugin/**/*.ts", "src/**/*.ts", "test/**/*.ts", "vite.config.ts"],
 }

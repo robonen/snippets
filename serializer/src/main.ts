@@ -122,13 +122,15 @@ const Order = type('Order', {
   flags: flags(['ioc', 'post_only', 'reduce_only'] as const),
 });
 
+type Order = typeof Order.$infer;
+
 const marketOrder = {
   id: 1,
   side: 'buy' as const,
   qty: 0.5,
   price: undefined,
   flags: { ioc: true, post_only: false, reduce_only: false },
-};
+} satisfies Order;
 
 const limitOrder = {
   id: 2,
