@@ -670,7 +670,20 @@ function emitDec(schema: AnySchema, ctx: Ctx): { pre: string; expr: string } {
 
 const BARE_IDENT = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/;
 
-export function compileObject(schema: ObjectSchema): CodegenResult {
+export interface CompileOptions {
+  /**
+   * If set, the generated decoder builds the result with
+   * `Object.create(${boundProtoExpr})` and assigns fields one by one, so the
+   * decoded value is an instance of the class whose prototype this expression
+   * resolves to. When omitted, the decoder returns a plain object literal.
+   */
+  boundProtoExpr?: string;
+}
+
+export function compileObject(
+  schema: ObjectSchema,
+  options: CompileOptions = {},
+): CodegenResult {
   const encCtx = new Ctx('enc');
   const decCtx = new Ctx('dec');
 
@@ -681,23 +694,35 @@ export function compileObject(schema: ObjectSchema): CodegenResult {
   }
   const encodeBody = encSeg.build();
 
-  // Decoder body: emit as inline object literal in return statement.
-  // For fields whose inner.expr is already a bare identifier (declared via inner.pre),
-  // skip the wrapping `const tmp = expr;` and use the identifier directly.
+  // Decoder body. For fields whose inner.expr is already a bare identifier
+  // (declared via inner.pre), skip the wrapping `const tmp = expr;`.
   let pre = '';
-  const props: string[] = [];
+  const pairs: Array<{ key: string; expr: string; rawName: string }> = [];
   for (const fname of Object.keys(schema.fields)) {
     const inner = emitDec(schema.fields[fname]!, decCtx);
+    let expr: string;
     if (inner.pre !== '' && BARE_IDENT.test(inner.expr)) {
       pre += inner.pre;
-      props.push(`${JSON.stringify(fname)}: ${inner.expr}`);
+      expr = inner.expr;
     } else {
       const tmp = decCtx.fresh(`f_${sanitize(fname)}`);
       pre += `${inner.pre} const ${tmp} = ${inner.expr};`;
-      props.push(`${JSON.stringify(fname)}: ${tmp}`);
+      expr = tmp;
     }
+    pairs.push({ key: JSON.stringify(fname), expr, rawName: fname });
   }
-  const decodeBody = `${pre} r.pos = pos; return { ${props.join(', ')} };`;
+
+  let decodeBody: string;
+  if (options.boundProtoExpr) {
+    // Class-bound: build via Object.create(proto) + sequential assigns so the
+    // result satisfies `instanceof` and inherits prototype methods.
+    const out = decCtx.fresh('out');
+    const assigns = pairs.map((p) => `${out}[${p.key}] = ${p.expr};`).join('');
+    decodeBody = `${pre} const ${out} = Object.create(${options.boundProtoExpr}); ${assigns} r.pos = pos; return ${out};`;
+  } else {
+    const literal = pairs.map((p) => `${p.key}: ${p.expr}`).join(', ');
+    decodeBody = `${pre} r.pos = pos; return { ${literal} };`;
+  }
 
   const deps = new Map<string, { mode: 'enc' | 'dec'; targetName: string }>();
   for (const [k, v] of encCtx.deps) deps.set(k, v);
@@ -708,7 +733,13 @@ export function compileObject(schema: ObjectSchema): CodegenResult {
   return { encodeBody, decodeBody, deps, closure };
 }
 
-export function compileUnion(schema: UnionSchema): CodegenResult {
+export function compileUnion(
+  schema: UnionSchema,
+  _options: CompileOptions = {},
+): CodegenResult {
+  // Class-bound unions are not yet supported (each variant would need its own
+  // prototype binding). For now, ignore `boundProtoExpr` and emit a plain
+  // literal-based decoder.
   const encCtx = new Ctx('enc');
   const decCtx = new Ctx('dec');
 

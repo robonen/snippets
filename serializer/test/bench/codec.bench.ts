@@ -1,13 +1,13 @@
 import { bench, describe } from 'vitest';
-import { Reader, Writer, deserialize, serialize } from '../../plugin/index.ts';
+import { Reader, Writer, router } from '../../plugin/index.ts';
 import {
+  Book,
+  Order,
+  Ticker,
   buildBook,
   buildOrder,
   buildTicker,
-  registerAll,
 } from './payloads.ts';
-
-const codecs = registerAll();
 
 const ticker = buildTicker();
 const order = buildOrder();
@@ -23,11 +23,11 @@ const tickerJSON = JSON.stringify(ticker);
 const orderJSON = JSON.stringify(order);
 const bookJSON = JSON.stringify(book);
 
-const tickerBin = serialize(ticker, codecs.ticker);
-const orderBin = serialize(order, codecs.order);
-const bookBin = serialize(book, codecs.book);
+const tickerBin = Ticker.encode(ticker);
+const orderBin = Order.encode(order);
+const bookBin = Book.encode(book);
 
-// One-time payload-size print on module load so it appears once in bench output.
+// One-time payload-size print on module load.
 // eslint-disable-next-line no-console
 console.log(
   '\n--- payload sizes ---\n' +
@@ -40,9 +40,9 @@ describe('encode ticker (5 fields)', () => {
   bench('JSON.stringify', () => {
     JSON.stringify(ticker);
   });
-  bench('codec.encode (pooled)', () => {
+  bench('codec.encodeInto (pooled)', () => {
     wTicker.reset();
-    codecs.ticker.encode(wTicker, ticker);
+    Ticker.encodeInto(ticker, wTicker);
   });
 });
 
@@ -50,9 +50,9 @@ describe('encode order (10 fields + bitset)', () => {
   bench('JSON.stringify', () => {
     JSON.stringify(order);
   });
-  bench('codec.encode (pooled)', () => {
+  bench('codec.encodeInto (pooled)', () => {
     wOrder.reset();
-    codecs.order.encode(wOrder, order);
+    Order.encodeInto(order, wOrder);
   });
 });
 
@@ -60,9 +60,9 @@ describe('encode book (1000 levels)', () => {
   bench('JSON.stringify', () => {
     JSON.stringify(book);
   });
-  bench('codec.encode (pooled)', () => {
+  bench('codec.encodeInto (pooled)', () => {
     wBook.reset();
-    codecs.book.encode(wBook, book);
+    Book.encodeInto(book, wBook);
   });
 });
 
@@ -70,10 +70,9 @@ describe('decode ticker', () => {
   bench('JSON.parse', () => {
     JSON.parse(tickerJSON);
   });
-  bench('codec.decode', () => {
+  bench('codec.decodeFrom', () => {
     const r = new Reader(tickerBin);
-    r.pos = 2;
-    codecs.ticker.decode(r);
+    Ticker.decodeFrom(r);
   });
 });
 
@@ -81,10 +80,9 @@ describe('decode order', () => {
   bench('JSON.parse', () => {
     JSON.parse(orderJSON);
   });
-  bench('codec.decode', () => {
+  bench('codec.decodeFrom', () => {
     const r = new Reader(orderBin);
-    r.pos = 2;
-    codecs.order.decode(r);
+    Order.decodeFrom(r);
   });
 });
 
@@ -92,10 +90,9 @@ describe('decode book (1000 levels)', () => {
   bench('JSON.parse', () => {
     JSON.parse(bookJSON);
   });
-  bench('codec.decode', () => {
+  bench('codec.decodeFrom', () => {
     const r = new Reader(bookBin);
-    r.pos = 2;
-    codecs.book.decode(r);
+    Book.decodeFrom(r);
   });
 });
 
@@ -105,17 +102,18 @@ describe('roundtrip ticker', () => {
   });
   bench('codec (pooled)', () => {
     wTicker.reset();
-    codecs.ticker.encode(wTicker, ticker);
+    Ticker.encodeInto(ticker, wTicker);
     const r = new Reader(wTicker.bytes());
-    codecs.ticker.decode(r);
+    Ticker.decodeFrom(r);
   });
 });
 
-describe('serialize+deserialize ticker (with frame)', () => {
+describe('framed ticker via router', () => {
+  const proto = router(Ticker, Order, Book);
   bench('JSON', () => {
     JSON.parse(JSON.stringify(ticker));
   });
-  bench('serialize/deserialize (framed)', () => {
-    deserialize(serialize(ticker, codecs.ticker));
+  bench('router encode + decode (framed)', () => {
+    proto.decode(proto.encode(ticker, Ticker));
   });
 });

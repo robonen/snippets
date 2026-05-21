@@ -1,7 +1,6 @@
 import { compileObject, compileUnion } from './codegen.ts';
 import type { AnySchema, ObjectSchema, UnionSchema } from './descriptors.ts';
-import { Reader, Writer } from './io.ts';
-import { Serializable } from './symbol.ts';
+import type { Reader, Writer } from './io.ts';
 
 export interface Codec<T = unknown> {
   readonly id: number;
@@ -14,7 +13,6 @@ type AnyCodec = Codec<any>;
 
 const byName = new Map<string, AnyCodec>();
 const byId = new Map<number, AnyCodec>();
-const byCtor = new WeakMap<object, AnyCodec>();
 
 function fnv1a16(s: string): number {
   let h = 0x811c9dc5;
@@ -57,6 +55,10 @@ function sanIdent(name: string): string {
   return name.replace(/[^A-Za-z0-9_]/g, '_');
 }
 
+/**
+ * Compile a schema into a `Codec` and register it in the lookup tables. Used
+ * internally by `type(...)` / `oneOf(...)`. Idempotent by schema name.
+ */
 export function register<T = unknown>(schema: ObjectSchema | UnionSchema): Codec<T> {
   const existing = byName.get(schema.name);
   if (existing) return existing as Codec<T>;
@@ -149,49 +151,26 @@ return function decode_${fname}(r) {
   return codec;
 }
 
-export function registerClass<T>(Ctor: new (...args: never[]) => T): Codec<T> {
-  const cached = byCtor.get(Ctor);
-  if (cached) return cached as Codec<T>;
-  const schema = (Ctor as unknown as Record<symbol, unknown>)[Serializable] as
-    | ObjectSchema
-    | UnionSchema
-    | undefined;
-  if (!schema) {
-    throw new Error(`${Ctor.name} has no [Serializable] schema`);
-  }
-  const codec = register<T>(schema);
-  byCtor.set(Ctor, codec);
-  return codec;
-}
-
-/**
- * Encode a value into a framed Uint8Array (2-byte schema ID + body).
- * If a Writer is passed, returns a view; otherwise returns a fresh copy.
- */
-export function serialize<T>(value: T, codec: Codec<T>, writer?: Writer): Uint8Array {
-  if (writer) {
-    writer.u16(codec.id);
-    codec.encode(writer, value);
-    return writer.bytes();
-  }
-  const w = new Writer();
-  w.u16(codec.id);
-  codec.encode(w, value);
-  return w.bytesCopy();
-}
-
-/**
- * Decode a framed Uint8Array by looking up its schema ID.
- */
-export function deserialize<T = unknown>(bytes: Uint8Array): T {
-  const r = new Reader(bytes);
-  const id = r.u16();
-  const codec = byId.get(id);
-  if (!codec) throw new Error(`Unknown schema ID: 0x${id.toString(16)}`);
-  return codec.decode(r) as T;
-}
-
+/** Reset the global codec registry. Test helper. */
 export function clearRegistry(): void {
   byName.clear();
   byId.clear();
+}
+
+/**
+ * Internal: AOT-generated codecs use this to inject themselves into the
+ * runtime registry on module load. Not meant for user code.
+ */
+export function __registerPrecompiled<T = unknown>(codec: Codec<T>): Codec<T> {
+  const existing = byName.get(codec.name);
+  if (existing) return existing as Codec<T>;
+  const idExisting = byId.get(codec.id);
+  if (idExisting && idExisting.name !== codec.name) {
+    throw new Error(
+      `Schema ID collision: "${codec.name}" and "${idExisting.name}" both hash to 0x${codec.id.toString(16)}`,
+    );
+  }
+  byName.set(codec.name, codec as AnyCodec);
+  byId.set(codec.id, codec as AnyCodec);
+  return codec;
 }

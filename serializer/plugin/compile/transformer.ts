@@ -7,9 +7,18 @@
  * that constructs the codec inline — no runtime `new Function`, no codegen
  * module needed at runtime.
  *
+ * Also detects class declarations with `static [Serializable] = type(...)`:
+ *   - the AOT codec's decoder uses `Object.create(ClassName.prototype)` so
+ *     decoded values are real `instanceof ClassName` instances with prototype
+ *     methods working;
+ *   - the codec auto-registers itself into the runtime registry on module
+ *     load (so `deserialize(bytes)` dispatches by id);
+ *   - top-level `const X = registerClass(ClassName)` calls are rewritten to
+ *     `const X = ClassName[Serializable]` so users can drop the call entirely.
+ *
  * Scope (v1):
  *   - Same-file only (no cross-file schema references).
- *   - Top-level `const X = type(...)` declarations (including `export const`).
+ *   - Top-level `const X = type(...)` and `static [Serializable] = type(...)`.
  *   - Field values may be:
  *       • imported primitive markers (u8 … f64, bool, str, bytes, *Array)
  *       • calls to imported combinators (list, opt, enumOf, flags, tuple)
@@ -22,16 +31,9 @@ import { parseSync } from 'oxc-parser';
 import MagicString from 'magic-string';
 import { compileObject, compileUnion } from '../codegen.ts';
 import { s } from '../schema.ts';
-import type {
-  AnySchema,
-  ObjectSchema,
-  UnionSchema,
-} from '../descriptors.ts';
+import type { AnySchema, ObjectSchema, UnionSchema } from '../descriptors.ts';
 
-const PKG_NAMES = new Set([
-  '@perf/serializer',
-  '@perf/serializer/index',
-]);
+const PKG_NAMES = new Set(['@perf/serializer', '@perf/serializer/index']);
 
 interface ImportInfo {
   bindings: Map<string, string>;
@@ -41,10 +43,6 @@ interface CompiledCodec {
   schemaName: string;
   schemaKind: 'object' | 'union';
   fieldsDescriptor: string;
-  encodeBody: string;
-  decodeBody: string;
-  closure: Map<string, unknown>;
-  deps: Map<string, { mode: 'enc' | 'dec'; targetName: string }>;
   id: number;
 }
 
@@ -64,8 +62,6 @@ const PRIMITIVES = new Set([
   'f32Array', 'f64Array', 'u8Array', 'u16Array', 'u32Array', 'i32Array',
 ]);
 
-// oxc AST nodes vary widely per `type`; we treat them as loosely-typed objects
-// and check `.type` before reading per-shape fields.
 type AnyNode = Record<string, any>;
 
 function collectImportsFromSet(program: AnyNode, aliases: Set<string>): ImportInfo {
@@ -196,27 +192,58 @@ function collectFields(obj: AnyNode, scope: Scope): Record<string, AnySchema> | 
 
 interface TypeCallInfo {
   call: AnyNode;
+  /** Const name for `const X = type(...)` or class name for `class X { static [Serializable] = type(...) }`. */
   declName: string;
   fn: 'type' | 'oneOf';
+  /** If set, the call is a static-field initializer inside this class. */
+  boundClass?: string;
+}
+
+function unwrapStmt(stmt: AnyNode): AnyNode {
+  if (stmt.type === 'ExportNamedDeclaration' && stmt.declaration) return stmt.declaration as AnyNode;
+  if (stmt.type === 'ExportDefaultDeclaration' && stmt.declaration) return stmt.declaration as AnyNode;
+  return stmt;
 }
 
 function findTypeCalls(program: AnyNode, imports: ImportInfo): TypeCallInfo[] {
   const calls: TypeCallInfo[] = [];
   for (const topStmt of program.body as AnyNode[]) {
-    const stmt: AnyNode =
-      topStmt.type === 'ExportNamedDeclaration' && topStmt.declaration
-        ? (topStmt.declaration as AnyNode)
-        : topStmt;
-    if (stmt.type !== 'VariableDeclaration') continue;
-    for (const decl of stmt.declarations as AnyNode[]) {
-      const id = decl.id as AnyNode;
-      const init = decl.init as AnyNode | null;
-      if (!init || id.type !== 'Identifier' || init.type !== 'CallExpression') continue;
-      const callee = init.callee as AnyNode;
-      if (callee.type !== 'Identifier') continue;
-      const exported = imports.bindings.get(callee.name as string);
-      if (exported === 'type' || exported === 'oneOf') {
-        calls.push({ call: init, declName: id.name as string, fn: exported });
+    const stmt = unwrapStmt(topStmt);
+
+    // Top-level `const X = type(...)` / `const X = oneOf(...)`
+    if (stmt.type === 'VariableDeclaration') {
+      for (const decl of stmt.declarations as AnyNode[]) {
+        const id = decl.id as AnyNode;
+        const init = decl.init as AnyNode | null;
+        if (!init || id.type !== 'Identifier' || init.type !== 'CallExpression') continue;
+        const callee = init.callee as AnyNode;
+        if (callee.type !== 'Identifier') continue;
+        const exported = imports.bindings.get(callee.name as string);
+        if (exported === 'type' || exported === 'oneOf') {
+          calls.push({ call: init, declName: id.name as string, fn: exported });
+        }
+      }
+      continue;
+    }
+
+    // `class X { static [Serializable] = type(...) }`
+    if (stmt.type === 'ClassDeclaration') {
+      const className = (stmt.id as AnyNode | null)?.name as string | undefined;
+      if (!className) continue;
+      const body = stmt.body as AnyNode;
+      for (const member of body.body as AnyNode[]) {
+        if (member.type !== 'PropertyDefinition' || !member.static || !member.computed) continue;
+        const key = member.key as AnyNode;
+        if (key.type !== 'Identifier') continue;
+        const exported = imports.bindings.get(key.name as string);
+        if (exported !== 'Serializable') continue;
+        const value = member.value as AnyNode | null;
+        if (!value || value.type !== 'CallExpression') continue;
+        const callee = value.callee as AnyNode;
+        if (callee.type !== 'Identifier') continue;
+        const fnName = imports.bindings.get(callee.name as string);
+        if (fnName !== 'type' && fnName !== 'oneOf') continue;
+        calls.push({ call: value, declName: className, fn: fnName, boundClass: className });
       }
     }
   }
@@ -298,7 +325,11 @@ function compileCall(
   const schema = buildSchemaFromTypeCall(info, scope);
   if (!schema) return null;
 
-  const cg = schema.kind === 'object' ? compileObject(schema) : compileUnion(schema);
+  const protoExpr = info.boundClass ? `${info.boundClass}.prototype` : undefined;
+  const cg =
+    schema.kind === 'object'
+      ? compileObject(schema, { boundProtoExpr: protoExpr })
+      : compileUnion(schema);
   const id = fnv1a16(schema.name);
   const fname = sanitize(schema.name);
   if (cg.deps.size > 0) return null; // ref/codec deps not supported yet
@@ -326,7 +357,7 @@ function compileCall(
     ${cg.decodeBody}
   }
   const __desc = ${descriptorLit};
-  const __codec = {
+  const __codec = Object.freeze({
     ...__desc,
     id: ${id},
     encode(v, into) {
@@ -342,10 +373,8 @@ function compileCall(
     encodeInto(v, w) { encode_${fname}(w, v); },
     decodeFrom: decode_${fname},
     $infer: undefined,
-  };
-  Object.freeze(__codec);
-  __serRegisterPrecompiled(__codec, encode_${fname}, decode_${fname});
-  return __codec;
+  });
+  return __serRegisterPrecompiled(__codec);
 })()`;
 
   return {
@@ -354,10 +383,6 @@ function compileCall(
       schemaName: schema.name,
       schemaKind: schema.kind,
       fieldsDescriptor: descriptorLit,
-      encodeBody: cg.encodeBody,
-      decodeBody: cg.decodeBody,
-      closure: cg.closure,
-      deps: cg.deps,
       id,
     },
   };
@@ -384,12 +409,67 @@ function serializeClosureValue(v: unknown): string {
 
 function makePrelude(importPath: string): string {
   return `
-import { Writer as __SerWriter, Reader as __SerReader } from ${JSON.stringify(importPath)};
-const __serRegistry = (globalThis.__serRegistry ??= new Map());
-function __serRegisterPrecompiled(codec, enc, dec) {
-  __serRegistry.set(codec.id, codec);
-}
+import { Writer as __SerWriter, Reader as __SerReader, __registerPrecompiled as __serRegisterPrecompiled } from ${JSON.stringify(importPath)};
 `;
+}
+
+/**
+ * Rewrite `const X = registerClass(Y)` (and statement-form `registerClass(Y)`)
+ * into a direct reference to the class's pre-attached codec. With the AOT codec
+ * already living at `Y[Serializable]`, the runtime `registerClass` call is
+ * redundant — we replace it so users can drop it entirely.
+ */
+function rewriteRegisterClassCalls(
+  program: AnyNode,
+  imports: ImportInfo,
+  ms: MagicString,
+): number {
+  const serializableLocal = [...imports.bindings.entries()].find(
+    ([, e]) => e === 'Serializable',
+  )?.[0];
+  // If user hasn't imported Serializable, they can't have written `static [Serializable] = ...`,
+  // so any registerClass(X) call is using the runtime path. Leave it alone.
+  if (!serializableLocal) return 0;
+
+  let count = 0;
+  for (const topStmt of program.body as AnyNode[]) {
+    const stmt = unwrapStmt(topStmt);
+
+    // `const X = registerClass(Y)` (or `let`/`var`)
+    if (stmt.type === 'VariableDeclaration') {
+      for (const decl of stmt.declarations as AnyNode[]) {
+        const init = decl.init as AnyNode | null;
+        if (!init || init.type !== 'CallExpression') continue;
+        if (!isRegisterClassCall(init, imports)) continue;
+        const arg = (init.arguments as AnyNode[])[0];
+        if (!arg || arg.type !== 'Identifier') continue;
+        ms.overwrite(
+          init.start as number,
+          init.end as number,
+          `${arg.name}[${serializableLocal}]`,
+        );
+        count++;
+      }
+      continue;
+    }
+
+    // Bare `registerClass(Y);` expression-statement
+    if (stmt.type === 'ExpressionStatement') {
+      const expr = stmt.expression as AnyNode;
+      if (expr.type !== 'CallExpression') continue;
+      if (!isRegisterClassCall(expr, imports)) continue;
+      // No-op now — codec already self-registers on class init.
+      ms.overwrite(stmt.start as number, stmt.end as number, '/* registerClass elided */');
+      count++;
+    }
+  }
+  return count;
+}
+
+function isRegisterClassCall(call: AnyNode, imports: ImportInfo): boolean {
+  const callee = call.callee as AnyNode;
+  if (callee.type !== 'Identifier') return false;
+  return imports.bindings.get(callee.name as string) === 'registerClass';
 }
 
 export interface TransformOptions {
@@ -402,7 +482,11 @@ export interface TransformResult {
   transformedCount: number;
 }
 
-export function transform(source: string, filename = 'input.ts', options: TransformOptions = {}): TransformResult {
+export function transform(
+  source: string,
+  filename = 'input.ts',
+  options: TransformOptions = {},
+): TransformResult {
   const importPath = options.importPath ?? '@perf/serializer';
   const aliases = new Set<string>(PKG_NAMES);
   for (const a of options.packageAliases ?? []) aliases.add(a);
@@ -420,7 +504,10 @@ export function transform(source: string, filename = 'input.ts', options: Transf
 
   let hasTypeImport = false;
   for (const v of imports.bindings.values()) {
-    if (v === 'type' || v === 'oneOf') { hasTypeImport = true; break; }
+    if (v === 'type' || v === 'oneOf') {
+      hasTypeImport = true;
+      break;
+    }
   }
   if (!hasTypeImport) return { code: source, transformedCount: 0 };
 
@@ -452,6 +539,10 @@ export function transform(source: string, filename = 'input.ts', options: Transf
   }
 
   if (transformedCount === 0) return { code: source, transformedCount: 0 };
+
+  // Now that codecs are inlined, rewrite registerClass(X) → X[Serializable].
+  rewriteRegisterClassCalls(program, imports, ms);
+
   ms.prepend(makePrelude(importPath));
   return { code: ms.toString(), transformedCount };
 }

@@ -1,11 +1,24 @@
 import { test, expect } from 'vitest';
 import {
+  bool,
+  bytes,
   clearRegistry,
-  defineSchema,
-  deserialize,
-  register,
-  s,
-  serialize,
+  enumOf,
+  f64,
+  f64Array,
+  flags,
+  i64,
+  list,
+  oneOf,
+  opt,
+  router,
+  str,
+  tuple,
+  type,
+  u32,
+  u53,
+  u64,
+  u8,
 } from '../plugin/index.ts';
 
 function fresh() {
@@ -14,65 +27,45 @@ function fresh() {
 
 test('flat object with mixed primitives', () => {
   fresh();
-  const Ticker = defineSchema('Ticker', (s) => ({
-    symbol: s.str,
-    last: s.f64,
-    volume: s.f64,
-    count: s.u32,
-  }));
-  const codec = register(Ticker);
+  const Ticker = type('Ticker', {
+    symbol: str,
+    last: f64,
+    volume: f64,
+    count: u32,
+  });
 
   const value = { symbol: 'BTC-USD', last: 45123.45, volume: 1234.5678, count: 99999 };
-  const bytes = serialize(value, codec);
-  const decoded = deserialize<typeof value>(bytes);
-
-  expect(decoded).toEqual(value);
+  expect(Ticker.decode(Ticker.encode(value))).toEqual(value);
 });
 
 test('array of primitives', () => {
   fresh();
-  const Tags = defineSchema('Tags', (s) => ({
-    items: s.array(s.str),
-    counts: s.array(s.u32),
-  }));
-  const codec = register(Tags);
-
+  const Tags = type('Tags', {
+    items: list(str),
+    counts: list(u32),
+  });
   const v = { items: ['a', 'b', 'hello'], counts: [1, 2, 3, 4, 5] };
-  expect(deserialize(serialize(v, codec))).toEqual(v);
+  expect(Tags.decode(Tags.encode(v))).toEqual(v);
 });
 
-test('nested object via inline ObjectSchema', () => {
+test('nested object via inline reference', () => {
   fresh();
-  const Price = defineSchema('Price', (s) => ({ value: s.f64, scale: s.u8 }));
-  const Order = defineSchema('Order', (s) => ({
-    id: s.u53,
-    price: Price,
-    qty: s.f64,
-  }));
-  register(Price);
-  const codec = register(Order);
-
+  const Price = type('Price', { value: f64, scale: u8 });
+  const Order = type('Order', { id: u53, price: Price, qty: f64 });
   const v = { id: 12345, price: { value: 100.5, scale: 2 }, qty: 1.5 };
-  expect(deserialize(serialize(v, codec))).toEqual(v);
+  expect(Order.decode(Order.encode(v))).toEqual(v);
 });
 
 test('optional fields', () => {
   fresh();
-  const Maybe = defineSchema('Maybe', (s) => ({
-    a: s.optional(s.str),
-    b: s.optional(s.f64),
-  }));
-  const codec = register(Maybe);
+  const Maybe = type('Maybe', {
+    a: opt(str),
+    b: opt(f64),
+  });
 
-  expect(deserialize(serialize({ a: 'hi', b: 3.14 }, codec))).toEqual({
-    a: 'hi',
-    b: 3.14,
-  });
-  expect(deserialize(serialize({ a: undefined, b: 1 }, codec))).toEqual({
-    a: undefined,
-    b: 1,
-  });
-  expect(deserialize(serialize({ a: undefined, b: undefined }, codec))).toEqual({
+  expect(Maybe.decode(Maybe.encode({ a: 'hi', b: 3.14 }))).toEqual({ a: 'hi', b: 3.14 });
+  expect(Maybe.decode(Maybe.encode({ a: undefined, b: 1 }))).toEqual({ a: undefined, b: 1 });
+  expect(Maybe.decode(Maybe.encode({ a: undefined, b: undefined }))).toEqual({
     a: undefined,
     b: undefined,
   });
@@ -80,102 +73,90 @@ test('optional fields', () => {
 
 test('enum field', () => {
   fresh();
-  const Side = defineSchema('SidedOrder', (s) => ({
-    side: s.enum(['buy', 'sell'] as const),
-    qty: s.f64,
-  }));
-  const codec = register(Side);
-
+  const Sided = type('SidedOrder', {
+    side: enumOf(['buy', 'sell'] as const),
+    qty: f64,
+  });
   for (const side of ['buy', 'sell'] as const) {
     const v = { side, qty: 1 };
-    expect(deserialize(serialize(v, codec))).toEqual(v);
+    expect(Sided.decode(Sided.encode(v))).toEqual(v);
   }
 });
 
 test('bitset field (≤8 flags)', () => {
   fresh();
-  const Flags = defineSchema('Flags', (s) => ({
-    flags: s.bitset(['ioc', 'post_only', 'reduce_only'] as const),
-  }));
-  const codec = register(Flags);
-
+  const Flags = type('Flags', {
+    flags: flags(['ioc', 'post_only', 'reduce_only'] as const),
+  });
   const v = { flags: { ioc: true, post_only: false, reduce_only: true } };
-  expect(deserialize(serialize(v, codec))).toEqual(v);
+  expect(Flags.decode(Flags.encode(v))).toEqual(v);
 });
 
 test('bitset field (>32 flags uses bigint)', () => {
   fresh();
   const flagNames = Array.from({ length: 40 }, (_, i) => `f${i}`) as readonly string[];
-  const Flags = defineSchema('FlagsBig', (s) => ({
-    flags: s.bitset(flagNames as readonly [string, ...string[]]),
-  }));
-  const codec = register(Flags);
+  const FlagsBig = type('FlagsBig', {
+    flags: flags(flagNames as readonly [string, ...string[]]),
+  });
 
-  const flags: Record<string, boolean> = {};
-  for (let i = 0; i < 40; i++) flags[`f${i}`] = i % 3 === 0;
-  const v = { flags };
-  expect(deserialize(serialize(v, codec))).toEqual(v);
+  const flagsValue: Record<string, boolean> = {};
+  for (let i = 0; i < 40; i++) flagsValue[`f${i}`] = i % 3 === 0;
+  const v = { flags: flagsValue };
+  expect(FlagsBig.decode(FlagsBig.encode(v))).toEqual(v);
 });
 
 test('tuple field', () => {
   fresh();
-  const Point = defineSchema('Point3D', (s) => ({
-    name: s.str,
-    coord: s.tuple(s.f64, s.f64, s.f64),
-  }));
-  const codec = register(Point);
-
-  const v = { name: 'p', coord: [1.5, 2.5, 3.5] };
-  expect(deserialize(serialize(v, codec))).toEqual(v);
+  const Point = type('Point3D', {
+    name: str,
+    coord: tuple(f64, f64, f64),
+  });
+  const v = { name: 'p', coord: [1.5, 2.5, 3.5] as [number, number, number] };
+  expect(Point.decode(Point.encode(v))).toEqual(v);
 });
 
 test('array of nested objects', () => {
   fresh();
-  const Level = defineSchema('Level', (s) => ({ price: s.f64, qty: s.f64 }));
-  register(Level);
-  const Book = defineSchema('Book', (s) => ({
-    bids: s.array(Level),
-    asks: s.array(Level),
-  }));
-  const codec = register(Book);
-
+  const Level = type('Level', { price: f64, qty: f64 });
+  const Book = type('Book', {
+    bids: list(Level),
+    asks: list(Level),
+  });
   const v = {
     bids: [{ price: 100, qty: 1 }, { price: 99, qty: 2 }],
     asks: [{ price: 101, qty: 0.5 }, { price: 102, qty: 1.5 }, { price: 103, qty: 0.1 }],
   };
-  expect(deserialize(serialize(v, codec))).toEqual(v);
+  expect(Book.decode(Book.encode(v))).toEqual(v);
 });
 
 test('union with discriminator', () => {
   fresh();
-  const Event = s.union('Event', 'kind', {
-    fill: { price: s.f64, qty: s.f64 },
-    cancel: { reason: s.str },
-    expire: { at: s.u53 },
+  const Event = oneOf('Event', 'kind', {
+    fill: { price: f64, qty: f64 },
+    cancel: { reason: str },
+    expire: { at: u53 },
   });
-  const codec = register(Event);
 
   const samples = [
-    { kind: 'fill' as const, price: 100, qty: 0.5 },
-    { kind: 'cancel' as const, reason: 'user' },
-    { kind: 'expire' as const, at: 1700000000 },
+    { kind: 'fill', price: 100, qty: 0.5 },
+    { kind: 'cancel', reason: 'user' },
+    { kind: 'expire', at: 1700000000 },
   ];
   for (const v of samples) {
-    expect(deserialize(serialize(v, codec))).toEqual(v);
+    expect(Event.decode(Event.encode(v as never))).toEqual(v);
   }
 });
 
 test('typed array (f64Array) round-trip', () => {
   fresh();
-  const Signal = defineSchema('Signal', (s) => ({
-    name: s.str,
-    samples: s.f64Array,
-  }));
-  const codec = register(Signal);
+  const Signal = type('Signal', {
+    name: str,
+    samples: f64Array,
+  });
 
   const samples = new Float64Array([1.1, 2.2, 3.3, 4.4, 5.5]);
   const v = { name: 'sig', samples };
-  const decoded = deserialize<typeof v>(serialize(v, codec));
+  const decoded = Signal.decode(Signal.encode(v));
   expect(decoded.name).toBe('sig');
   expect(decoded.samples).toBeInstanceOf(Float64Array);
   expect(decoded.samples.length).toBe(5);
@@ -184,54 +165,50 @@ test('typed array (f64Array) round-trip', () => {
 
 test('bigint u64/i64 round-trip', () => {
   fresh();
-  const Big = defineSchema('Big', (s) => ({
-    u: s.u64,
-    i: s.i64,
-  }));
-  const codec = register(Big);
+  const Big = type('Big', { u: u64, i: i64 });
   const v = { u: 1n << 50n, i: -(1n << 50n) };
-  expect(deserialize(serialize(v, codec))).toEqual(v);
+  expect(Big.decode(Big.encode(v))).toEqual(v);
 });
 
 test('bytes field', () => {
   fresh();
-  const Blob = defineSchema('Blob', (s) => ({
-    data: s.bytes,
-  }));
-  const codec = register(Blob);
+  const Blob = type('Blob', { data: bytes });
   const data = new Uint8Array([0, 1, 2, 3, 254, 255]);
-  const decoded = deserialize<{ data: Uint8Array }>(serialize({ data }, codec));
+  const decoded = Blob.decode(Blob.encode({ data }));
   expect(Array.from(decoded.data)).toEqual(Array.from(data));
 });
 
-test('serialize includes 2-byte schema ID frame', () => {
+test('bool field round-trip', () => {
   fresh();
-  const Sch = defineSchema('Sch', (s) => ({ x: s.u8 }));
-  const codec = register(Sch);
-  const bytes = serialize({ x: 7 }, codec);
+  const T = type('Bools', { a: bool, b: bool });
+  expect(T.decode(T.encode({ a: true, b: false }))).toEqual({ a: true, b: false });
+});
+
+test('router prepends 2-byte schema ID frame', () => {
+  fresh();
+  const Sch = type('Sch', { x: u8 });
+  const proto = router(Sch);
+  const bytes = proto.encode({ x: 7 }, Sch);
   expect(bytes.length).toBeGreaterThanOrEqual(3);
   const id = bytes[0]! | (bytes[1]! << 8);
-  expect(id).toBe(codec.id);
+  expect(id).toBe(Sch.id);
 });
 
 test('large nested order-book payload', () => {
   fresh();
-  const Level = defineSchema('LvlBig', (s) => ({ p: s.f64, q: s.f64 }));
-  register(Level);
-  const Snap = defineSchema('Snap', (s) => ({
-    symbol: s.str,
-    ts: s.u53,
-    bids: s.array(Level),
-    asks: s.array(Level),
-  }));
-  const codec = register(Snap);
+  const Level = type('LvlBig', { p: f64, q: f64 });
+  const Snap = type('Snap', {
+    symbol: str,
+    ts: u53,
+    bids: list(Level),
+    asks: list(Level),
+  });
 
   const bids = Array.from({ length: 1000 }, (_, i) => ({ p: 100 - i * 0.01, q: 1 + i * 0.001 }));
   const asks = Array.from({ length: 1000 }, (_, i) => ({ p: 100 + i * 0.01, q: 1 + i * 0.001 }));
   const v = { symbol: 'BTC-USD', ts: 1700000000123, bids, asks };
 
-  const bytes = serialize(v, codec);
-  const decoded = deserialize<typeof v>(bytes);
+  const decoded = Snap.decode(Snap.encode(v));
   expect(decoded.symbol).toBe(v.symbol);
   expect(decoded.ts).toBe(v.ts);
   expect(decoded.bids.length).toBe(1000);
@@ -240,8 +217,10 @@ test('large nested order-book payload', () => {
   expect(decoded.asks[999]).toEqual(v.asks[999]);
 });
 
-test('deserialize unknown schema ID throws', () => {
+test('router throws for unknown schema ID', () => {
   fresh();
-  const bytes = new Uint8Array([0xff, 0xff, 0]);
-  expect(() => deserialize(bytes)).toThrow(/Unknown schema ID/);
+  const Sch = type('Sch2', { x: u8 });
+  const proto = router(Sch);
+  const bogus = new Uint8Array([0xff, 0xff, 0]);
+  expect(() => proto.decode(bogus)).toThrow(/unknown schema ID/i);
 });

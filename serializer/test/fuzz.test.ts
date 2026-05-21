@@ -1,11 +1,16 @@
 import { test, expect } from 'vitest';
 import {
   clearRegistry,
-  defineSchema,
-  deserialize,
-  register,
-  s,
-  serialize,
+  enumOf,
+  f64,
+  flags,
+  list,
+  oneOf,
+  str,
+  type,
+  u32,
+  u53,
+  u8,
 } from '../plugin/index.ts';
 
 function rng(seed: number): () => number {
@@ -34,8 +39,7 @@ function randFloat(): number {
 }
 
 function randInt(maxBits = 32): number {
-  const v = Math.floor(r() * 2 ** maxBits);
-  return v >>> 0;
+  return Math.floor(r() * 2 ** maxBits) >>> 0;
 }
 
 function randString(): string {
@@ -47,14 +51,13 @@ function randString(): string {
 
 test('fuzz: 2000 random ticker round-trips', () => {
   clearRegistry();
-  const Ticker = defineSchema('FuzzTicker', (s) => ({
-    symbol: s.str,
-    last: s.f64,
-    volume: s.f64,
-    count: s.u32,
-    asks: s.array(s.f64),
-  }));
-  const codec = register(Ticker);
+  const Ticker = type('FuzzTicker', {
+    symbol: str,
+    last: f64,
+    volume: f64,
+    count: u32,
+    asks: list(f64),
+  });
 
   for (let i = 0; i < 2000; i++) {
     const v = {
@@ -64,24 +67,22 @@ test('fuzz: 2000 random ticker round-trips', () => {
       count: randInt(32),
       asks: Array.from({ length: Math.floor(r() * 10) }, randFloat),
     };
-    expect(deserialize(serialize(v, codec)), `iteration ${i}`).toEqual(v);
+    expect(Ticker.decode(Ticker.encode(v)), `iteration ${i}`).toEqual(v);
   }
 });
 
 test('fuzz: 1000 random nested orders', () => {
   clearRegistry();
-  const Price = defineSchema('FuzzPrice', (s) => ({ value: s.f64, scale: s.u8 }));
-  register(Price);
-  const Order = defineSchema('FuzzOrder', (s) => ({
-    id: s.u53,
-    symbol: s.str,
+  const Price = type('FuzzPrice', { value: f64, scale: u8 });
+  const Order = type('FuzzOrder', {
+    id: u53,
+    symbol: str,
     price: Price,
-    qty: s.f64,
-    side: s.enum(['buy', 'sell'] as const),
-    tags: s.array(s.str),
-    flags: s.bitset(['ioc', 'post_only', 'reduce_only'] as const),
-  }));
-  const codec = register(Order);
+    qty: f64,
+    side: enumOf(['buy', 'sell'] as const),
+    tags: list(str),
+    flags: flags(['ioc', 'post_only', 'reduce_only'] as const),
+  });
 
   for (let i = 0; i < 1000; i++) {
     const v = {
@@ -97,18 +98,17 @@ test('fuzz: 1000 random nested orders', () => {
         reduce_only: r() < 0.5,
       },
     };
-    expect(deserialize(serialize(v, codec)), `iteration ${i}`).toEqual(v);
+    expect(Order.decode(Order.encode(v)), `iteration ${i}`).toEqual(v);
   }
 });
 
 test('fuzz: 500 random unions', () => {
   clearRegistry();
-  const Event = s.union('FuzzEvent', 'kind', {
-    fill: { price: s.f64, qty: s.f64 },
-    cancel: { reason: s.str },
-    expire: { at: s.u53 },
+  const Event = oneOf('FuzzEvent', 'kind', {
+    fill: { price: f64, qty: f64 },
+    cancel: { reason: str },
+    expire: { at: u53 },
   });
-  const codec = register(Event);
 
   for (let i = 0; i < 500; i++) {
     const which = Math.floor(r() * 3);
@@ -117,6 +117,6 @@ test('fuzz: 500 random unions', () => {
     else if (which === 1) v = { kind: 'cancel', reason: randString() };
     else v = { kind: 'expire', at: Math.floor(r() * 2 ** 40) };
 
-    expect(deserialize(serialize(v, codec)), `iteration ${i}`).toEqual(v);
+    expect(Event.decode(Event.encode(v as never)), `iteration ${i}`).toEqual(v);
   }
 });

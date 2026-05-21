@@ -1,4 +1,4 @@
-// ── Simplified façade (recommended) ────────────────────────────────────────
+// ── Public API ─────────────────────────────────────────────────────────────
 export {
   type,
   oneOf,
@@ -10,32 +10,11 @@ export {
 } from './api.ts';
 export type { TypeCodec, InferType, Router } from './api.ts';
 
-// ── Low-level API (advanced) ───────────────────────────────────────────────
+// ── Low-level (writer/reader for hot paths, framing primitives) ────────────
 export { Writer, Reader } from './io.ts';
-export { s, defineSchema } from './schema.ts';
-export type { SchemaBuilder } from './schema.ts';
+
+// ── Class contract ─────────────────────────────────────────────────────────
 export { Serializable } from './symbol.ts';
-export {
-  register,
-  registerClass,
-  serialize,
-  deserialize,
-  clearRegistry,
-} from './register.ts';
-export type { Codec } from './register.ts';
-export type {
-  AnySchema,
-  ObjectSchema,
-  UnionSchema,
-  ArraySchema,
-  OptionalSchema,
-  EnumSchema,
-  BitsetSchema,
-  TupleSchema,
-  RefSchema,
-  CodecSchema,
-  PrimitiveSchema,
-  TypedArraySchema,
-  PrimitiveKind,
-  TypedArrayKind,
-} from './descriptors.ts';
+
+// ── Test / AOT helpers ─────────────────────────────────────────────────────
+export { clearRegistry, __registerPrecompiled } from './register.ts';

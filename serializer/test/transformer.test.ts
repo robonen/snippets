@@ -161,6 +161,67 @@ export const T = type('TxSmoke', { x: u53, y: f64 });
   expect(result.code).not.toContain("type('TxSmoke'");
 });
 
+test('transformer: class with [Serializable] — decoder returns class instances', async () => {
+  const src = `
+import { type, Serializable, registerClass, f64, enumOf } from '../plugin/index.ts';
+
+export class TxPos {
+  side;
+  qty;
+  entryPrice;
+
+  static [Serializable] = type('TxPos', {
+    side: enumOf(['long', 'short']),
+    qty: f64,
+    entryPrice: f64,
+  });
+
+  get notional() { return this.qty * this.entryPrice; }
+}
+
+export const TxPosCodec = registerClass(TxPos);
+`;
+  const mod = await transformAndImport(src);
+  const TxPos = mod.TxPos as new () => {
+    side: 'long' | 'short';
+    qty: number;
+    entryPrice: number;
+    notional: number;
+  };
+  const codec = mod.TxPosCodec as {
+    encode: (v: unknown) => Uint8Array;
+    decode: (b: Uint8Array) => { side: 'long' | 'short'; qty: number; entryPrice: number };
+  };
+
+  const v = { side: 'long' as const, qty: 2, entryPrice: 100 };
+  const bytes = codec.encode(v);
+  const back = codec.decode(bytes);
+
+  // Decoded value must be an actual TxPos instance — methods/getters work.
+  expect(back instanceof TxPos).toBe(true);
+  expect((back as InstanceType<typeof TxPos>).notional).toBe(200);
+  expect(back.side).toBe('long');
+  expect(back.qty).toBe(2);
+});
+
+test('transformer: registerClass(X) is rewritten to X[Serializable]', () => {
+  const src = `
+import { type, Serializable, registerClass, f64 } from '../plugin/index.ts';
+
+export class TxBox {
+  static [Serializable] = type('TxBox', { v: f64 });
+}
+
+export const TxBoxCodec = registerClass(TxBox);
+`;
+  const result = transform(src, 'test.ts', {
+    importPath: '../plugin/index.ts',
+    packageAliases: ['../plugin/index.ts'],
+  });
+  expect(result.code).toContain('TxBox[Serializable]');
+  expect(result.code).not.toContain('registerClass(TxBox)');
+});
+
 afterAll(() => {
   for (let i = 1; i <= counter; i++) {
     const file = join(GEN_DIR, `__gen_${i}.ts`);

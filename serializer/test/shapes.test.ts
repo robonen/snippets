@@ -1,11 +1,16 @@
 import { test, expect } from 'vitest';
 import {
+  bool,
   clearRegistry,
-  defineSchema,
-  deserialize,
-  register,
-  s,
-  serialize,
+  enumOf,
+  f64,
+  list,
+  oneOf,
+  str,
+  type,
+  u32,
+  u53,
+  u8,
 } from '../plugin/index.ts';
 
 /**
@@ -15,51 +20,36 @@ import {
  */
 test('decoded objects share key order matching schema field order', () => {
   clearRegistry();
-  const Order = defineSchema('ShapeOrder', (s) => ({
-    id: s.u53,
-    price: s.f64,
-    qty: s.f64,
-    side: s.enum(['buy', 'sell'] as const),
-    tags: s.array(s.str),
-  }));
-  const codec = register(Order);
+  const Order = type('ShapeOrder', {
+    id: u53,
+    price: f64,
+    qty: f64,
+    side: enumOf(['buy', 'sell'] as const),
+    tags: list(str),
+  });
 
   const expectedOrder = ['id', 'price', 'qty', 'side', 'tags'];
 
-  const decoded1 = deserialize<Record<string, unknown>>(
-    serialize({ id: 1, price: 100, qty: 0.5, side: 'buy', tags: ['a'] }, codec),
-  );
-  const decoded2 = deserialize<Record<string, unknown>>(
-    serialize({ id: 999, price: 1e10, qty: 0, side: 'sell', tags: [] }, codec),
-  );
-  const decoded3 = deserialize<Record<string, unknown>>(
-    serialize({ id: 2 ** 40, price: -1, qty: 1234, side: 'buy', tags: ['x', 'y', 'z'] }, codec),
+  const d1 = Order.decode(Order.encode({ id: 1, price: 100, qty: 0.5, side: 'buy', tags: ['a'] }));
+  const d2 = Order.decode(Order.encode({ id: 999, price: 1e10, qty: 0, side: 'sell', tags: [] }));
+  const d3 = Order.decode(
+    Order.encode({ id: 2 ** 40, price: -1, qty: 1234, side: 'buy', tags: ['x', 'y', 'z'] }),
   );
 
-  expect(Object.keys(decoded1)).toEqual(expectedOrder);
-  expect(Object.keys(decoded2)).toEqual(expectedOrder);
-  expect(Object.keys(decoded3)).toEqual(expectedOrder);
+  expect(Object.keys(d1)).toEqual(expectedOrder);
+  expect(Object.keys(d2)).toEqual(expectedOrder);
+  expect(Object.keys(d3)).toEqual(expectedOrder);
 });
 
 test('decoded value types are consistent across instances', () => {
   clearRegistry();
-  const T = defineSchema('Types', (s) => ({
-    a: s.u32,
-    b: s.f64,
-    c: s.str,
-    d: s.bool,
-  }));
-  const codec = register(T);
+  const T = type('Types', { a: u32, b: f64, c: str, d: bool });
 
   const types = (o: Record<string, unknown>) =>
     Object.entries(o).map(([k, v]) => [k, typeof v]);
 
-  const a = deserialize<Record<string, unknown>>(
-    serialize({ a: 1, b: 1.5, c: 'a', d: true }, codec),
-  );
-  const b = deserialize<Record<string, unknown>>(
-    serialize({ a: 0, b: 0, c: '', d: false }, codec),
-  );
+  const a = T.decode(T.encode({ a: 1, b: 1.5, c: 'a', d: true }));
+  const b = T.decode(T.encode({ a: 0, b: 0, c: '', d: false }));
   expect(types(a)).toEqual(types(b));
   expect(types(a)).toEqual([
     ['a', 'number'],
@@ -71,35 +61,28 @@ test('decoded value types are consistent across instances', () => {
 
 test('nested object key order is stable', () => {
   clearRegistry();
-  const Price = defineSchema('SPrice', (s) => ({ value: s.f64, scale: s.u8 }));
-  register(Price);
-  const Order = defineSchema('SOrder', (s) => ({
-    id: s.u53,
-    price: Price,
-    qty: s.f64,
-  }));
-  const codec = register(Order);
+  const Price = type('SPrice', { value: f64, scale: u8 });
+  const Order = type('SOrder', { id: u53, price: Price, qty: f64 });
 
   const v = { id: 1, price: { value: 100, scale: 2 }, qty: 1 };
-  const d1 = deserialize<Record<string, unknown>>(serialize(v, codec));
-  const d2 = deserialize<Record<string, unknown>>(serialize({ ...v, id: 99 }, codec));
+  const d1 = Order.decode(Order.encode(v));
+  const d2 = Order.decode(Order.encode({ ...v, id: 99 }));
 
   expect(Object.keys(d1)).toEqual(['id', 'price', 'qty']);
   expect(Object.keys(d2)).toEqual(['id', 'price', 'qty']);
-  expect(Object.keys(d1.price as Record<string, unknown>)).toEqual(['value', 'scale']);
-  expect(Object.keys(d2.price as Record<string, unknown>)).toEqual(['value', 'scale']);
+  expect(Object.keys(d1.price)).toEqual(['value', 'scale']);
+  expect(Object.keys(d2.price)).toEqual(['value', 'scale']);
 });
 
 test('union decoded objects place discriminator first', () => {
   clearRegistry();
-  const Event = s.union('SEvent', 'kind', {
-    a: { x: s.u32 },
-    b: { y: s.f64 },
+  const Event = oneOf('SEvent', 'kind', {
+    a: { x: u32 },
+    b: { y: f64 },
   });
-  const codec = register(Event);
 
-  const ea = deserialize<Record<string, unknown>>(serialize({ kind: 'a', x: 1 }, codec));
-  const eb = deserialize<Record<string, unknown>>(serialize({ kind: 'b', y: 2.5 }, codec));
+  const ea = Event.decode(Event.encode({ kind: 'a', x: 1 } as never)) as Record<string, unknown>;
+  const eb = Event.decode(Event.encode({ kind: 'b', y: 2.5 } as never)) as Record<string, unknown>;
   expect(Object.keys(ea)[0]).toBe('kind');
   expect(Object.keys(eb)[0]).toBe('kind');
 });

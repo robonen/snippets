@@ -1,79 +1,52 @@
 import { test, expect } from 'vitest';
 import {
   clearRegistry,
-  defineSchema,
-  deserialize,
-  registerClass,
+  enumOf,
+  f64,
   Serializable,
-  serialize,
+  type,
+  u53,
 } from '../plugin/index.ts';
 
-test('class with [Serializable] static schema registers and round-trips', () => {
+test('class with [Serializable] static codec round-trips', () => {
   clearRegistry();
 
   class Order {
-    id!: number;
-    price!: number;
-    qty!: number;
-    side!: 'buy' | 'sell';
-
-    static [Serializable] = defineSchema('OrderClass', (s) => ({
-      id: s.u53,
-      price: s.f64,
-      qty: s.f64,
-      side: s.enum(['buy', 'sell'] as const),
-    }));
+    static [Serializable] = type('OrderClass', {
+      id: u53,
+      price: f64,
+      qty: f64,
+      side: enumOf(['buy', 'sell'] as const),
+    });
   }
 
-  const codec = registerClass(Order);
-
+  const codec = Order[Serializable]!;
   const v = { id: 42, price: 100.5, qty: 1.5, side: 'buy' as const };
-  const bytes = serialize(v, codec);
-  const decoded = deserialize<typeof v>(bytes);
-  expect(decoded).toEqual(v);
-});
-
-test('registerClass caches by constructor', () => {
-  clearRegistry();
-
-  class A {
-    static [Serializable] = defineSchema('AClass', (s) => ({ x: s.u8 }));
-  }
-  const c1 = registerClass(A);
-  const c2 = registerClass(A);
-  expect(c1).toBe(c2);
-});
-
-test('registerClass throws for class missing [Serializable]', () => {
-  clearRegistry();
-
-  class B {}
-
-  expect(() => registerClass(B)).toThrow(/\[Serializable\] schema/);
+  expect(codec.decode(codec.encode(v))).toEqual(v);
 });
 
 test('Symbol.serializable is shared across module boundaries via Symbol.for', () => {
-  const looked = Symbol.for('@perf/serializable');
-  expect(looked).toBe(Serializable);
+  expect(Symbol.for('@perf/serializable')).toBe(Serializable);
 });
 
 test('codec.id is deterministic for the schema name', () => {
   clearRegistry();
-  const A = defineSchema('SameName', (s) => ({ x: s.u8 }));
+
+  class A {
+    static [Serializable] = type('SameName', { x: u53 });
+  }
+  const idA = A[Serializable]!.id;
 
   clearRegistry();
-  const codecA = registerClass(
-    class extends Object {
-      static [Serializable] = A;
-    },
-  );
+  class B {
+    static [Serializable] = type('SameName', { y: f64 });
+  }
+  const idB = B[Serializable]!.id;
 
-  clearRegistry();
-  const codecB = registerClass(
-    class extends Object {
-      static [Serializable] = A;
-    },
-  );
+  expect(idA).toBe(idB);
+});
 
-  expect(codecA.id).toBe(codecB.id);
+test('class without [Serializable] has no codec', () => {
+  class Empty {}
+  expect((Empty as unknown as Record<symbol, unknown>)[Serializable]).toBeUndefined();
 });
