@@ -12,6 +12,7 @@ export {
   type EngineOptions,
   type TabEngineOptions,
   type WorkerBootstrapOptions,
+  type InstallEngineOptions,
 } from './createEngine'
 export { EngineKey, useEngine } from './composables/useEngine'
 export { useQuery } from './composables/useQuery'
@@ -28,4 +29,9 @@ export type { Transport, ServerEndpoint, ClientMsg, ServerMsg } from './transpor
 export { createMirror } from './tab/mirror'
 export { createTabRuntime, type TabRuntime } from './tab/runtime'
 export { createQueryGraph } from './worker/queryGraph'
-export { syncEnginePlugin, type SyncEnginePluginOptions } from './plugin'
+// Subpath entries (kept out of the main bundle to avoid pulling Node-side
+// Vite plugin code or Vue DevTools API into client bundles by default):
+//   import { syncEnginePlugin } from 'vue-sync-engine/plugin'
+//   import { setupSyncEngineDevtools } from 'vue-sync-engine/devtools'
+export type { SyncEnginePluginOptions } from './plugin'
+export type { SyncEngineDevtoolsOptions } from './devtools'

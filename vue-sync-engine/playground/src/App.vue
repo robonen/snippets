@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { Status, useEngine, useInfiniteQuery, useMutation, useQuery } from './engine'
+import { Status, useEngine, useInfiniteQuery, useMutation, useQuery } from 'vue-sync-engine'
 import { PostEntity, UserEntity, postsInfinite, updatePostTitle, usersQuery, type Post, type User } from './demo.defs'
 import PostCard from './PostCard.vue'
 

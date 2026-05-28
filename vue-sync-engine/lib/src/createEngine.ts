@@ -8,6 +8,8 @@ import type { ServerEndpoint, Transport } from './transport/protocol'
 import { createMirror } from './tab/mirror'
 import { createTabRuntime, type TabRuntime } from './tab/runtime'
 import { EngineKey } from './composables/useEngine'
+import { setupSyncEngineDevtools } from './devtools'
+import { DEV } from './__dev'
 
 export interface WorkerBootstrapOptions {
   entities: ReadonlyArray<EntityDef>
@@ -68,6 +70,17 @@ export function createEngine(opts: EngineOptions): TabRuntime {
   return createTabEngine({ transport: client })
 }
 
-export function installEngine(app: App, runtime: TabRuntime): void {
+export interface InstallEngineOptions {
+  /**
+   * Cache defaults used by the worker. They live on the worker side and are
+   * not part of the wire protocol, so the tab cannot read them on its own —
+   * pass the same values you gave to `bootstrapWorker` / `createEngine` here
+   * to surface them in the DevTools panel.
+   */
+  defaults?: { staleTime?: number; gcTime?: number }
+}
+
+export function installEngine(app: App, runtime: TabRuntime, opts?: InstallEngineOptions): void {
   app.provide(EngineKey, runtime)
+  if (DEV) setupSyncEngineDevtools(app, runtime, opts)
 }

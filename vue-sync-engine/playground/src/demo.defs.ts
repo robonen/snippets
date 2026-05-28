@@ -1,4 +1,4 @@
-import { defineEntity, defineInfiniteQuery, defineMutation, defineQuery, idbStore } from './engine'
+import { defineEntity, defineInfiniteQuery, defineMutation, defineQuery, idbStore } from 'vue-sync-engine'
 
 export interface Post {
   id: number
@@ -22,7 +22,6 @@ export const PostEntity = defineEntity<Post>({
 export const UserEntity = defineEntity<User>({
   name: 'user',
   id: (u) => u.id,
-  storage: idbStore({ dbName: 'demo-sync-engine' }),
 })
 
 const BASE = 'https://jsonplaceholder.typicode.com'

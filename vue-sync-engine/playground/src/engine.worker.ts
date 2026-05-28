@@ -1,4 +1,4 @@
-import { bootstrapWorker, indexedDBAdapter, createSharedWorkerServerEndpoint } from './engine'
+import { bootstrapWorker, indexedDBAdapter, createSharedWorkerServerEndpoint } from 'vue-sync-engine'
 import registry from 'virtual:sync-engine-registry'
 
 interface SharedWorkerScopeLike {

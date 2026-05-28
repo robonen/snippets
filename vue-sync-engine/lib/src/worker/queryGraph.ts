@@ -4,6 +4,7 @@ import { Op, Status, Msg, Kind } from '../core/flags'
 import { hashKey } from '../core/queryKey'
 import type { ServerEndpoint, ClientMsg } from '../transport/protocol'
 import { createMutationQueue } from './mutationQueue'
+import { DEV } from '../__dev'
 
 export type AnyQueryDef = (QueryDef | InfiniteQueryDef) & { name: string }
 
@@ -125,7 +126,7 @@ export function createQueryGraph(opts: QueryGraphOptions) {
 
   function ensureNode(defName: string, args: unknown): QueryNode {
     const def = registry.queries.get(defName)!
-    if (__SYNC_ENGINE_DEV__ && !def) throw new Error(`Unknown query: ${defName}`)
+    if (DEV && !def) throw new Error(`Unknown query: ${defName}`)
     const key = def.staticHash ?? hashKey(def.key(args as never))
     let node = nodes.get(key)
     if (!node) {
@@ -174,20 +175,29 @@ export function createQueryGraph(opts: QueryGraphOptions) {
       void storage.queries.delete(node.key)
       return
     }
+    if (stored.entityRefs.length > 0) {
+      const { patches, missing } = await loadEntityRefs(stored.entityRefs)
+      if (missing) {
+        // Some referenced entities can't be restored — their type has no
+        // per-entity storage and they aren't in worker memory. The cached
+        // result is just IDs pointing at nothing the UI can render, so skip
+        // hydration and let runFetch repopulate both the query and the
+        // entities on this subscribe.
+        void storage.queries.delete(node.key)
+        return
+      }
+      if (patches.length > 0) endpoint.broadcast({ type: Msg.EntityPatch, patches })
+      node.entityRefs = stored.entityRefs.slice()
+    }
     node.result = stored.result
     node.status = Status.Success
     node.updatedAt = stored.updatedAt
-    if (stored.entityRefs.length > 0) {
-      node.entityRefs = stored.entityRefs.slice()
-      const patches = await loadEntityRefs(stored.entityRefs)
-      if (patches.length > 0) endpoint.broadcast({ type: Msg.EntityPatch, patches })
-    }
     pushSnapshotToSubscribers(node)
   }
 
   async function loadEntityRefs(
     refs: ReadonlyArray<{ type: string; id: EntityId }>,
-  ): Promise<EntityPatch[]> {
+  ): Promise<{ patches: EntityPatch[]; missing: boolean }> {
     const byType = new Map<string, EntityId[]>()
     for (let i = 0; i < refs.length; i++) {
       const r = refs[i]
@@ -199,19 +209,34 @@ export function createQueryGraph(opts: QueryGraphOptions) {
       list.push(r.id)
     }
     const patches: EntityPatch[] = []
+    let missing = false
     for (const [type, ids] of byType) {
       const def = registry.entities.get(type)
-      if (!def?.storage) continue
+      if (!def?.storage) {
+        // No per-entity storage. The entity is only available if it happens
+        // to be in worker memory already (e.g. an earlier query in this
+        // session populated it).
+        for (let i = 0; i < ids.length; i++) {
+          if (getEntity(type, ids[i]) === undefined) {
+            missing = true
+            break
+          }
+        }
+        continue
+      }
       const rows = await def.storage.readMany(ids)
       for (let i = 0; i < rows.length; i++) {
         const data = rows[i]
-        if (data === undefined) continue
         const id = ids[i]
+        if (data === undefined) {
+          if (getEntity(type, id) === undefined) missing = true
+          continue
+        }
         if (getEntity(type, id) === undefined) setEntity(type, id, data)
         patches.push({ type, id, patch: { op: Op.Set, path: EMPTY_PATH, value: data } })
       }
     }
-    return patches
+    return { patches, missing }
   }
 
   function pushSnapshotToSubscribers(node: QueryNode): void {
@@ -221,6 +246,7 @@ export function createQueryGraph(opts: QueryGraphOptions) {
         subId,
         status: node.status,
         patch: { op: Op.Set, path: EMPTY_PATH, value: node.result },
+        error: undefined,
       })
     }
   }
@@ -241,7 +267,13 @@ export function createQueryGraph(opts: QueryGraphOptions) {
     if (node.inflight) return node.inflight
     node.status = Status.Pending
     for (const subId of node.subscribers) {
-      endpoint.broadcast({ type: Msg.QueryPatch, subId, status: Status.Pending })
+      endpoint.broadcast({
+        type: Msg.QueryPatch,
+        subId,
+        status: Status.Pending,
+        patch: undefined,
+        error: undefined,
+      })
     }
     node.abort = new AbortController()
     const isInfinite = node.def.kind === Kind.Infinite
@@ -280,7 +312,13 @@ export function createQueryGraph(opts: QueryGraphOptions) {
         node.status = Status.Error
         const error = { message: (err as Error)?.message ?? String(err) }
         for (const subId of node.subscribers) {
-          endpoint.broadcast({ type: Msg.QueryPatch, subId, status: Status.Error, error })
+          endpoint.broadcast({
+            type: Msg.QueryPatch,
+            subId,
+            status: Status.Error,
+            patch: undefined,
+            error,
+          })
         }
       } finally {
         node.inflight = null
@@ -318,20 +356,29 @@ export function createQueryGraph(opts: QueryGraphOptions) {
         subId: msg.subId,
         status: Status.Success,
         patch: { op: Op.Set, path: EMPTY_PATH, value: node.result },
+        error: undefined,
       })
       if (!isFresh(node)) void runFetch(node)
       return
     }
     if (node.status === Status.Idle) await hydrate(node)
     const status = node.status as QueryNode['status']
-    if (status === Status.Pending) endpoint.broadcast({ type: Msg.QueryPatch, subId: msg.subId, status: Status.Pending })
-    else if (status === Status.Success) {
+    if (status === Status.Pending) {
+      endpoint.broadcast({
+        type: Msg.QueryPatch,
+        subId: msg.subId,
+        status: Status.Pending,
+        patch: undefined,
+        error: undefined,
+      })
+    } else if (status === Status.Success) {
       broadcastEntityRefs(node.entityRefs)
       endpoint.broadcast({
         type: Msg.QueryPatch,
         subId: msg.subId,
         status: Status.Success,
         patch: { op: Op.Set, path: EMPTY_PATH, value: node.result },
+        error: undefined,
       })
     }
     if (!isFresh(node)) void runFetch(node)

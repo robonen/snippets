@@ -1,27 +1,16 @@
 {
-  "name": "vue-sync-engine",
+  "name": "vue-sync-engine-monorepo",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vue-tsc -b && vite build",
-    "preview": "vite preview",
-    "test": "vitest run",
-    "test:watch": "vitest"
-  },
-  "dependencies": {
-    "vue": "^3.5.34"
-  },
-  "devDependencies": {
-    "@types/node": "^24.12.3",
-    "@vitejs/plugin-vue": "^6.0.6",
-    "@vue/test-utils": "^2.4.10",
-    "@vue/tsconfig": "^0.9.1",
-    "happy-dom": "^20.9.0",
-    "typescript": "~6.0.2",
-    "vite": "^8.0.12",
-    "vitest": "^4.1.7",
-    "vue-tsc": "^3.2.8"
+    "dev": "pnpm --filter playground dev",
+    "build": "pnpm --filter vue-sync-engine build && pnpm --filter playground build",
+    "build:lib": "pnpm --filter vue-sync-engine build",
+    "build:playground": "pnpm --filter playground build",
+    "preview": "pnpm --filter playground preview",
+    "test": "pnpm --filter vue-sync-engine test",
+    "test:watch": "pnpm --filter vue-sync-engine test:watch",
+    "test:coverage": "pnpm --filter vue-sync-engine test:coverage"
   }
 }

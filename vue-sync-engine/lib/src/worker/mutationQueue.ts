@@ -1,5 +1,6 @@
 import type { StorageAdapter } from '../adapters/storageAdapter'
 import type { EntityPatch, MutationDef, OptimisticCtx, QueuedMutation } from '../core/types'
+import { DEV } from '../__dev'
 
 export interface MutationQueueDeps {
   storage: StorageAdapter
@@ -40,7 +41,7 @@ export function createMutationQueue(deps: MutationQueueDeps) {
   async function enqueue(mutId: string, defName: string, input: unknown): Promise<void> {
     const def = deps.mutations.get(defName)
     if (!def) {
-      if (__SYNC_ENGINE_DEV__) {
+      if (DEV) {
         deps.onResult(mutId, false, undefined, { message: `Unknown mutation: ${defName}` })
       }
       return
@@ -112,7 +113,15 @@ export function createMutationQueue(deps: MutationQueueDeps) {
         await persist(entry.queued)
         return
       }
-      if (entry.inverse.length) deps.emitEntityPatches([...entry.inverse].reverse())
+      if (entry.inverse.length) {
+        // Build the reversed rollback list in one pass — avoids the
+        // spread+reverse double-allocation on the error path. Push into a
+        // fresh packed array (not `new Array(n)`, which V8 marks HOLEY).
+        const inv = entry.inverse
+        const reversed: EntityPatch[] = []
+        for (let i = inv.length - 1; i >= 0; i--) reversed.push(inv[i])
+        deps.emitEntityPatches(reversed)
+      }
       inflight.delete(entry.queued.id)
       await deps.storage.mutations.delete(entry.queued.id)
       deps.onResult(entry.queued.id, false, undefined, { message: (err as Error)?.message ?? String(err) })
