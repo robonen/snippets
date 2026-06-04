@@ -1,0 +1,29 @@
+{
+  "name": "element-inspector",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Browser extension to isolate any page element on a clean canvas and inspect its sizes, colors, spacing and responsive behavior.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "vue": "3.6.0-beta.13"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.0",
+    "@types/chrome": "^0.1.42",
+    "@types/node": "^25.9.1",
+    "@vue/tsconfig": "^0.9.1",
+    "tailwindcss": "^4.3.0",
+    "typescript": "~6.0.3",
+    "vite": "^8.0.13",
+    "vite-plugin-web-extension": "^4.5.1",
+    "vitest": "^4.1.8",
+    "vue-jsx-vapor": "^3.2.14"
+  }
+}

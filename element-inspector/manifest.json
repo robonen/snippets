@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "Element Inspector",
+  "version": "0.0.0",
+  "description": "Isolate any page element on a clean canvas and inspect its sizes, colors, spacing and responsive behavior.",
+  "action": {
+    "default_title": "Inspect element (Alt+Shift+E)"
+  },
+  "background": {
+    "service_worker": "src/background.ts",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content/main.ts"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "permissions": ["activeTab"],
+  "commands": {
+    "activate-picker": {
+      "suggested_key": {
+        "default": "Alt+Shift+E",
+        "mac": "Alt+Shift+E"
+      },
+      "description": "Pick an element to inspect"
+    }
+  }
+}
