@@ -1,4 +1,4 @@
-import { computed, onScopeDispose, watch, type ComputedRef, type MaybeRefOrGetter, toValue } from 'vue'
+import { computed, onScopeDispose, shallowRef, watch, type ComputedRef, type MaybeRefOrGetter, toValue } from 'vue'
 import type { InfiniteQueryDef, QueryDef, QueryStatus } from '../core/types'
 import { Status } from '../core/flags'
 import { hashKey } from '../core/queryKey'
@@ -21,7 +21,11 @@ export function useQuery<TArgs, TResp, TResult>(
 
   const initial = toValue(args)
   let currentHandle = engine.subscribeQuery(def.name, def.key(initial), initial)
-  let currentRef = engine.mirror.ensureQuery<TResult>(currentHandle.subId)
+  // Track the active subId reactively (not the state ref itself — passing a ref into shallowRef
+  // unwraps it). Resolving through ensureQuery() inside each computed means the computed tracks
+  // both `subId` and the resolved ref, so it re-runs on both an args switch and a data update.
+  const subId = shallowRef(currentHandle.subId)
+  const state = () => engine.mirror.ensureQuery<TResult>(subId.value).value
 
   if (!def.staticHash) {
     watch(
@@ -30,7 +34,7 @@ export function useQuery<TArgs, TResp, TResult>(
         const next = toValue(args)
         const prev = currentHandle
         currentHandle = engine.subscribeQuery(def.name, def.key(next), next)
-        currentRef = engine.mirror.ensureQuery<TResult>(currentHandle.subId)
+        subId.value = currentHandle.subId
         prev.release()
       },
     )
@@ -39,11 +43,11 @@ export function useQuery<TArgs, TResp, TResult>(
   onScopeDispose(() => currentHandle.release())
 
   return {
-    data: computed(() => currentRef.value.data),
-    status: computed(() => currentRef.value.status),
-    error: computed(() => currentRef.value.error),
-    isLoading: computed(() => currentRef.value.status === Status.Pending),
-    isSuccess: computed(() => currentRef.value.status === Status.Success),
-    isError: computed(() => currentRef.value.status === Status.Error),
+    data: computed(() => state().data),
+    status: computed(() => state().status),
+    error: computed(() => state().error),
+    isLoading: computed(() => state().status === Status.Pending),
+    isSuccess: computed(() => state().status === Status.Success),
+    isError: computed(() => state().status === Status.Error),
   }
 }

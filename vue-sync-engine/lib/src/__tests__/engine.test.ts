@@ -8,15 +8,21 @@ import { memoryAdapter } from '../adapters/storageAdapter'
 import { Status } from '../core/flags'
 import { flush, makeUserDefs, type ListUsersResp, type User, UserEntity } from './fixtures'
 
-function setup(api: { list: any; update: any }) {
+function setup(
+  api: { list: any; update: any },
+  options?: { defaultMaxPages?: number; entityCap?: number; entityGc?: boolean; defaultGcTime?: number },
+) {
   const defs = makeUserDefs(api)
   const storage = memoryAdapter()
   const { client, server } = createInlineTransport()
   let onlineCb: (() => void) | null = null
   let online = true
-  createQueryGraph({
+  const graph = createQueryGraph({
     storage,
     endpoint: server,
+    defaultMaxPages: options?.defaultMaxPages,
+    entityGc: options?.entityGc,
+    defaultGcTime: options?.defaultGcTime,
     registry: {
       entities: new Map([[UserEntity.name, UserEntity]]),
       queries: new Map<string, AnyQueryDef>([
@@ -31,12 +37,13 @@ function setup(api: { list: any; update: any }) {
       return () => {}
     },
   })
-  const mirror = createMirror()
+  const mirror = createMirror({ entityCap: options?.entityCap })
   const runtime = createTabRuntime({ transport: client, mirror, staleSubGcMs: 10 })
   return {
     runtime,
     defs,
     storage,
+    graph,
     setOnline(v: boolean) {
       online = v
       if (v && onlineCb) onlineCb()
@@ -200,6 +207,48 @@ describe('useInfiniteQuery', () => {
     expect(state.value.data?.pages[1].ids).toEqual(['2'])
     scope.stop()
   })
+
+  it('windows pages to maxPages, dropping the oldest page and its entity refs', async () => {
+    let call = 0
+    const list = vi.fn(async (): Promise<ListUsersResp> => {
+      call++
+      if (call === 1) return { items: [{ id: '1', name: 'A', age: 1 }], nextCursor: 'c1' }
+      if (call === 2) return { items: [{ id: '2', name: 'B', age: 2 }], nextCursor: 'c2' }
+      return { items: [{ id: '3', name: 'C', age: 3 }], nextCursor: null }
+    })
+    const { runtime, defs, graph } = setup({ list, update: vi.fn() }, { defaultMaxPages: 2 })
+
+    const scope = effectScope()
+    let handle!: ReturnType<typeof runtime.subscribeQuery>
+    scope.run(() => {
+      handle = runtime.subscribeQuery(defs.usersInfinite.name, defs.usersInfinite.key({}), {})
+    })
+    await flush()
+    await flush()
+
+    type R = { ids: string[]; nextCursor: string | null }
+    const state = runtime.mirror.ensureQuery<{ pages: R[]; pageParams: unknown[] }>(handle.subId)
+
+    handle.fetchNextPage()
+    await flush()
+    await flush()
+    expect(state.value.data?.pages.length).toBe(2)
+
+    handle.fetchNextPage()
+    await flush()
+    await flush()
+
+    // Only the last two pages are retained; the first (id '1') is dropped.
+    expect(state.value.data?.pages.length).toBe(2)
+    expect(state.value.data?.pages.map((p) => p.ids)).toEqual([['2'], ['3']])
+    expect(state.value.data?.pageParams.length).toBe(2)
+
+    // The worker node's entity refs are windowed in lockstep with the pages.
+    const node = [...graph.nodes.values()].find((n) => n.def.name === defs.usersInfinite.name)!
+    expect(node.entityRefs.map((r) => r.id)).toEqual(['2', '3'])
+    expect(node.pageRefCounts).toEqual([1, 1])
+    scope.stop()
+  })
 })
 
 describe('GC', () => {
@@ -215,5 +264,80 @@ describe('GC', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+describe('worker entity GC', () => {
+  const users = () => ({ items: [{ id: '1', name: 'A', age: 1 }, { id: '2', name: 'B', age: 2 }], nextCursor: null })
+
+  it('keeps worker entities forever when entityGc is off (default)', async () => {
+    const { runtime, defs, graph } = setup({ list: vi.fn(users), update: vi.fn() }, { defaultGcTime: 15 })
+    const handle = runtime.subscribeQuery(defs.usersList.name, defs.usersList.key({}), {})
+    await flush()
+    await flush()
+    expect(graph.entitiesInMemory.get('user')?.size).toBe(2)
+
+    handle.release()
+    await new Promise((r) => setTimeout(r, 60))
+    await flush()
+    expect(graph.entitiesInMemory.get('user')?.size).toBe(2) // not reclaimed
+  })
+
+  it('frees entities once their only query node is garbage-collected', async () => {
+    const { runtime, defs, graph } = setup({ list: vi.fn(users), update: vi.fn() }, { entityGc: true, defaultGcTime: 15 })
+    const handle = runtime.subscribeQuery(defs.usersList.name, defs.usersList.key({}), {})
+    await flush()
+    await flush()
+    expect(graph.entitiesInMemory.get('user')?.size).toBe(2)
+
+    handle.release()
+    await new Promise((r) => setTimeout(r, 60))
+    await flush()
+    expect(graph.entitiesInMemory.get('user')?.size ?? 0).toBe(0) // reclaimed
+  })
+
+  it('keeps an entity alive while another query still references it', async () => {
+    const list = vi.fn(async () => ({ items: [{ id: '1', name: 'A', age: 1 }], nextCursor: null }))
+    const { runtime, defs, graph } = setup({ list, update: vi.fn() }, { entityGc: true, defaultGcTime: 15 })
+    const h1 = runtime.subscribeQuery(defs.usersList.name, defs.usersList.key({}), {})
+    const h2 = runtime.subscribeQuery(defs.usersInfinite.name, defs.usersInfinite.key({}), {})
+    await flush()
+    await flush()
+    expect(graph.entitiesInMemory.get('user')?.size).toBe(1)
+
+    h1.release()
+    await new Promise((r) => setTimeout(r, 60))
+    await flush()
+    expect(graph.entitiesInMemory.get('user')?.size).toBe(1) // infinite query still holds it
+
+    h2.release()
+    await new Promise((r) => setTimeout(r, 60))
+    await flush()
+    expect(graph.entitiesInMemory.get('user')?.size ?? 0).toBe(0)
+  })
+
+  it('an in-flight mutation pins its entity against eviction until it settles', async () => {
+    let resolveMut!: (v: User) => void
+    const update = vi.fn(() => new Promise<User>((r) => { resolveMut = r }))
+    const list = vi.fn(async () => ({ items: [{ id: '1', name: 'A', age: 1 }], nextCursor: null }))
+    const { runtime, defs, graph } = setup({ list, update }, { entityGc: true, defaultGcTime: 15 })
+
+    const handle = runtime.subscribeQuery(defs.usersList.name, defs.usersList.key({}), {})
+    await flush()
+    await flush()
+    expect(graph.entitiesInMemory.get('user')?.size).toBe(1)
+
+    // Start an optimistic mutation (pins user '1'), then drop the only query referencing it.
+    void runtime.mutate(defs.updateUser.name, { id: '1', patch: { name: 'X' } })
+    await flush()
+    handle.release()
+    await new Promise((r) => setTimeout(r, 60))
+    await flush()
+    expect(graph.entitiesInMemory.get('user')?.size).toBe(1) // pinned -> survived node GC
+
+    resolveMut({ id: '1', name: 'X', age: 1 })
+    await flush()
+    await flush()
+    expect(graph.entitiesInMemory.get('user')?.size ?? 0).toBe(0) // unpinned + unreferenced -> freed
   })
 })

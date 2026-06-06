@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import type { ShikiTransformer } from 'shiki/core'
 import { useShikiHighlight } from './useShikiHighlight'
+import './shiki-host.css'
 
 const props = withDefaults(
   defineProps<{
@@ -48,32 +49,3 @@ const gutterStyle = computed(() => {
     <pre class="shiki-fallback"><code>{{ code }}</code></pre>
   </slot>
 </template>
-
-<style>
-.shiki-host .shiki {
-  padding: 1rem;
-  overflow-x: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-zinc-300) var(--color-zinc-950);
-}
-
-.shiki-host[data-line-numbers] .shiki code {
-  counter-reset: shiki-line calc(var(--shiki-line-start, 1) - 1);
-}
-
-.shiki-host[data-line-numbers] .shiki code .line::before {
-  counter-increment: shiki-line;
-  content: counter(shiki-line);
-  display: inline-block;
-  width: var(--shiki-gutter-width, 2ch);
-  margin-right: 1.25rem;
-  text-align: right;
-  color: color-mix(in srgb, currentColor 40%, transparent);
-  user-select: none;
-}
-
-/* shiki иногда оставляет пустую финальную строку — прячем её номер */
-.shiki-host[data-line-numbers] .shiki code .line:last-child:empty::before {
-  content: none;
-}
-</style>

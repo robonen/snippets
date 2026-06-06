@@ -125,6 +125,36 @@ describe('useQuery', () => {
     m.unmount()
   })
 
+  it('data switches to the new subscription result after args change', async () => {
+    const list = vi.fn(async (a: { search?: string }): Promise<ListUsersResp> => ({
+      items: a.search ? [{ id: '2', name: 'Bob', age: 25 }] : [{ id: '1', name: 'Ada', age: 30 }],
+      nextCursor: null,
+    }))
+    const { engine, defs } = buildEngine({ list, update: vi.fn() })
+
+    const search = ref('')
+    let api!: ReturnType<typeof useQuery<{ search?: string }, ListUsersResp, { ids: string[] }>>
+    const C = defineComponent({
+      setup() {
+        api = useQuery(defs.usersList, () => ({ search: search.value }))
+        return () => h('div')
+      },
+    })
+    const m = mountWith(engine, C)
+    await flush()
+    await flush()
+    expect(api.data.value).toEqual({ ids: ['1'] })
+
+    search.value = 'b'
+    await nextTick()
+    await flush()
+    await flush()
+    // Computeds must follow the swapped-in subscription ref, not stay bound to the old one.
+    expect(api.data.value).toEqual({ ids: ['2'] })
+    expect(api.isSuccess.value).toBe(true)
+    m.unmount()
+  })
+
   it('releases handle on unmount', async () => {
     const list = vi.fn(async () => ({ items: [], nextCursor: null }))
     const { engine, defs } = buildEngine({ list, update: vi.fn() })
@@ -192,6 +222,33 @@ describe('useInfiniteQuery', () => {
     await nextTick()
     await flush()
     expect(list.mock.calls.length).toBeGreaterThanOrEqual(2)
+    m.unmount()
+  })
+
+  it('pages switch to the new subscription result after args change', async () => {
+    const list = vi.fn(async (a: { search?: string }): Promise<ListUsersResp> => ({
+      items: a.search ? [{ id: '2', name: 'B', age: 2 }] : [{ id: '1', name: 'A', age: 1 }],
+      nextCursor: null,
+    }))
+    const { engine, defs } = buildEngine({ list, update: vi.fn() })
+    const search = ref('')
+    let api!: ReturnType<typeof useInfiniteQuery<{ search?: string }, ListUsersResp, string | null, { ids: string[]; nextCursor: string | null }>>
+    const C = defineComponent({
+      setup() {
+        api = useInfiniteQuery(defs.usersInfinite, () => ({ search: search.value }))
+        return () => h('div')
+      },
+    })
+    const m = mountWith(engine, C)
+    await flush()
+    await flush()
+    expect(api.pages.value[0]?.ids).toEqual(['1'])
+
+    search.value = 'q'
+    await nextTick()
+    await flush()
+    await flush()
+    expect(api.pages.value[0]?.ids).toEqual(['2'])
     m.unmount()
   })
 })

@@ -19,6 +19,10 @@ export interface WorkerBootstrapOptions {
   endpoint: ServerEndpoint
   defaultStaleTime?: number
   defaultGcTime?: number
+  /** Default page cap for infinite queries without their own `maxPages`. 0 = unlimited. */
+  defaultMaxPages?: number
+  /** Reclaim worker-memory entities once no live query references them. Default false. */
+  entityGc?: boolean
 }
 
 export function bootstrapWorker(opts: WorkerBootstrapOptions): void {
@@ -33,16 +37,20 @@ export function bootstrapWorker(opts: WorkerBootstrapOptions): void {
     registry,
     defaultStaleTime: opts.defaultStaleTime,
     defaultGcTime: opts.defaultGcTime,
+    defaultMaxPages: opts.defaultMaxPages,
+    entityGc: opts.entityGc,
   })
 }
 
 export interface TabEngineOptions {
   transport: Transport
   staleSubGcMs?: number
+  /** Max entities kept per type in the tab cache (LRU eviction). 0 = unlimited. */
+  entityCap?: number
 }
 
 export function createTabEngine(opts: TabEngineOptions): TabRuntime {
-  const mirror = createMirror()
+  const mirror = createMirror({ entityCap: opts.entityCap })
   return createTabRuntime({ transport: opts.transport, mirror, staleSubGcMs: opts.staleSubGcMs })
 }
 
@@ -53,6 +61,12 @@ export interface EngineOptions {
   storage?: StorageAdapter
   defaultStaleTime?: number
   defaultGcTime?: number
+  /** Default page cap for infinite queries without their own `maxPages`. 0 = unlimited. */
+  defaultMaxPages?: number
+  /** Max entities kept per type in the tab cache (LRU eviction). 0 = unlimited. */
+  entityCap?: number
+  /** Reclaim worker-memory entities once no live query references them. Default false. */
+  entityGc?: boolean
 }
 
 export function createEngine(opts: EngineOptions): TabRuntime {
@@ -66,8 +80,10 @@ export function createEngine(opts: EngineOptions): TabRuntime {
     endpoint: server,
     defaultStaleTime: opts.defaultStaleTime,
     defaultGcTime: opts.defaultGcTime,
+    defaultMaxPages: opts.defaultMaxPages,
+    entityGc: opts.entityGc,
   })
-  return createTabEngine({ transport: client })
+  return createTabEngine({ transport: client, entityCap: opts.entityCap })
 }
 
 export interface InstallEngineOptions {

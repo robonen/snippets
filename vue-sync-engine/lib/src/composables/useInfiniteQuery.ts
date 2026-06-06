@@ -1,4 +1,4 @@
-import { computed, onScopeDispose, watch, type ComputedRef, type MaybeRefOrGetter, toValue } from 'vue'
+import { computed, onScopeDispose, shallowRef, watch, type ComputedRef, type MaybeRefOrGetter, toValue } from 'vue'
 import type { InfiniteQueryDef, QueryStatus } from '../core/types'
 import { Status } from '../core/flags'
 import { hashKey } from '../core/queryKey'
@@ -26,7 +26,9 @@ export function useInfiniteQuery<TArgs, TResp, TPageParam, TResult>(
 
   const initial = toValue(args)
   let handle = engine.subscribeQuery(def.name, def.key(initial), initial)
-  let stateRef = engine.mirror.ensureQuery<InfinitePayload<TResult>>(handle.subId)
+  // Track the active subId reactively and resolve via ensureQuery (see useQuery for rationale).
+  const subId = shallowRef(handle.subId)
+  const state = () => engine.mirror.ensureQuery<InfinitePayload<TResult>>(subId.value).value
 
   if (!def.staticHash) {
     watch(
@@ -35,7 +37,7 @@ export function useInfiniteQuery<TArgs, TResp, TPageParam, TResult>(
         const next = toValue(args)
         const prev = handle
         handle = engine.subscribeQuery(def.name, def.key(next), next)
-        stateRef = engine.mirror.ensureQuery<InfinitePayload<TResult>>(handle.subId)
+        subId.value = handle.subId
         prev.release()
       },
     )
@@ -44,11 +46,11 @@ export function useInfiniteQuery<TArgs, TResp, TPageParam, TResult>(
   onScopeDispose(() => handle.release())
 
   return {
-    pages: computed(() => stateRef.value.data?.pages ?? []),
-    pageParams: computed(() => stateRef.value.data?.pageParams ?? []),
-    status: computed(() => stateRef.value.status),
-    error: computed(() => stateRef.value.error),
-    isLoading: computed(() => stateRef.value.status === Status.Pending),
+    pages: computed(() => state().data?.pages ?? []),
+    pageParams: computed(() => state().data?.pageParams ?? []),
+    status: computed(() => state().status),
+    error: computed(() => state().error),
+    isLoading: computed(() => state().status === Status.Pending),
     fetchNextPage: () => handle.fetchNextPage(),
   }
 }

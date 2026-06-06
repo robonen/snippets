@@ -41,6 +41,8 @@ export interface InfiniteQueryDef<TArgs = any, TResp = any, TPageParam = any, TR
   readonly kind: typeof Kind.Infinite
   readonly initialPageParam: TPageParam
   readonly getNextPageParam: (lastPage: TResult, allPages: TResult[]) => TPageParam | null | undefined
+  /** Keep at most this many pages in memory; older pages are dropped as new ones load. 0/undefined = unlimited. */
+  readonly maxPages?: number
   readonly fetch: (args: TArgs, ctx: FetchCtx & { pageParam: TPageParam }) => Promise<TResp>
   readonly normalize?: (resp: TResp, args: TArgs, pageParam: TPageParam) => { entities?: Record<string, ReadonlyArray<unknown>>; result: TResult }
   readonly exec?: (args: TArgs, ctx: ExecCtx) => Promise<ExecResult>
@@ -85,6 +87,8 @@ export interface QuerySnapshot<TResult = unknown> {
   error?: { message: string }
   updatedAt?: number
   entityRefs?: ReadonlyArray<{ type: string; id: EntityId }>
+  /** Per-page entityRef counts for infinite queries; lets page windowing survive hydration. */
+  pageRefCounts?: ReadonlyArray<number>
 }
 
 export interface QueuedMutation {

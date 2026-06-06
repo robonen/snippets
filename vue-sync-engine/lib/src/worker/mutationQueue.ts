@@ -9,6 +9,8 @@ export interface MutationQueueDeps {
   buildCtx: (forward: EntityPatch[], inverse: EntityPatch[]) => OptimisticCtx
   buildPostCtx: (post: EntityPatch[]) => OptimisticCtx
   invalidate: (def: MutationDef, input: unknown, resp: unknown) => void
+  pinEntities: (patches: ReadonlyArray<EntityPatch>) => void
+  unpinEntities: (patches: ReadonlyArray<EntityPatch>) => void
   isOnline: () => boolean
   onOnline: (cb: () => void) => () => void
   onResult: (mutId: string, ok: boolean, data?: unknown, error?: { message: string }) => void
@@ -32,7 +34,9 @@ export function createMutationQueue(deps: MutationQueueDeps) {
     const persisted = await deps.storage.mutations.readAll()
     for (const m of persisted) {
       if (m.seq > seq) seq = m.seq
-      inflight.set(m.id, { queued: m, inverse: m.inversePatches ?? [] })
+      const inverse = m.inversePatches ?? []
+      inflight.set(m.id, { queued: m, inverse })
+      deps.pinEntities(inverse) // protect restored optimistic entities until they settle
     }
     void drain()
     deps.onOnline(() => void drain())
@@ -52,6 +56,7 @@ export function createMutationQueue(deps: MutationQueueDeps) {
     if (def.optimistic) {
       def.optimistic(input, deps.buildCtx(forward, inverse))
       if (forward.length) deps.emitEntityPatches(forward)
+      if (inverse.length) deps.pinEntities(inverse) // protect until the mutation settles
     }
 
     const queued: QueuedMutation = {
@@ -105,6 +110,7 @@ export function createMutationQueue(deps: MutationQueueDeps) {
       deps.invalidate(def, entry.queued.input, resp)
       inflight.delete(entry.queued.id)
       await deps.storage.mutations.delete(entry.queued.id)
+      deps.unpinEntities(entry.inverse)
       deps.onResult(entry.queued.id, true, resp)
     } catch (err) {
       const networkLike = !deps.isOnline() || isNetworkError(err)
@@ -124,6 +130,7 @@ export function createMutationQueue(deps: MutationQueueDeps) {
       }
       inflight.delete(entry.queued.id)
       await deps.storage.mutations.delete(entry.queued.id)
+      deps.unpinEntities(entry.inverse)
       deps.onResult(entry.queued.id, false, undefined, { message: (err as Error)?.message ?? String(err) })
     }
   }

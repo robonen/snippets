@@ -1,7 +1,7 @@
 import type { StorageAdapter } from '../adapters/storageAdapter'
 import type { EntityDef, EntityId, EntityPatch, InfiniteQueryDef, MutationDef, OptimisticCtx, QueryDef, QuerySnapshot, QueryStatus } from '../core/types'
 import { Op, Status, Msg, Kind } from '../core/flags'
-import { hashKey } from '../core/queryKey'
+import { hashKey, entityKey } from '../core/queryKey'
 import type { ServerEndpoint, ClientMsg } from '../transport/protocol'
 import { createMutationQueue } from './mutationQueue'
 import { DEV } from '../__dev'
@@ -22,6 +22,9 @@ interface QueryNode {
   abort: AbortController | null
   gcTimer: ReturnType<typeof setTimeout> | null
   entityRefs: Array<{ type: string; id: EntityId }>
+  // Number of entityRefs contributed by each retained page (infinite queries only),
+  // so page windowing can drop the right slice of refs alongside the page.
+  pageRefCounts: number[]
 }
 
 interface Registry {
@@ -36,6 +39,14 @@ export interface QueryGraphOptions {
   registry: Registry
   defaultStaleTime?: number
   defaultGcTime?: number
+  /** Default page cap for infinite queries that don't set their own `maxPages`. 0 = unlimited. */
+  defaultMaxPages?: number
+  /**
+   * Reclaim worker-memory entities once no live query references them (and no in-flight
+   * mutation pins them). Uses exact reference counts from each node's entityRefs, so it
+   * only ever frees provably-orphaned entities. Default false.
+   */
+  entityGc?: boolean
   isOnline?: () => boolean
   onOnline?: (cb: () => void) => () => void
 }
@@ -44,6 +55,11 @@ export function createQueryGraph(opts: QueryGraphOptions) {
   const { storage, endpoint, registry } = opts
   const defaultStaleTime = opts.defaultStaleTime ?? 30_000
   const defaultGcTime = opts.defaultGcTime ?? 5 * 60_000
+  const defaultMaxPages = opts.defaultMaxPages ?? 0
+  // Entity GC bookkeeping. When disabled, the maps are null and every retain/release/pin
+  // call short-circuits on the first line — zero overhead on the hot fetch path.
+  const entityRefCount = opts.entityGc ? new Map<string, number>() : null
+  const entityPins = opts.entityGc ? new Map<string, number>() : null
   const isOnline = opts.isOnline ?? (() => (typeof navigator !== 'undefined' ? navigator.onLine : true))
   const onOnline =
     opts.onOnline ??
@@ -69,6 +85,71 @@ export function createQueryGraph(opts: QueryGraphOptions) {
 
   function getEntity(type: string, id: EntityId): unknown {
     return entityBucket(type).get(id)
+  }
+
+  function evictEntity(type: string, id: EntityId): void {
+    const b = entitiesInMemory.get(type)
+    if (b !== undefined) b.delete(id)
+  }
+
+  type Ref = { type: string; id: EntityId }
+
+  // Increment the query-reference count for each ref. Always called before releaseRefs so an
+  // entity present in both the old and new ref sets never transiently drops to 0.
+  function retainRefs(refs: ReadonlyArray<Ref>): void {
+    if (entityRefCount === null) return
+    for (let i = 0; i < refs.length; i++) {
+      const k = entityKey(refs[i].type, refs[i].id)
+      entityRefCount.set(k, (entityRefCount.get(k) ?? 0) + 1)
+    }
+  }
+
+  // Decrement counts; an entity that reaches 0 references and isn't pinned is freed immediately.
+  function releaseRefs(refs: ReadonlyArray<Ref>): void {
+    if (entityRefCount === null) return
+    for (let i = 0; i < refs.length; i++) {
+      const r = refs[i]
+      const k = entityKey(r.type, r.id)
+      const c = (entityRefCount.get(k) ?? 0) - 1
+      if (c <= 0) {
+        entityRefCount.delete(k)
+        if (entityPins === null || !entityPins.has(k)) evictEntity(r.type, r.id)
+      } else {
+        entityRefCount.set(k, c)
+      }
+    }
+  }
+
+  // Atomically swap a node's referenced entities, retaining the new set before releasing the old.
+  function setNodeRefs(node: QueryNode, newRefs: Ref[]): void {
+    retainRefs(newRefs)
+    releaseRefs(node.entityRefs)
+    node.entityRefs = newRefs
+  }
+
+  // Pins protect entities touched by an in-flight mutation from eviction until it settles.
+  function pinEntities(patches: ReadonlyArray<{ type: string; id: EntityId }>): void {
+    if (entityPins === null) return
+    for (let i = 0; i < patches.length; i++) {
+      const p = patches[i]
+      const k = entityKey(p.type, p.id)
+      entityPins.set(k, (entityPins.get(k) ?? 0) + 1)
+    }
+  }
+
+  function unpinEntities(patches: ReadonlyArray<{ type: string; id: EntityId }>): void {
+    if (entityPins === null) return
+    for (let i = 0; i < patches.length; i++) {
+      const p = patches[i]
+      const k = entityKey(p.type, p.id)
+      const c = (entityPins.get(k) ?? 0) - 1
+      if (c <= 0) {
+        entityPins.delete(k)
+        if (entityRefCount === null || !entityRefCount.has(k)) evictEntity(p.type, p.id)
+      } else {
+        entityPins.set(k, c)
+      }
+    }
   }
 
   function emitEntityPatches(patches: EntityPatch[]): Promise<void> {
@@ -142,6 +223,7 @@ export function createQueryGraph(opts: QueryGraphOptions) {
         abort: null,
         gcTimer: null,
         entityRefs: [],
+        pageRefCounts: [],
       }
       nodes.set(key, node)
     } else if (node.gcTimer !== null) {
@@ -156,6 +238,8 @@ export function createQueryGraph(opts: QueryGraphOptions) {
     const gc = node.def.gcTime ?? defaultGcTime
     node.gcTimer = setTimeout(() => {
       if (node.subscribers.size === 0) {
+        releaseRefs(node.entityRefs) // free entities this node was the last to reference
+        node.entityRefs = []
         nodes.delete(node.key)
         void storage.queries.delete(node.key)
       }
@@ -187,7 +271,8 @@ export function createQueryGraph(opts: QueryGraphOptions) {
         return
       }
       if (patches.length > 0) endpoint.broadcast({ type: Msg.EntityPatch, patches })
-      node.entityRefs = stored.entityRefs.slice()
+      setNodeRefs(node, stored.entityRefs.slice()) // node started empty; retains restored refs
+      if (stored.pageRefCounts) node.pageRefCounts = stored.pageRefCounts.slice()
     }
     node.result = stored.result
     node.status = Status.Success
@@ -289,14 +374,43 @@ export function createQueryGraph(opts: QueryGraphOptions) {
         })
         if (entities !== null) await emitEntityPatches(ingestEntities(entities, pageRefs))
         if (isInfinite) {
+          const maxPages = (node.def as InfiniteQueryDef).maxPages ?? defaultMaxPages
           const prev = (node.result as { pages: unknown[]; pageParams: unknown[] } | undefined) ?? { pages: [], pageParams: [] }
-          node.result = append
-            ? { pages: [...prev.pages, pageResult], pageParams: [...prev.pageParams, effectivePageParam] }
-            : { pages: [pageResult], pageParams: [effectivePageParam] }
-          node.entityRefs = append ? node.entityRefs.concat(pageRefs) : pageRefs
+          if (append) {
+            // Incremental retain: only the new page's entities, never re-touching the window —
+            // keeps append O(page) rather than O(total) for long infinite lists.
+            retainRefs(pageRefs)
+            const pages = [...prev.pages, pageResult]
+            const pageParams = [...prev.pageParams, effectivePageParam]
+            let refs = node.entityRefs.concat(pageRefs)
+            // Counts stay aligned with pages unless they drifted (e.g. a hydrated snapshot
+            // without per-page counts). When aligned we can drop the exact ref slice.
+            const counts = node.pageRefCounts.length === prev.pages.length ? node.pageRefCounts.concat(pageRefs.length) : null
+            if (maxPages && pages.length > maxPages) {
+              const dropN = pages.length - maxPages
+              pages.splice(0, dropN)
+              pageParams.splice(0, dropN)
+              if (counts) {
+                let dropRefs = 0
+                for (let i = 0; i < dropN; i++) dropRefs += counts[i]
+                counts.splice(0, dropN)
+                if (dropRefs > 0) {
+                  releaseRefs(refs.slice(0, dropRefs))
+                  refs = refs.slice(dropRefs)
+                }
+              }
+            }
+            node.result = { pages, pageParams }
+            node.entityRefs = refs
+            node.pageRefCounts = counts ?? []
+          } else {
+            node.result = { pages: [pageResult], pageParams: [effectivePageParam] }
+            setNodeRefs(node, pageRefs)
+            node.pageRefCounts = [pageRefs.length]
+          }
         } else {
           node.result = pageResult
-          node.entityRefs = pageRefs
+          setNodeRefs(node, pageRefs)
         }
         node.status = Status.Success
         node.updatedAt = Date.now()
@@ -305,6 +419,7 @@ export function createQueryGraph(opts: QueryGraphOptions) {
           result: node.result,
           updatedAt: node.updatedAt,
           entityRefs: node.entityRefs,
+          pageRefCounts: isInfinite ? node.pageRefCounts : undefined,
         }
         await storage.queries.write([{ key: node.key, value: snap }])
         pushSnapshotToSubscribers(node)
@@ -463,6 +578,8 @@ export function createQueryGraph(opts: QueryGraphOptions) {
     buildCtx,
     buildPostCtx,
     invalidate,
+    pinEntities,
+    unpinEntities,
     isOnline,
     onOnline,
     onResult: (mutId, ok, data, error) =>
@@ -478,7 +595,7 @@ export function createQueryGraph(opts: QueryGraphOptions) {
     else if (msg.type === Msg.FetchNextPage) fetchNextPage(msg.subId)
   })
 
-  return { nodes, subscribe, unsubscribe, fetchNextPage, queue }
+  return { nodes, entitiesInMemory, subscribe, unsubscribe, fetchNextPage, queue }
 }
 
 function shallowEqual(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
