@@ -1,74 +1,69 @@
-import { onBeforeUnmount, onMounted, ref } from 'vue';
+import { shallowRef, watch } from 'vue';
 import { recenter, state, zoomAt } from '../store';
-import { useFrame } from '../composables/useFrame';
+import { useElementSize, useEventListener, useFrame, usePointerDrag } from '../composables';
+import LayoutOverlay from './LayoutOverlay';
 import MeasureLayer from './MeasureLayer';
+import GuidesLayer from './GuidesLayer';
 import ResizeHandles from './ResizeHandles';
 import Rulers from './Rulers';
 
 // The canvas: a pannable/zoomable viewport holding the device frame (an iframe with the
 // isolated element), plus the measurement overlay, resize handles and rulers.
 export default function Stage() {
-  const viewport = ref<HTMLDivElement>();
-  const frame = ref<HTMLIFrameElement>();
+  const viewport = shallowRef<HTMLDivElement>();
+  const frame = shallowRef<HTMLIFrameElement>();
   useFrame(frame);
 
-  let observer: ResizeObserver | undefined;
-  onMounted(() => {
-    const el = viewport.value;
-    if (!el) return;
-    state.viewportW = el.clientWidth;
-    state.viewportH = el.clientHeight;
-    recenter();
-    observer = new ResizeObserver(() => {
-      state.viewportW = el.clientWidth;
-      state.viewportH = el.clientHeight;
-    });
-    observer.observe(el);
-  });
-  onBeforeUnmount(() => observer?.disconnect());
+  // Track the viewport size for centering + ruler geometry; center once it has a real size.
+  const { width, height } = useElementSize(viewport);
+  let centered = false;
+  watch(
+    [width, height],
+    ([w, h]) => {
+      state.viewportW = w;
+      state.viewportH = h;
+      if (!centered && w > 0 && h > 0) {
+        centered = true;
+        recenter();
+      }
+    },
+    { immediate: true },
+  );
 
-  const onWheel = (e: WheelEvent): void => {
-    e.preventDefault();
-    const rect = viewport.value!.getBoundingClientRect();
-    zoomAt(e.deltaY < 0 ? 1.1 : 0.9, e.clientX - rect.left, e.clientY - rect.top);
-  };
+  // Wheel = zoom about the cursor. Bound natively (not via JSX) so we can opt out of passive
+  // and call preventDefault to stop the page scrolling underneath.
+  useEventListener(
+    viewport,
+    'wheel',
+    (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = viewport.value!.getBoundingClientRect();
+      zoomAt(e.deltaY < 0 ? 1.1 : 0.9, e.clientX - rect.left, e.clientY - rect.top);
+    },
+    { passive: false },
+  );
 
-  let panning = false;
-  let startX = 0;
-  let startY = 0;
+  // Drag the empty background to pan.
   let originX = 0;
   let originY = 0;
-  const onPointerdown = (e: PointerEvent): void => {
-    if (e.target !== viewport.value) return; // only pan on the empty background
-    panning = true;
-    startX = e.clientX;
-    startY = e.clientY;
-    originX = state.panX;
-    originY = state.panY;
-    viewport.value!.setPointerCapture(e.pointerId);
-  };
-  const onPointermove = (e: PointerEvent): void => {
-    if (!panning) return;
-    state.panX = originX + (e.clientX - startX);
-    state.panY = originY + (e.clientY - startY);
-  };
-  const onPointerup = (e: PointerEvent): void => {
-    panning = false;
-    try {
-      viewport.value!.releasePointerCapture(e.pointerId);
-    } catch {
-      /* pointer already released */
-    }
-  };
+  usePointerDrag(viewport, {
+    onStart: (e) => {
+      if (e.target !== viewport.value) return false; // only pan on the empty background
+      e.preventDefault();
+      originX = state.panX;
+      originY = state.panY;
+    },
+    onMove: ({ dx, dy }) => {
+      state.panX = originX + dx;
+      state.panY = originY + dy;
+    },
+    pointerCapture: true,
+  });
 
   return (
     <div
       ref={viewport}
-      class="ei-grid relative min-w-0 flex-1 cursor-grab overflow-hidden active:cursor-grabbing"
-      onWheel={(e) => onWheel(e.nativeEvent)}
-      onPointerdown={onPointerdown}
-      onPointermove={onPointermove}
-      onPointerup={onPointerup}
+      class="relative min-w-0 flex-1 cursor-grab overflow-hidden bg-[#0b0e14] bg-[radial-gradient(circle,rgba(148,163,184,0.12)_1px,transparent_1px)] [background-size:16px_16px] active:cursor-grabbing"
     >
       <div
         class="absolute left-0 top-0 origin-top-left"
@@ -87,7 +82,9 @@ export default function Stage() {
         />
       </div>
 
+      <LayoutOverlay />
       <MeasureLayer />
+      <GuidesLayer />
       <ResizeHandles />
       {state.showRulers ? <Rulers /> : null}
     </div>

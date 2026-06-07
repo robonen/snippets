@@ -39,15 +39,15 @@ export default function Toolbar() {
           class="w-16 rounded bg-white/5 px-1.5 py-1 text-center outline-none focus:bg-white/10"
         />
       </div>
-      <ToolButton label="Rotate" onClick={() => { rotateFrame(); recenter(); }} />
+      <ToolButton label="Rotate" action={() => { rotateFrame(); recenter(); }} />
 
       <div class="ml-auto flex items-center gap-1">
-        <ToolButton label="−" onClick={() => setZoom(state.zoom - 0.1)} />
+        <ToolButton label="−" action={() => setZoom(state.zoom - 0.1)} />
         <span class="w-12 text-center font-mono text-[11px] text-slate-300">{Math.round(state.zoom * 100)}%</span>
-        <ToolButton label="+" onClick={() => setZoom(state.zoom + 0.1)} />
+        <ToolButton label="+" action={() => setZoom(state.zoom + 0.1)} />
         <ToolButton
           label="Fit"
-          onClick={() => {
+          action={() => {
             resetSize();
             recenter();
           }}
@@ -55,8 +55,19 @@ export default function Toolbar() {
 
         <div class="mx-1 h-5 w-px bg-white/10" />
 
-        <ToolButton label="Rulers" active={state.showRulers} onClick={() => (state.showRulers = !state.showRulers)} />
-        <ToolButton label="Clear guides" onClick={clearGuides} />
+        <ToolButton label="Rulers" active={state.showRulers} action={() => (state.showRulers = !state.showRulers)} />
+        <ToolButton label="Grid" active={state.showGrid} action={() => (state.showGrid = !state.showGrid)} />
+        <ToolButton
+          label={state.clicksEnabled ? 'Clicks: on' : 'Clicks: off'}
+          active={state.clicksEnabled}
+          title={
+            state.clicksEnabled
+              ? 'Clicking the canvas re-selects an element'
+              : 'Clicks are locked — hover to inspect without misclicks'
+          }
+          action={() => (state.clicksEnabled = !state.clicksEnabled)}
+        />
+        <ToolButton label="Clear guides" action={clearGuides} />
 
         <div class="mx-1 h-5 w-px bg-white/10" />
 
@@ -72,11 +83,16 @@ export default function Toolbar() {
   );
 }
 
-function ToolButton(props: { label: string; active?: boolean; onClick: () => void }) {
+// NOTE: the callback prop is `action`, not `onClick`. An `on*`-named prop on a *component* is
+// treated by Vue as an event-listener binding (it never lands in `props`), so a function-
+// component would read `props.onClick` as `undefined`. A plain prop name is passed through
+// normally; we then bind it to the inner DOM button's real `onClick`.
+function ToolButton(props: { label: string; active?: boolean; title?: string; action: () => void }) {
   return (
     <button
       type="button"
-      onClick={props.onClick}
+      title={props.title}
+      onClick={props.action}
       class={[
         'rounded px-2 py-1 text-[12px] transition-colors',
         props.active ? 'bg-sky-600 text-white' : 'bg-white/5 text-slate-300 hover:bg-white/10',

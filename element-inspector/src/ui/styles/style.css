@@ -2,22 +2,3 @@
 
 /* Scan the JSX components for utility classes. */
 @source '../../**/*.{ts,tsx}';
-
-/* Dotted canvas background for the stage. */
-@layer components {
-  .ei-grid {
-    background-color: #0b0e14;
-    background-image: radial-gradient(circle, rgba(148, 163, 184, 0.12) 1px, transparent 1px);
-    background-size: 16px 16px;
-  }
-}
-
-/* Compact scrollbars inside the overlay. */
-.ei-root *::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-.ei-root *::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.25);
-  border-radius: 6px;
-}

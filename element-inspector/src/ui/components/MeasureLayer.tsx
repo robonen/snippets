@@ -1,9 +1,9 @@
 import { state } from '../store';
 import type { Box } from '../../utils/rect';
 
-// Draws the box-model overlay for the hovered element, a persistent outline for the
-// selected element, and any guides. Lives in viewport space (constant-size badges) and
-// converts iframe-pixel coordinates to screen coordinates via the current pan/zoom.
+// Draws the box-model overlay for the hovered element and a persistent outline for the
+// selected element. Lives in viewport space (constant-size badges) and converts iframe-pixel
+// coordinates to screen coordinates via the current pan/zoom. (Guides live in GuidesLayer.)
 export default function MeasureLayer() {
   const boxStyle = (b: Box) => ({
     position: 'absolute' as const,
@@ -28,25 +28,6 @@ export default function MeasureLayer() {
       {state.selected ? (
         <div style={{ ...boxStyle(state.selected.box.border), outline: '2px solid #3b82f6', outlineOffset: '-1px' }} />
       ) : null}
-
-      {state.guides.x.map((gx) => (
-        <div
-          key={`x${gx}`}
-          class="absolute bottom-0 top-0 w-px bg-sky-400/80"
-          style={{ left: `${state.panX + gx * state.zoom}px` }}
-        >
-          <span class="absolute left-1 top-1 rounded bg-sky-500 px-1 text-[10px] font-medium text-white">{gx}</span>
-        </div>
-      ))}
-      {state.guides.y.map((gy) => (
-        <div
-          key={`y${gy}`}
-          class="absolute left-0 right-0 h-px bg-sky-400/80"
-          style={{ top: `${state.panY + gy * state.zoom}px` }}
-        >
-          <span class="absolute left-1 top-1 rounded bg-sky-500 px-1 text-[10px] font-medium text-white">{gy}</span>
-        </div>
-      ))}
     </div>
   );
 }

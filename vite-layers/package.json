@@ -1,0 +1,46 @@
+{
+  "name": "vite-layers",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Framework-agnostic Nuxt-style layers (extends-based file override + config merge) ported to plain Vite.",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "bin": {
+    "vite-layers": "./bin/vite-layers.mjs"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "type-check": "tsc --noEmit",
+    "example:build": "vite build example/apps/main && vite build example/apps/brand",
+    "example:check": "node bin/vite-layers.mjs prepare example/apps/main && node bin/vite-layers.mjs prepare example/apps/brand && vue-tsc --noEmit -p example/apps/main && vue-tsc --noEmit -p example/apps/main/.vite-layers/tsconfig.node.json && vue-tsc --noEmit -p example/apps/brand && vue-tsc --noEmit -p example/apps/brand/.vite-layers/tsconfig.node.json"
+  },
+  "peerDependencies": {
+    "vite": "^8.0.0"
+  },
+  "dependencies": {
+    "c12": "^3.3.4",
+    "defu": "^6.1.4",
+    "hookable": "^6.1.1",
+    "jiti": "^2.4.0",
+    "magic-string": "^0.30.21",
+    "pkg-types": "^2.3.1",
+    "sirv": "^3.0.2",
+    "tinyglobby": "^0.2.15",
+    "ufo": "^1.6.1"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "@vitejs/plugin-vue": "^6.0.7",
+    "typescript": "~6.0.3",
+    "vite": "^8.0.14",
+    "vitest": "^4.1.7",
+    "vue": "^3.5.35",
+    "vue-tsc": "^3.3.3"
+  }
+}

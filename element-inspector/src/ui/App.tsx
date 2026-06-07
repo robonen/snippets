@@ -16,7 +16,7 @@ export default function App() {
   onBeforeUnmount(() => window.removeEventListener('keydown', onKey, true));
 
   return (
-    <div class="ei-root flex h-full w-full flex-col overflow-hidden bg-[#0b0e14] font-sans text-[13px] text-slate-200 antialiased">
+    <div class="flex h-full w-full flex-col overflow-hidden bg-[#0b0e14] font-sans text-[13px] text-slate-200 antialiased">
       <Toolbar />
       <div class="flex min-h-0 flex-1">
         <Stage />

@@ -64,14 +64,25 @@ function ensureHost(): ShadowRoot {
 function deactivate(): void {
   if (mode === 'idle') return;
   mode = 'idle';
+  // Each teardown step is isolated so a throw in one (e.g. during Vapor unmount) can't
+  // strand the overlay on the page — the host is always removed.
   if (picker) {
     const active = picker;
     picker = null;
-    active.cancel();
+    try {
+      active.cancel();
+    } catch {
+      /* picker already torn down */
+    }
   }
   if (canvas) {
-    canvas.unmount();
+    const active = canvas;
     canvas = null;
+    try {
+      active.unmount();
+    } catch {
+      /* app already unmounted */
+    }
   }
   if (host) {
     host.remove();

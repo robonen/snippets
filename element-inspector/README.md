@@ -47,7 +47,13 @@ pnpm dev        # build + watch into dist/
 pnpm build      # type-check + production build into dist/
 pnpm test       # unit tests (color + geometry utils)
 pnpm typecheck  # tsc --noEmit
+pnpm icons      # regenerate the extension icons (PNG sizes + SVG source)
 ```
+
+The toolbar icon sizes are generated from the source artwork `src/assets/logo.png` by
+[`scripts/generate-icons.mjs`](scripts/generate-icons.mjs) (pure Node — decodes the PNG and
+area-downsamples it). They are written to `public/icons/`, which Vite copies into `dist/` where
+the manifest references them. To change the logo, replace `src/assets/logo.png` and run `pnpm icons`.
 
 Then load it in Chrome:
 

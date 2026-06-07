@@ -1,5 +1,5 @@
 import { reactive } from 'vue';
-import type { BoxModel } from '../utils/rect';
+import type { Box, BoxModel } from '../utils/rect';
 import type { Rgba } from '../utils/color';
 import type { Capture } from '../content/capture';
 
@@ -8,6 +8,35 @@ export interface ColorSwatch {
   color: Rgba;
   hex: string;
   varName: string | null;
+  /** The value is inherited from an ancestor rather than set on the element itself. */
+  inherited?: boolean;
+}
+
+/** A generic computed-style line shown in the panel. */
+export interface StyleItem {
+  label: string;
+  value: string;
+  inherited?: boolean;
+}
+
+export interface LayoutProp {
+  label: string;
+  value: string;
+}
+
+export interface LayoutInfo {
+  /** Computed `display` (e.g. `flex`, `grid`, `block`, `inline-flex`). */
+  display: string;
+  /** Coarse classification used to tint the panel and select an overlay. */
+  kind: 'flex' | 'grid' | 'block';
+  /** Container properties (flow, alignment, gap) plus the element's own item placement. */
+  props: LayoutProp[];
+  /** Grid line positions in iframe-content pixels (for the visual overlay), or null. */
+  gridLines: { xs: number[]; ys: number[] } | null;
+  /** Gap rectangles (between grid tracks / flex items) in iframe-content pixels. */
+  gaps: Box[];
+  /** Child item border boxes in iframe-content pixels. */
+  items: Box[];
 }
 
 export interface Inspection {
@@ -21,9 +50,14 @@ export interface Inspection {
   radius: string;
   padding: string;
   margin: string;
-  font: { family: string; size: string; weight: string; lineHeight: string };
+  layout: LayoutInfo;
+  typography: StyleItem[];
+  effects: StyleItem[];
   colors: ColorSwatch[];
 }
+
+/** What the layout overlay should emphasize, driven by hovering panel rows. */
+export type LayoutHighlight = 'none' | 'gap' | 'tracks' | 'items';
 
 export interface DevicePreset {
   label: string;
@@ -53,8 +87,13 @@ interface State {
   zoom: number;
   panX: number;
   panY: number;
-  tool: 'inspect' | 'guides';
   showRulers: boolean;
+  /** Visualize the selected element's grid/flex structure on the canvas. */
+  showGrid: boolean;
+  /** When false (default), clicks inside the frame never re-select — avoids misclicks. */
+  clicksEnabled: boolean;
+  /** Panel-driven emphasis for the layout overlay. */
+  layoutHighlight: LayoutHighlight;
   guides: { x: number[]; y: number[] };
   hover: Inspection | null;
   selected: Inspection | null;
@@ -72,8 +111,10 @@ export const state = reactive<State>({
   zoom: 1,
   panX: 0,
   panY: 0,
-  tool: 'inspect',
   showRulers: true,
+  showGrid: true,
+  clicksEnabled: false,
+  layoutHighlight: 'none',
   guides: { x: [], y: [] },
   hover: null,
   selected: null,
@@ -100,7 +141,8 @@ export function initFromCapture(capture: Capture): void {
   state.frameWidth = Math.max(MIN_FRAME, capture.naturalWidth + 64);
   state.frameHeight = Math.max(MIN_FRAME, capture.naturalHeight + 64);
   state.zoom = 1;
-  state.tool = 'inspect';
+  state.clicksEnabled = false;
+  state.layoutHighlight = 'none';
   state.guides = { x: [], y: [] };
   state.hover = null;
   state.selected = null;
@@ -148,8 +190,19 @@ export function recenter(): void {
   if (state.viewportW && state.viewportH) centerIn(state.viewportW, state.viewportH);
 }
 
-export function addGuide(axis: 'x' | 'y', position: number): void {
-  state.guides[axis].push(Math.round(position));
+/** Append a guide on the given axis and return its index (so a drag can keep updating it). */
+export function addGuide(axis: 'x' | 'y', position: number): number {
+  return state.guides[axis].push(Math.round(position)) - 1;
+}
+
+export function updateGuide(axis: 'x' | 'y', index: number, position: number): void {
+  const arr = state.guides[axis];
+  if (index >= 0 && index < arr.length) arr[index] = Math.round(position);
+}
+
+export function removeGuide(axis: 'x' | 'y', index: number): void {
+  const arr = state.guides[axis];
+  if (index >= 0 && index < arr.length) arr.splice(index, 1);
 }
 
 export function clearGuides(): void {

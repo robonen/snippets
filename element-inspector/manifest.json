@@ -1,10 +1,22 @@
 {
   "manifest_version": 3,
   "name": "Element Inspector",
-  "version": "0.0.0",
-  "description": "Isolate any page element on a clean canvas and inspect its sizes, colors, spacing and responsive behavior.",
+  "version": "1.0.0",
+  "description": "Isolate any page element on a clean canvas: box model, colors, inherited styles, grid/flex layout and responsive testing.",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
   "action": {
-    "default_title": "Inspect element (Alt+Shift+E)"
+    "default_title": "Inspect element (Alt+Shift+E)",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
   },
   "background": {
     "service_worker": "src/background.ts",
