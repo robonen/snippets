@@ -1,5 +1,6 @@
 export { defineLayerConfig, resolveLayerStack } from './config'
-export { configWatchPlugin, featuresRuntimePlugin } from './dev'
+export { configWatchPlugin } from './dev'
+export { FEATURE_MODULE, featurePlugin, featuresDts, flattenFeatures } from './features'
 export { publicLayersPlugin } from './public'
 export {
   createLayerHooks,
@@ -12,14 +13,22 @@ export {
   type TsconfigHookContext,
   type ViteConfigHookContext,
 } from './hooks'
-export { DEFAULT_EXTENSIONS, layersResolver, type LayersResolverOptions } from './resolve'
+export {
+  createLayeredResolution,
+  DEFAULT_EXTENSIONS,
+  layersResolver,
+  type LayeredResolution,
+  type LayersResolverOptions,
+  type ParsedLayeredId,
+  type ResolveRecord,
+} from './resolve'
+export { layersDevtoolsPlugin, type LayersDevtoolsData } from './devtools'
 export { buildViteConfig, dedupePlugins, type BuildViteConfigOptions } from './kit'
 export {
   generateTsConfig,
   writeTsConfig,
   tsconfigPlugin,
-  featuresDts,
   type GenerateTsConfigOptions,
   type TSConfig,
 } from './tsconfig'
-export type { Layer, LayerConfig, LayerStack } from './types'
+export type { Layer, LayerConfig, LayerEdge, LayerStack } from './types'

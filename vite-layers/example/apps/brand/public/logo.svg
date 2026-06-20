@@ -1,1 +1,11 @@
-BRAND_LOGO_OVERRIDE
+<svg xmlns="http://www.w3.org/2000/svg" width="148" height="28" viewBox="0 0 148 28" fill="none" role="img" aria-label="Northwind">
+  <defs>
+    <linearGradient id="nw" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#10b981"/>
+      <stop offset="1" stop-color="#0ea5e9"/>
+    </linearGradient>
+  </defs>
+  <circle cx="14" cy="14" r="12" fill="url(#nw)"/>
+  <path d="M14 6 L17 17 L14 14.5 L11 17 Z" fill="#fff"/>
+  <text x="32" y="19.5" font-family="Inter, system-ui, sans-serif" font-size="16" font-weight="700" letter-spacing="-0.4" fill="#0b231b">Northwind</text>
+</svg>

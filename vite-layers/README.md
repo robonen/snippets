@@ -45,34 +45,32 @@ export default buildViteConfig(import.meta.dirname)
 Гейтите опциональные страницы так, чтобы выключенные **исчезали из бандла** (а не просто переставали роутиться):
 
 ```ts
-// __FEATURES__ типизируется сгенерированным .vite-layers/features.d.ts — declare не нужен
+import { feature } from '#feature' // алиас регистрирует vite-layers; типы — из .vite-layers/features.d.ts
+
 const routes = [
   { path: '/', component: () => import('@/pages/Home') },
-  ...(__FEATURES__.billing ? [{ path: '/billing', component: () => import('@/pages/Billing') }] : []),
+  ...(feature('billing') ? [{ path: '/billing', component: () => import('@/pages/Billing') }] : []),
 ]
 ```
 
-Тип `__FEATURES__` генерируется из `merged.features` в `.vite-layers/features.d.ts`, поэтому опечатка
-(`__FEATURES__.biling`) — ошибка компиляции, а не молчком-falsy.
+`feature('key')` — **компайл-тайм макрос**: плагин заменяет вызов на литерал значения флага,
+**одинаково в dev и в build** (один AST-transform, без расхождений). Подставленный `false` делает ветку
+статически мёртвой, и Rollup/rolldown вырезает её вместе с `import()` — чанк выключенной фичи не эмитится.
+Тип `feature` генерируется из `merged.features` **литеральными типами**, поэтому опечатка ключа
+(`feature('biling')`) — ошибка компиляции.
 
-Флаги вшиваются через `define` и сворачиваются esbuild ещё **до** построения графа Rollup, поэтому
-выключенная ветка и её `import()` физически не попадают в бандл. Дотированные литералы эмитятся на
-любую глубину (`__FEATURES__.nested.enabled` тоже сворачивается). Правила, чтобы DCE сработало:
+Правила (они **enforced**: нарушение валит сборку — и в dev, и в build, ничего не «протекает» молча):
 
-- обращайтесь **напрямую** — `__FEATURES__.billing`; алиас/деструктуризация (`const f = __FEATURES__; f.billing`)
-  и динамический доступ (`__FEATURES__[name]`) не сворачиваются;
-- гейт оборачивает сам `import()` (тернарник/`&&`/спред), а не `.filter` после — reachable-импорт не вырезается;
-- ключи фич — валидные JS-идентификаторы (kebab/пробел доступны в рантайме через объект `__FEATURES__`,
-  но без DCE);
-- в тестах продублируйте `define` (в `vitest.config`) или гардите `globalThis.__FEATURES__ ?? {}`.
+- ключ — строковый литерал: `feature('billing')`, не `feature(name)`;
+- вызывайте напрямую — без алиасов (`const f = feature`), деструктуризации и передачи как значения;
+- вложенные флаги — дотированным ключом: `feature('payments.stripe')`;
+- ключ должен существовать в `merged.features` (иначе — ошибка сборки).
 
-**Dev-режим.** В build флаги работают через `define` (+ DCE). В dev Vite 8 / rolldown-vite **не**
-инлайнит пользовательский `define` в исходники, поэтому `vite-layers` сам подставляет `__FEATURES__`
-в рантайме (dev-only плагин). Плюс при изменении любого `app.config.*` слоя dev-сервер
-**автоматически перезапускается** (`app.config` грузится c12, вне графа Vite — сам он не следит) —
-так фичи обновляются без ручного рестарта. В шаблонах `.vue` `__FEATURES__` напрямую использовать
-нельзя — компилятор префиксует его в `_ctx.__FEATURES__` (define/рантайм-подстановка не матчат);
-читайте флаг в `<script setup>` и используйте в шаблоне локальную переменную.
+Тестам ничего дублировать не нужно — тот же transform работает в Vitest (плагин — часть конфига).
+В `.vue`-шаблоне напрямую `feature('x')` использовать нельзя (компилятор делает из него `_ctx.feature` —
+это не вызов макроса): читайте флаг в `<script setup>`/JSX и используйте в шаблоне локальную переменную.
+При изменении любого `app.config.*` dev-сервер **автоматически перезапускается** (`app.config` грузится
+c12, вне графа Vite — сам он не следит), подхватывая новые значения флагов.
 
 ## Префиксы импортов
 
@@ -81,6 +79,7 @@ const routes = [
 | `@/…`, `~/…` | первый совпавший файл по `srcDir` слоёв, high→low | слоёвый резолвер; **self-skip** даёт `super()` |
 | `~~/…`, `@@/…` | `rootDir` проекта | обычный alias |
 | `#layers/<name>/…` | `rootDir` соответствующего слоя | обычный alias, first-wins по имени |
+| `#feature` | entry макроса `feature('key')` | алиас регистрируется автоматически; вызовы сворачиваются в литералы |
 
 ## Модель приоритета (из Nuxt)
 
@@ -114,12 +113,19 @@ export default defineLayerConfig({
 })
 ```
 
+**Объявляйте все ключи фич в базовом `features`** (как `analytics` выше), а `$env`-блоки используйте
+только чтобы менять их **значения**. Ключ, существующий лишь в `$production`, будет «неизвестен» в dev
+(`feature('x')` → ошибка сборки) и не попадёт в типы. Литеральные типы в `features.d.ts` отражают тот
+`mode`, в котором их сгенерировали (dev/build/`prepare`) — поэтому флаг с разными значениями по mode
+типизируется значением текущего mode; держите ключи в базе для предсказуемости.
+
 ## Опции
 
 `buildViteConfig(appDir, options?)`:
 - `tsconfig: false` — выключить автоген tsconfig; `tsconfig: {...}` — `GenerateTsConfigOptions`.
 - `resolver: { prefixes?, extensions? }` — сменить слоёвые префиксы / расширения резолвера (напр. добавить `.svelte`).
 - `hooks: {...}` — программные lifecycle-хуки (см. ниже), регистрируются после слоёвых.
+- `devtools: false` — не монтировать панели в Vite DevTools (см. ниже). По умолчанию включено.
 - `outDir`, `vite` — выходная папка и финальный Vite-фрагмент (высший приоритет).
 
 ## Хуки жизненного цикла
@@ -147,6 +153,38 @@ export default defineLayerConfig({
 Программно: `buildViteConfig(dir, { hooks: { … } })`. Низкоуровнево экспортируются
 `createLayerHooks`/`registerLayerHooks`/`hooksFromStack` и типы `LayerHooks`/`LayerHookable`.
 
+## DevTools
+
+vite-layers умеет показывать свой резолвнутый стек прямо в [Vite DevTools](https://devtools.vite.dev)
+(`@vitejs/devtools`). Добавьте хаб в dev — `buildViteConfig` сам подмонтирует панели; без хаба плагин
+**инертен** (используются только *типы* из `@vitejs/devtools-kit`, никакой рантайм-зависимости):
+
+```ts
+// apps/main/app.config.ts
+import { DevTools } from '@vitejs/devtools' // peer-зависимость только для dev
+export default defineLayerConfig({
+  vite: ({ command }) => ({
+    plugins: [vue(), command === 'serve' && DevTools()], // хаб только в dev
+  }),
+})
+```
+
+Четыре панели (свёрнуты под одной кнопкой `vite-layers`):
+
+| Панель | Что показывает |
+|---|---|
+| **Layers** | **дерево наследования** (`extends`-граф box-drawing, с ромбами и авто-сканом), резолвнутый стек high→low, мёрж-конфиг (Tree), накопленные хуки |
+| **Features** | мёрж-флаги с литеральными значениями и статусом DCE (`kept` / `branch eliminated`); бейдж = число выключенных |
+| **Resolver** | плейграунд `@/…` (показывает кандидатов по слоям + победителя) и **живой лог** реальных слоёвых резолвов сессии (включая `super()`-self-skip) |
+| **Public & TS** | слоёвые `public/`-ассеты (кто кого затеняет) и сгенерированные `tsconfig.json` / `tsconfig.node.json` / `features.d.ts` |
+
+UI рисуется целиком на сервере (json-render спеки `@vitejs/devtools-kit`) — **клиентский бандл не
+нужен**, vite-layers остаётся buildless. Панели читают тот же стек и тот же резолвер-кэш, что и сборка
+(`createLayeredResolution` шарится между резолвер-плагином и панелью), поэтому показанное — ровно то,
+что действует. При первом заходе DevTools попросит авторизовать браузер (разовый prompt в терминале).
+
+Плагин можно подключить и вручную — `layersDevtoolsPlugin` экспортируется из `vite-layers/devtools`.
+
 ## Улучшения над Nuxt/c12
 
 1. **`super()` через self-skip** — оверрайд может импортировать собственный путь (`@/components/X`),
@@ -154,15 +192,17 @@ export default defineLayerConfig({
 2. **Cycle-guard** — голый c12 уходит в stack overflow на обратном ребре (`A→B→A`); дедуп Nuxt
    срабатывает только ПОСЛЕ рекурсивного обхода c12 и не спасает. Терминальный пустой слой в
    `resolve`-хуке c12 обрывает рекурсию.
-3. **Побрендовый DCE** — гейтированные динамические `import()` выпиливаются из бандлов выключенных
-   брендов через дотированные `__FEATURES__.<key>` defines (esbuild сворачивает литерал ещё до того,
-   как Rollup построит граф модулей).
+3. **Побрендовый DCE через `feature()`-макрос** — гейтированные `import()` выпиливаются из бандлов
+   выключенных брендов: AST-transform заменяет `feature('key')` на литерал (**один механизм для dev и
+   build**), а любое не-сворачиваемое использование (алиас, динамический/неизвестный ключ) валит
+   сборку с понятной ошибкой — вместо молчаливой деградации DCE, как при `define`-подходе Nuxt.
 
 ## TypeScript (автогенерация tsconfig)
 
 Framework-agnostic порт Nuxt `prepare:types`. `buildViteConfig` пишет на каждом dev/build
-`<appDir>/.vite-layers/{tsconfig.json, tsconfig.node.json, features.d.ts}` (`features.d.ts` типизирует
-`__FEATURES__`); `tsconfig.json` приложения его расширяет:
+`<appDir>/.vite-layers/{tsconfig.json, tsconfig.node.json, features.d.ts}` (`features.d.ts` аугментирует
+модуль `#feature` литеральными типами `feature()`, а сгенерированный `paths['#feature']` резолвит сам
+макрос); `tsconfig.json` приложения его расширяет:
 
 ```jsonc
 // apps/brand/tsconfig.json
@@ -210,34 +250,83 @@ vue-tsc --noEmit -p apps/brand    # или tsc --noEmit
   tsconfig; `options.tsconfig: false` — отключить, `options.tsconfig: {...}` — настроить).
 - `resolveLayerStack(cwd)` → `{ merged, layers }` — резолвнутый упорядоченный стек.
 - `layersResolver({ roots, prefixes?, extensions? })` — Vite-плагин резолвера (можно отдельно).
+- `createLayeredResolution({ roots, prefixes?, extensions?, record? })` — чистое ядро резолвера
+  (`parse`/`candidates`/`resolveId`/`records`); шарится между резолвер-плагином и DevTools-панелью.
 - `generateTsConfig(appDir, opts?)` / `writeTsConfig(appDir, opts?)` / `tsconfigPlugin(appDir, opts?)` — генерация tsconfig.
 - `defineLayerConfig(config)` — типизированный хелпер для `app.config.ts`.
+- `feature(key)` (импорт из `#feature` / `vite-layers/feature`) — компайл-тайм макрос флагов; `featurePlugin(features)` — сам плагин (можно отдельно).
+- `layersDevtoolsPlugin(data)` (импорт из `vite-layers/devtools`) — панели для Vite DevTools (автоматически подключаются `buildViteConfig`).
 
-## Пример (Vue)
+## Пример (Vue + Tailwind)
 
-`example/apps/{main,brand}` — запускаемое Vue-демо. `main` — база (`vue()` + страница `billing`),
-`brand` расширяет её, перекрывает `AppHeader.vue` и выключает `billing`. Соберите оба и сравните:
+`example/apps/{main,brand,aurora}` — запускаемое мультибрендовое демо. Общий «каркас» (шапка, подвал,
+страница профиля, страница биллинга, роутер, входной Tailwind-CSS) живёт только в базовом слое `main`;
+каждый бренд меняет ровно **три** вещи — логотип, файл темы Tailwind и лендинг:
+
+| Приложение | Слой | Тема | DCE-страница `billing` | Beta-плашка |
+|---|---|---|---|---|
+| `main` (Acme) | база | светлая, индиго | ✅ есть | ✅ (в dev) |
+| `brand` (Northwind) | `extends ../main` | светлая, изумруд | ❌ вырезана | ✅ (унаследована) |
+| `aurora` (Aurora) | `extends ../main` | **тёмная**, роза/небо | ✅ есть | ❌ выключена |
 
 ```bash
-npx vite build example/apps/main    # эмитит чанки Home + Billing
-npx vite build example/apps/brand   # только Home (чанка Billing НЕТ → DCE); AppHeader перекрыт
+pnpm example:dev      # дев-сервер Acme (бренды: npx vite example/apps/{brand,aurora})
+pnpm example:build    # билд всех трёх — сравните эмитнутые чанки
+pnpm example:check    # prepare + vue-tsc для всех трёх (код приложения + node-конфиги)
 ```
+
+**Как меняется тема.** Общий `@/style.css` (только в базе) подключает Tailwind и мапит токены на
+runtime-переменные через `@theme inline` (`--color-brand: var(--c-brand)` и т.д.). Каждый бренд кладёт
+свой `@/assets/theme.css` с `:root { --c-* }`; слоёвый резолвер выбирает версию верхнего слоя — и весь
+общий UI перекрашивается, без правки единого компонента. `@tailwindcss/vite` резолвит CSS-`@import`
+своим резолвером (мимо слоёв), поэтому тему подключаем **JS-импортом** `import '@/assets/theme.css'`,
+который идёт через слоёвый резолвер.
 
 Что демонстрирует демо:
 
-- **Оверрайд:** `brand/src/components/AppHeader.vue` затеняет версию из `main` (`@/components/AppHeader.vue`).
-- **DCE:** `features.billing: false` → динамический `import('@/pages/Billing.vue')` мёртв → чанк не эмитится.
-- **Алиасы/резолвер:** `main.ts` тянет страницы и компонент через `@/…` сквозь слои.
-- **tsconfig:** `app.config.ts` правит tsconfig (`jsxImportSource: 'vue'`), `vue-tsc` зелёный:
+- **Общий каркас:** `AppHeader`, `AppFooter`, `Profile`, `Billing`, роутер есть только в `main`, но
+  рендерятся во всех брендах через `@/…`. У `brand` больше нет своего `AppHeader` — шапка общая.
+- **Перекраска темой:** один и тот же `Profile`/`Billing` рендерится светлым у Acme/Northwind и тёмным
+  у Aurora — разница только в `theme.css` (10 токенов цвета/радиуса/шрифта).
+- **Перекрытие ассета:** `*/public/logo.svg` затеняется послойно; `favicon.svg` наследуется из базы.
+- **DCE:** у `brand` `features.billing: false` → `feature('billing')` сворачивается в `false` →
+  `import('@/pages/Billing.vue')` мёртв → чанк `Billing-*.js` не эмитится (и ссылки в навигации нет):
 
 ```bash
-vite-layers prepare example/apps/brand
-npx vue-tsc --noEmit -p example/apps/brand
+ls example/apps/main/dist/main/assets     | grep -i billing   # Billing-*.js есть
+ls example/apps/brand/dist/brand/assets   | grep -i billing   # пусто → DCE
+ls example/apps/aurora/dist/aurora/assets | grep -i billing   # Billing-*.js есть
+```
+
+- **Разные наборы фич:** `brand` убирает биллинг, но оставляет beta-плашку; `aurora` — наоборот.
+  `$production` гасит beta-плашку в проде у всех (env-оверрайд слоя).
+- **tsconfig:** `app.config.ts` правит tsconfig (`jsxImportSource: 'vue'`, `types: ['vite/client']`),
+  `vue-tsc` зелёный для всех трёх:
+
+```bash
+vite-layers prepare example/apps/aurora
+npx vue-tsc --noEmit -p example/apps/aurora
 ```
 
 ## Тесты
 
 ```bash
-pnpm test          # порядок, diamond-дедуп, cycle-guard, авто-скан, self-skip резолвера, defines, tsconfig
+pnpm test          # порядок, diamond-дедуп, cycle-guard, авто-скан, self-skip резолвера, feature()-макрос, tsconfig
 pnpm type-check
 ```
+
+## Сборка
+
+Разработка **buildless** — example-приложения и тесты импортируют `src/*` напрямую, а `exports`
+пакета указывают на `./src/*.ts`. Для публикации `pnpm build` (tsdown) собирает ESM + `.d.ts` в
+`dist/` по одному выходу на каждый сабпас (`.`, `./feature`, `./devtools`); зависимости и peer'ы
+(`vite`, `@vitejs/devtools-kit`) внешние. `publishConfig.exports` переключает пакет на `dist/` —
+`prepack` пересобирает автоматически, в tarball едут только `dist/` + `bin/` (проверено `publint`).
+
+```bash
+pnpm build         # tsdown → dist/{index,feature,devtools}.{js,d.ts}
+pnpm pack          # prepack-сборка + публикуемый tarball (dist + bin)
+```
+
+CLI `vite-layers prepare` и алиас `#feature` работают в обоих режимах: из исходников (`feature.ts`,
+jiti) и из собранного `dist/` (`feature.js`).

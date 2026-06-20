@@ -2,7 +2,7 @@ import { EventEmitter } from 'node:events'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
-import { configWatchPlugin, featuresRuntimePlugin } from '../src/dev'
+import { configWatchPlugin } from '../src/dev'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const fixture = (p: string) => resolve(here, 'fixtures', p)
@@ -39,35 +39,13 @@ describe('configWatchPlugin', () => {
     watcher.emit('change', resolve(fixture('stack/app'), 'src', 'whatever.ts'))
     expect(restart).not.toHaveBeenCalled()
   })
-})
 
-const runTransform = (
-  plugin: { transform?: unknown },
-  code: string,
-  id = '/app/src/x.ts',
-): { code: unknown; map?: unknown } | null => {
-  const t = plugin.transform as
-    | ((this: unknown, c: string, i: string) => { code: unknown; map?: unknown } | null)
-    | undefined
-  return t ? t.call({}, code, id) : null
-}
-
-describe('featuresRuntimePlugin', () => {
-  it('applies only in serve mode', () => {
-    expect(featuresRuntimePlugin({}).apply).toBe('serve')
-  })
-
-  it('prepends a module-local __FEATURES__ with a rolldown-generated sourcemap', () => {
-    const out = runTransform(featuresRuntimePlugin({ billing: true }), 'export const x = __FEATURES__.billing')
-    const code = String(out?.code)
-    expect(code).toContain('const __FEATURES__={"billing":true};')
-    expect(code).toContain('export const x = __FEATURES__.billing')
-    expect((out?.map as { mappings?: string })?.mappings).toBeTruthy() // real sourcemap
-  })
-
-  it('ignores property access (_ctx.__FEATURES__) and node_modules', () => {
-    const p = featuresRuntimePlugin({ billing: true })
-    expect(runTransform(p, 'const a = _ctx.__FEATURES__.billing')).toBeNull()
-    expect(runTransform(p, 'export const x = __FEATURES__.billing', '/x/node_modules/y.js')).toBeNull()
+  it('restarts when a config is newly added to a layer that had none', () => {
+    const plugin = configWatchPlugin([fixture('stack/app')])
+    const { server, watcher, restart } = mockServer()
+    callConfigureServer(plugin, server)
+    // app.config.js does not exist at startup, but it is a candidate path → `add` must restart.
+    watcher.emit('add', resolve(fixture('stack/app'), 'app.config.js'))
+    expect(restart).toHaveBeenCalledTimes(1)
   })
 })

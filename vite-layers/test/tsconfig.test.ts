@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { createLayerHooks } from '../src/hooks'
-import { featuresDts, generateTsConfig } from '../src/tsconfig'
+import { generateTsConfig } from '../src/tsconfig'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const fixture = (p: string) => resolve(here, 'fixtures', p)
@@ -104,7 +104,13 @@ describe('generateTsConfig', () => {
     const r = await generateTsConfig(fixture('stack/app'))
     expect(r.tsconfig.include).toContain('./features.d.ts')
     expect(r.dtsFile.replace(/\\/g, '/')).toMatch(/\/\.vite-layers\/features\.d\.ts$/)
-    expect(r.dts).toContain('const __FEATURES__:')
+    expect(r.dts).toContain(`declare module '#feature'`)
+  })
+
+  it('maps #feature to the macro entry so tsc resolves the feature() import', async () => {
+    const { tsconfig } = await generateTsConfig(fixture('stack/app'))
+    const paths = tsconfig.compilerOptions!.paths as Record<string, string[]>
+    expect(paths['#feature']?.[0]).toMatch(/\/src\/feature$/)
   })
 
   it('reuses a provided stack instead of resolving again (O2)', async () => {
@@ -117,18 +123,6 @@ describe('generateTsConfig', () => {
     const r = await generateTsConfig(fixture('stack/app'), { stack: stack as never })
     const paths = r.tsconfig.compilerOptions!.paths as Record<string, string[]>
     expect(Object.keys(paths)).toContain('#layers/FAKELAYER/*') // proves the fake stack was used
-    expect(r.dts).toContain('onlyInFake: boolean')
-  })
-})
-
-describe('featuresDts', () => {
-  it('renders a typed __FEATURES__ global (nested, primitives, quoted non-identifier keys)', () => {
-    const dts = featuresDts({ billing: true, nested: { enabled: false }, 'kebab-flag': true, count: 2 })
-    expect(dts).toContain('declare global')
-    expect(dts).toContain('const __FEATURES__:')
-    expect(dts).toContain('billing: boolean')
-    expect(dts).toContain('nested: { enabled: boolean }')
-    expect(dts).toContain('"kebab-flag": boolean')
-    expect(dts).toContain('count: number')
+    expect(r.dts).toContain('onlyInFake: true') // literal type, from the fake stack's features
   })
 })

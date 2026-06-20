@@ -8,20 +8,53 @@
     "node": ">=24.0.0"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./feature": "./src/feature.ts",
+    "./devtools": "./src/devtools.ts"
   },
   "bin": {
     "vite-layers": "./bin/vite-layers.mjs"
+  },
+  "files": [
+    "dist",
+    "bin"
+  ],
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      },
+      "./feature": {
+        "types": "./dist/feature.d.ts",
+        "import": "./dist/feature.js"
+      },
+      "./devtools": {
+        "types": "./dist/devtools.d.ts",
+        "import": "./dist/devtools.js"
+      }
+    }
   },
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
     "type-check": "tsc --noEmit",
-    "example:build": "vite build example/apps/main && vite build example/apps/brand",
-    "example:check": "node bin/vite-layers.mjs prepare example/apps/main && node bin/vite-layers.mjs prepare example/apps/brand && vue-tsc --noEmit -p example/apps/main && vue-tsc --noEmit -p example/apps/main/.vite-layers/tsconfig.node.json && vue-tsc --noEmit -p example/apps/brand && vue-tsc --noEmit -p example/apps/brand/.vite-layers/tsconfig.node.json"
+    "build": "tsdown",
+    "prepack": "tsdown",
+    "example:build": "vite build example/apps/main && vite build example/apps/brand && vite build example/apps/aurora",
+    "example:main": "vite example/apps/main",
+    "example:brand": "vite example/apps/brand",
+    "example:aurora": "vite example/apps/aurora",
+    "example:check": "node bin/vite-layers.mjs prepare example/apps/main && node bin/vite-layers.mjs prepare example/apps/brand && node bin/vite-layers.mjs prepare example/apps/aurora && vue-tsc --noEmit -p example/apps/main && vue-tsc --noEmit -p example/apps/main/.vite-layers/tsconfig.node.json && vue-tsc --noEmit -p example/apps/brand && vue-tsc --noEmit -p example/apps/brand/.vite-layers/tsconfig.node.json && vue-tsc --noEmit -p example/apps/aurora && vue-tsc --noEmit -p example/apps/aurora/.vite-layers/tsconfig.node.json"
   },
   "peerDependencies": {
+    "@vitejs/devtools-kit": "^0.3.0",
     "vite": "^8.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@vitejs/devtools-kit": {
+      "optional": true
+    }
   },
   "dependencies": {
     "c12": "^3.3.4",
@@ -29,14 +62,20 @@
     "hookable": "^6.1.1",
     "jiti": "^2.4.0",
     "magic-string": "^0.30.21",
+    "oxc-parser": "^0.137.0",
     "pkg-types": "^2.3.1",
     "sirv": "^3.0.2",
     "tinyglobby": "^0.2.15",
     "ufo": "^1.6.1"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.3.1",
     "@types/node": "^25.9.1",
+    "@vitejs/devtools": "0.3.3",
+    "@vitejs/devtools-kit": "0.3.3",
     "@vitejs/plugin-vue": "^6.0.7",
+    "tailwindcss": "^4.3.1",
+    "tsdown": "^0.22.3",
     "typescript": "~6.0.3",
     "vite": "^8.0.14",
     "vitest": "^4.1.7",

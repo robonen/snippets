@@ -1,0 +1,23 @@
+@import "tailwindcss" source(none);
+
+/* Scan every layer's source for class names. `@source` is relative to this file, which always
+   resolves to apps/main/src/style.css (it lives only in the base layer), so `../../` is the
+   apps/ directory — i.e. main + every brand. CWD-independent, unlike Tailwind's auto-detection. */
+@source "../../";
+
+/* Map Tailwind's design tokens onto runtime CSS variables. `inline` makes each utility reference
+   the variable directly — e.g. `bg-brand` becomes `background-color: var(--c-brand)` — so a brand's
+   theme.css (loaded after this file through the layer resolver) restyles the entire shared UI with
+   no change to a single component. The --c-* values are defined per brand in `@/theme.css`. */
+@theme inline {
+  --color-canvas:   var(--c-canvas);
+  --color-surface:  var(--c-surface);
+  --color-ink:      var(--c-ink);
+  --color-muted:    var(--c-muted);
+  --color-line:     var(--c-line);
+  --color-brand:    var(--c-brand);
+  --color-on-brand: var(--c-on-brand);
+  --color-accent:   var(--c-accent);
+  --radius-card:    var(--c-radius);
+  --font-sans:      var(--c-font);
+}

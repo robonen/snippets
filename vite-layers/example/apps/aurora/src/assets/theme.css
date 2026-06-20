@@ -1,0 +1,14 @@
+/* Aurora — a dark brand. The same shared header, footer, profile and billing pages render dark
+   purely because every token below flips; not one component is overridden. Rose primary, sky accent. */
+:root {
+  --c-canvas:   #0a0f1f;
+  --c-surface:  #121829;
+  --c-ink:      #eef1f8;
+  --c-muted:    #9aa3bd;
+  --c-line:     #232b42;
+  --c-brand:    #fb7185;
+  --c-on-brand: #1a1022;
+  --c-accent:   #38bdf8;
+  --c-radius:   1rem;
+  --c-font:     "Inter", ui-sans-serif, system-ui, sans-serif;
+}

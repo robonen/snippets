@@ -17,7 +17,7 @@ export interface LayerConfig {
   extends?: string | string[]
   /** Vite config fragment contributed by this layer (object or env-aware factory). */
   vite?: UserConfig | ((env: ConfigEnv) => UserConfig)
-  /** Build-time feature flags, exposed to app code as the `__FEATURES__` global. */
+  /** Build-time feature flags, read in app code via the `feature('key')` macro (`#feature`). */
   features?: Record<string, unknown>
   /**
    * tsconfig overrides contributed by this layer, merged across the stack into the generated
@@ -52,9 +52,26 @@ export interface Layer {
   config: LayerConfig
 }
 
+/**
+ * A single edge of the resolved `extends` graph — the layer at `from` (a directory) extends the one
+ * resolved at `to`. `source` is the raw `extends` entry (relative path, npm package, or git source).
+ * Captured during resolution because c12 strips the extend keys from the resolved layer configs.
+ */
+export interface LayerEdge {
+  from: string
+  to: string
+  source: string
+}
+
 export interface LayerStack {
   /** Deep-merged config across the whole stack (defu, project wins). */
   merged: LayerConfig
   /** Layers ordered high→low priority; `layers[0]` is the project itself. */
   layers: Layer[]
+  /**
+   * Parent→child `extends` edges captured during resolution (directories, posix, no trailing slash),
+   * in walk order. Lets tooling rebuild the inheritance DAG the flat `layers` order flattens away.
+   * Optional: synthetic stacks built by hand may omit it.
+   */
+  edges?: LayerEdge[]
 }

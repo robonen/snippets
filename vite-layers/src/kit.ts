@@ -1,11 +1,23 @@
+import { existsSync } from 'node:fs'
 import { basename, resolve } from 'node:path'
 import { defineConfig, mergeConfig, type PluginOption, type UserConfig } from 'vite'
 import { resolveLayerStack } from './config'
-import { configWatchPlugin, featuresRuntimePlugin } from './dev'
+import { configWatchPlugin } from './dev'
+import { layersDevtoolsPlugin } from './devtools'
+import { FEATURE_MODULE, featurePlugin } from './features'
 import { createLayerHooks, registerLayerHooks, type LayerHooksConfig } from './hooks'
 import { publicLayersPlugin } from './public'
-import { layersResolver } from './resolve'
+import { createLayeredResolution, layersResolver } from './resolve'
 import { tsconfigPlugin, type GenerateTsConfigOptions } from './tsconfig'
+import { toPosix } from './util'
+
+/**
+ * Absolute path to the `feature` macro entry, aliased as `#feature` (see {@link featurePlugin}).
+ * Resolved next to this module — `feature.ts` when running from source (dev/tests), `feature.js`
+ * after a `tsdown` build — so the alias always points at a real file in either layout.
+ */
+const FEATURE_ENTRY = resolve(import.meta.dirname, 'feature')
+const FEATURE_FILE = toPosix(existsSync(`${FEATURE_ENTRY}.ts`) ? `${FEATURE_ENTRY}.ts` : `${FEATURE_ENTRY}.js`)
 
 export interface BuildViteConfigOptions {
   /** Extra Vite config merged at the very end (highest priority). */
@@ -21,6 +33,12 @@ export interface BuildViteConfigOptions {
   resolver?: { prefixes?: string[]; extensions?: string[] }
   /** Programmatic lifecycle hooks, registered after (so running after) all layer hooks. */
   hooks?: LayerHooksConfig
+  /**
+   * Mount the vite-layers panels (stack / features / resolver / public+ts) in Vite DevTools.
+   * Requires the `@vitejs/devtools` hub in the plugin list; the integration is inert without it.
+   * Enabled by default — pass `false` to skip it (and the resolver's resolution-log recording).
+   */
+  devtools?: boolean
 }
 
 /**
@@ -45,40 +63,6 @@ function dedupePlugins(config: UserConfig): UserConfig {
   return { ...config, plugins: out }
 }
 
-/** A member-expression define key segment must be a plain JS identifier. */
-const IDENTIFIER_RE = /^[A-Za-z_$][\w$]*$/
-
-/**
- * Build the `define` map for feature flags. Emits the whole `__FEATURES__` object (for runtime
- * reads) plus a dotted entry for **every nested path** whose segments are valid identifiers
- * (`__FEATURES__.billing`, `__FEATURES__.nested.enabled`, …).
- *
- * The dotted entries are what make dead-code elimination work: esbuild folds a replaced literal
- * (`false ? import('…') : []` → `[]`) and drops the dynamic import *before* Rollup builds the
- * module graph, so the page's chunk is never emitted. A member access on an object literal
- * (`{"enabled":false}.enabled`) is NOT folded, so the object form alone does not DCE — which is why
- * we walk recursively and emit a literal at every depth.
- *
- * Keys that are not valid identifiers (e.g. `'kebab-flag'`) are skipped rather than emitted: a
- * dotted define with such a segment is an `INVALID_DEFINE_CONFIG` build error, and you cannot fold
- * a bracket access anyway. The key still lives inside the whole-object `__FEATURES__` for runtime.
- */
-function featureDefines(features: Record<string, unknown> = {}): Record<string, string> {
-  const define: Record<string, string> = { __FEATURES__: JSON.stringify(features) }
-  const walk = (obj: Record<string, unknown>, prefix: string) => {
-    for (const [key, value] of Object.entries(obj)) {
-      if (!IDENTIFIER_RE.test(key)) continue
-      const path = `${prefix}.${key}`
-      define[path] = JSON.stringify(value)
-      if (value && typeof value === 'object' && !Array.isArray(value)) {
-        walk(value as Record<string, unknown>, path)
-      }
-    }
-  }
-  walk(features, '__FEATURES__')
-  return define
-}
-
 /**
  * Build a Vite config from an app's layer stack. Drop-in for `vite.config.ts`:
  *
@@ -87,9 +71,11 @@ function featureDefines(features: Record<string, unknown> = {}): Record<string, 
  * ```
  *
  * - Layer `vite` fragments are merged low→high (high overrides), mirroring Nuxt's `.reverse()`.
- * - Aliases: `~~`/`@@` → project rootDir; `#layers/<name>` → each layer's rootDir (first-wins).
- *   `@/`/`~/` are handled by {@link layersResolver}, not as plain aliases.
- * - `__FEATURES__` is defined from the merged `features` for build-time dead-code elimination.
+ * - Aliases: `~~`/`@@` → project rootDir; `#layers/<name>` → each layer's rootDir (first-wins);
+ *   `#feature` → the {@link featurePlugin} macro entry. `@/`/`~/` are handled by
+ *   {@link layersResolver}, not as plain aliases.
+ * - Build-time feature flags are compiled by {@link featurePlugin} (the `feature('key')` macro),
+ *   one mechanism for dev and build.
  */
 export function buildViteConfig(appDir: string, options: BuildViteConfigOptions = {}) {
   return defineConfig(async (env) => {
@@ -103,11 +89,20 @@ export function buildViteConfig(appDir: string, options: BuildViteConfigOptions 
 
     const { merged, layers } = stack
     const roots = layers.map(l => l.srcDir)
+    const devtoolsEnabled = options.devtools !== false
+
+    // One shared resolution drives both the resolver plugin and the devtools resolver panel, so the
+    // panel introspects the exact same candidate cache and resolution log. The log is only recorded
+    // when devtools is enabled AND in dev (`serve`) — the panel can't mount during a build, so a
+    // production build does zero per-import recording work.
+    const recordLog = devtoolsEnabled && env.command === 'serve'
+    const resolution = createLayeredResolution({ roots, ...options.resolver, record: recordLog ? 200 : 0 })
 
     const project = layers[0]! // resolveLayerStack always returns at least the project layer
     const alias: Record<string, string> = {
       '~~': project.rootDir,
       '@@': project.rootDir,
+      [FEATURE_MODULE]: FEATURE_FILE, // `#feature` → the macro entry (compiled away by featurePlugin)
     }
     // `#layers/<name>` → layer rootDir. Iterate low→high so the highest-priority layer wins (first-wins).
     for (const l of [...layers].reverse()) alias[`#layers/${l.name}`] = l.rootDir
@@ -125,21 +120,30 @@ export function buildViteConfig(appDir: string, options: BuildViteConfigOptions 
     vite = dedupePlugins(vite)
 
     const plugins: PluginOption[] = [
-      layersResolver({ roots, ...options.resolver }),
+      layersResolver(resolution),
       publicLayersPlugin(layers.map(l => resolve(l.rootDir, 'public'))), // layered public/ assets
       configWatchPlugin(layers.map(l => l.rootDir)), // dev: restart on app.config change
-      featuresRuntimePlugin(merged.features), // dev: supply __FEATURES__ at runtime (define is build-only here)
+      featurePlugin(merged.features), // compile `feature('key')` → literal (dev + build, one mechanism)
     ]
     if (options.tsconfig !== false) {
       // Reuse the already-resolved stack + shared hooks (so the tsconfig plugin doesn't re-resolve
       // and `tsconfig:generate` sees the same handlers).
       plugins.push(tsconfigPlugin(appDir, { ...options.tsconfig, stack, hooks }))
     }
+    if (devtoolsEnabled) {
+      // Inert unless the `@vitejs/devtools` hub mounts it (uses only *type* imports from the kit).
+      plugins.push(
+        layersDevtoolsPlugin({
+          appDir,
+          env,
+          stack,
+          resolution,
+          tsconfig: options.tsconfig === false ? false : (options.tsconfig ?? {}),
+        }),
+      )
+    }
 
-    vite = mergeConfig(vite, {
-      plugins,
-      define: featureDefines(merged.features),
-    })
+    vite = mergeConfig(vite, { plugins })
 
     if (options.vite) vite = mergeConfig(vite, options.vite)
 

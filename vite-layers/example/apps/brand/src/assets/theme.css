@@ -1,0 +1,14 @@
+/* Northwind — a reseller brand. Light, emerald→sky, with rounder corners. This file is the only
+   styling difference from Acme: it shadows main/src/assets/theme.css through the layer resolver. */
+:root {
+  --c-canvas:   #f6fbf8;
+  --c-surface:  #ffffff;
+  --c-ink:      #0b231b;
+  --c-muted:    #5b7a6e;
+  --c-line:     #dcebe3;
+  --c-brand:    #10b981;
+  --c-on-brand: #ffffff;
+  --c-accent:   #0ea5e9;
+  --c-radius:   1.25rem;
+  --c-font:     "Inter", ui-sans-serif, system-ui, sans-serif;
+}

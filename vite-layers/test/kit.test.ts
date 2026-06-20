@@ -13,41 +13,37 @@ async function build(appDir: string): Promise<UserConfig> {
   return (await fn(env)) as UserConfig
 }
 
+const featCtx = {
+  error(m: string | { message: string }): never {
+    throw new Error(typeof m === 'string' ? m : m.message)
+  },
+}
+const runTransform = (plugin: Plugin, code: string, id = '/app/src/x.ts') => {
+  const t = plugin.transform as Plugin['transform']
+  const handler = (typeof t === 'function' ? t : t!.handler) as (
+    this: unknown,
+    c: string,
+    i: string,
+  ) => { code?: unknown } | null
+  return handler.call(featCtx, code, id)
+}
+
 describe('buildViteConfig', () => {
-  it('exposes merged features via __FEATURES__ define (for DCE)', async () => {
+  it('registers the feature macro plugin and aliases #feature to the macro entry', async () => {
     const cfg = await build(fixture('stack/app'))
-    const features = JSON.parse((cfg.define as Record<string, string>).__FEATURES__)
-    expect(features.shared).toBe('app')
-    expect(features).toMatchObject({ app: true, base: true, core: true })
+    const plugins = (cfg.plugins as Plugin[]).flat(Infinity as 1) as Plugin[]
+    expect(plugins.some(p => p?.name === 'vite-layers:features')).toBe(true)
+    const alias = (cfg.resolve as { alias: Record<string, string> }).alias
+    expect(alias['#feature']).toMatch(/\/src\/feature\.ts$/)
   })
 
-  it('emits dotted feature defines (for dead-code elimination of gated imports)', async () => {
+  it('emits no __FEATURES__ define (flags compile via the feature() macro, not define)', async () => {
     const cfg = await build(fixture('stack/app'))
-    const define = cfg.define as Record<string, string>
-    // dotted entry is folded by esbuild to a literal → enables DCE of `__FEATURES__.x ? import() : []`
-    expect(define['__FEATURES__.shared']).toBe('"app"')
-    expect(define['__FEATURES__.app']).toBe('true')
+    const define = (cfg.define ?? {}) as Record<string, string>
+    expect(Object.keys(define).some(k => k.startsWith('__FEATURES__'))).toBe(false)
   })
 
-  it('emits dotted defines at every nesting depth (so nested flags also DCE)', async () => {
-    const cfg = await build(fixture('features/app'))
-    const define = cfg.define as Record<string, string>
-    expect(define['__FEATURES__.billing']).toBe('false')
-    expect(define['__FEATURES__.nested.enabled']).toBe('false') // deep leaf → foldable → DCE-able
-    expect(define['__FEATURES__.nested.deep.on']).toBe('true')
-    expect(define['__FEATURES__.nested']).toBe('{"enabled":false,"deep":{"on":true}}') // intermediate object too
-  })
-
-  it('skips non-identifier feature keys in dotted defines (avoids INVALID_DEFINE_CONFIG crash)', async () => {
-    const cfg = await build(fixture('features/app'))
-    const define = cfg.define as Record<string, string>
-    // a dotted define with `kebab-flag` would crash the build; it is skipped here…
-    expect(define['__FEATURES__.kebab-flag']).toBeUndefined()
-    // …but still readable at runtime via the whole-object define.
-    expect(JSON.parse(define.__FEATURES__)['kebab-flag']).toBe(true)
-  })
-
-  it('runs lifecycle hooks: layers:resolved mutates features (before define), vite:config mutates config', async () => {
+  it('compiles feature() against the merged flags; layers:resolved mutates them first, vite:config runs last', async () => {
     const fn = (await buildViteConfig(fixture('stack/app'), {
       hooks: {
         'layers:resolved': s => void ((s.merged.features ??= {}).injected = true),
@@ -55,9 +51,10 @@ describe('buildViteConfig', () => {
       },
     })) as UserConfigFnObject
     const cfg = (await fn(env)) as UserConfig
-    const define = cfg.define as Record<string, string>
-    expect(define['__FEATURES__.injected']).toBe('true') // layers:resolved ran before featureDefines
-    expect(define.INJECTED).toBe('"yes"') // vite:config ran at the very end
+    const feat = (cfg.plugins as Plugin[]).flat(Infinity as 1).find(p => (p as Plugin)?.name === 'vite-layers:features') as Plugin
+    const out = runTransform(feat, `import { feature } from '#feature'\nexport const a = feature('injected')\n`)
+    expect(String(out?.code)).toContain('export const a = true') // layers:resolved ran before the macro read features
+    expect((cfg.define as Record<string, string>).INJECTED).toBe('"yes"') // vite:config ran at the very end
   })
 
   it('registers the layers resolver plugin', async () => {

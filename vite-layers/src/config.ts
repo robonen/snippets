@@ -3,17 +3,11 @@ import { loadConfig, type ConfigLayer } from 'c12'
 import { createDefu } from 'defu'
 import { glob } from 'tinyglobby'
 import { withoutTrailingSlash, withTrailingSlash } from 'ufo'
-import type { Layer, LayerConfig, LayerStack } from './types'
+import type { Layer, LayerConfig, LayerEdge, LayerStack } from './types'
+import { toPosix } from './util'
 
 /** Identity helper for typed `app.config.ts` files. */
 export const defineLayerConfig = (config: LayerConfig): LayerConfig => config
-
-/**
- * Normalize to forward slashes. c12 returns `cwd` posix-style while node `resolve()` is
- * OS-native (backslashes on Windows); paths must be canonicalized before they are compared
- * for dedup or emitted into a Vite config (where posix is conventional).
- */
-const toPosix = (p: string) => p.replace(/\\/g, '/')
 
 /**
  * Port of Nuxt's layer merger: arrays are concatenated rather than replaced.
@@ -59,6 +53,12 @@ export async function resolveLayerStack(
   // 2) Cycle-guard [improvement]: terminate the recursion on a repeated source.
   const seen = new Set<string>()
 
+  // Capture the extends DAG as c12 walks it. c12 consumes (strips) the `extends`/`_extends` keys from
+  // each resolved layer's config — only the project's survive — so the parent→child edges can't be
+  // reconstructed from the resolved configs afterwards. The `resolve` hook fires once per extend edge
+  // (incl. nested, diamond, and auto-scanned `_extends`), with `opts.cwd` = the extending layer's dir.
+  const edges: LayerEdge[] = []
+
   const { config, layers = [] } = await loadConfig<LayerConfig>({
     cwd,
     configFile: 'app.config',
@@ -71,8 +71,11 @@ export async function resolveLayerStack(
     packageJson: false,
     globalRc: false,
     merger: merger as (...sources: Array<LayerConfig | null | undefined>) => LayerConfig,
-    resolve(id, opts) {
-      const abs = resolve(opts?.cwd ?? cwd, id)
+    resolve(id, ropts) {
+      const from = toPosix(withoutTrailingSlash(ropts?.cwd ?? cwd))
+      const abs = resolve(ropts?.cwd ?? cwd, id)
+      const to = toPosix(withoutTrailingSlash(abs))
+      if (to !== from) edges.push({ from, to, source: id }) // skip c12's self-resolution of the root
       if (seen.has(abs)) return { config: {}, cwd: abs }
       seen.add(abs)
       return undefined
@@ -101,5 +104,5 @@ export async function resolveLayerStack(
     stack.push({ rootDir, srcDir, name: name ?? basename(rootDir), config: layer.config ?? {} })
   }
 
-  return { merged: config, layers: stack }
+  return { merged: config, layers: stack, edges }
 }
