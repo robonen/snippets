@@ -6,7 +6,7 @@
   "description": "Локальный дневник питания: калории, БЖУ, вес. Vue Vapor + vue-sync-engine + IndexedDB, без бэкенда.",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
