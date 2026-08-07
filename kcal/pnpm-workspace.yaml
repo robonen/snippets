@@ -1,7 +1,9 @@
 allowBuilds:
+  sharp: true
   unrs-resolver: true
 minimumReleaseAgeExclude:
   - vite@8.2.1
+  - lucide@1.29.0
 peerDependencyRules:
   allowAny:
     - vue

@@ -46,7 +46,7 @@ export default function FoodsScreen() {
           placeholder="Поиск по каталогу…"
           value={query.value}
           onInput={event => (query.value = event.currentTarget.value)}
-          class="w-full rounded-xl border hairline bg-raised/70 py-2.5 pr-3.5 pl-10 text-[15px] text-ink outline-none transition focus:border-ember/50 placeholder:text-ink-faint"
+          class="w-full rounded-xl border hairline bg-raised/70 py-2.5 pr-3.5 pl-10 text-[16px] text-ink outline-none transition focus:border-ember/50 placeholder:text-ink-faint"
         />
       </div>
 

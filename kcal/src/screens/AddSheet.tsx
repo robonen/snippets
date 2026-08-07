@@ -196,7 +196,8 @@ export default function AddSheet() {
     return Number.isFinite(value) && value >= 0 ? value : 0;
   };
 
-  const fieldClass = 'w-full rounded-xl border hairline bg-raised/70 px-3.5 py-2.5 text-[15px] text-ink outline-none transition focus:border-ember/50 placeholder:text-ink-faint';
+  // 16px обязательны: при меньшем шрифте iOS Safari зумит страницу на фокусе.
+  const fieldClass = 'w-full rounded-xl border hairline bg-raised/70 px-3.5 py-2.5 text-[16px] text-ink outline-none transition focus:border-ember/50 placeholder:text-ink-faint';
   const chipClass = (active: boolean) =>
     `rounded-full border px-3 py-1.5 text-[13px] transition ${active
       ? 'border-ember/60 bg-ember/15 text-ember-bright'

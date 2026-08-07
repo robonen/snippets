@@ -5,7 +5,11 @@
     "jsxImportSource": "vue-jsx-vapor",
     "types": ["node", "vite/client"],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      // vue-sync-engine подключён симлинком и тянет свою vue из devDependencies.
+      // Аналог resolve.dedupe в vite.config.ts, но для резолвинга типов.
+      "vue": ["./node_modules/vue"],
+      "@vue/*": ["./node_modules/@vue/*"]
     }
   },
   "include": ["src", "vite.config.ts", "eslint.config.ts"]

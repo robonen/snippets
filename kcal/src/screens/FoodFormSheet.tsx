@@ -63,7 +63,8 @@ export default function FoodFormSheet() {
     return Number.isFinite(value) && value >= 0 ? value : 0;
   };
 
-  const fieldClass = 'w-full rounded-xl border hairline bg-raised/70 px-3.5 py-2.5 text-[15px] text-ink outline-none transition focus:border-ember/50 placeholder:text-ink-faint';
+  // 16px обязательны: при меньшем шрифте iOS Safari зумит страницу на фокусе.
+  const fieldClass = 'w-full rounded-xl border hairline bg-raised/70 px-3.5 py-2.5 text-[16px] text-ink outline-none transition focus:border-ember/50 placeholder:text-ink-faint';
 
   return (
     <div class="fixed inset-0 z-50 flex items-end justify-center">

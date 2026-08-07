@@ -118,7 +118,8 @@ export default function ProfileScreen(props: { onboarding?: boolean }) {
     return Number.isFinite(value) && value >= 0 ? value : 0;
   };
 
-  const fieldClass = 'w-full rounded-xl border hairline bg-raised/70 px-3.5 py-2.5 text-[15px] text-ink outline-none transition focus:border-ember/50 tnum';
+  // 16px обязательны: при меньшем шрифте iOS Safari зумит страницу на фокусе.
+  const fieldClass = 'w-full rounded-xl border hairline bg-raised/70 px-3.5 py-2.5 text-[16px] text-ink outline-none transition focus:border-ember/50 tnum';
   const chipClass = (active: boolean) =>
     `flex-1 rounded-xl border px-3 py-2 text-[13px] transition ${active
       ? 'border-ember/60 bg-ember/15 text-ember-bright'

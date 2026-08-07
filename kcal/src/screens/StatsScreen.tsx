@@ -258,7 +258,7 @@ export default function StatsScreen() {
             placeholder="Вес сегодня, кг"
             value={weightInput.value || ''}
             onInput={event => (weightInput.value = numeric(event.currentTarget.value))}
-            class="w-full flex-1 rounded-xl border hairline bg-raised/70 px-3.5 py-2.5 text-[15px] text-ink outline-none transition focus:border-ember/50 placeholder:text-ink-faint tnum"
+            class="w-full flex-1 rounded-xl border hairline bg-raised/70 px-3.5 py-2.5 text-[16px] text-ink outline-none transition focus:border-ember/50 placeholder:text-ink-faint tnum"
           />
           <button
             type="button"
