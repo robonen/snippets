@@ -36,8 +36,21 @@ export default defineConfig({
       workbox: {
         // woff тут дубли woff2 от fontsource — в прекеш идёт только woff2.
         globPatterns: ['**/*.{js,css,html,woff2,svg,png,ico}'],
-        // Штрихкоды из Open Food Facts: сеть свежее, но офлайн отдаём кэш.
         runtimeCaching: [
+          // Распознавание штрихкодов на WebKit — ~1 МБ wasm. В прекеш его класть
+          // жалко (нужен не всем), поэтому кэшируем после первого запуска
+          // сканера: дальше он работает и офлайн. Файл с хэшем в имени, так что
+          // CacheFirst безопасен.
+          {
+            urlPattern: /\.wasm$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'wasm',
+              expiration: { maxEntries: 4 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          // Штрихкоды из Open Food Facts: сеть свежее, но офлайн отдаём кэш.
           {
             urlPattern: /^https:\/\/world\.openfoodfacts\.org\/.*/,
             handler: 'NetworkFirst',

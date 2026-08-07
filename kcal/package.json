@@ -22,10 +22,12 @@
     "@robonen/platform": "^0.0.5",
     "@robonen/stdlib": "^0.0.12",
     "@robonen/vue": "^0.2.0",
+    "barcode-detector": "^3.2.1",
     "date-fns": "^4.4.0",
     "lucide": "^1.29.0",
     "vue": "3.6.0-rc.2",
-    "vue-sync-engine": "link:../vue-sync-engine/lib"
+    "vue-sync-engine": "link:../vue-sync-engine/lib",
+    "zxing-wasm": "3.1.1"
   },
   "devDependencies": {
     "@robonen/eslint": "^0.0.1",

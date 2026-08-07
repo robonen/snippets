@@ -168,7 +168,7 @@ export default function StatsScreen() {
             class="absolute right-0 left-0 z-10 border-t border-dashed border-ink-soft/40"
             style={{ bottom: `${(target.value / chartMax.value) * 100}%` }}
           />
-          <div class="flex h-full items-end gap-[3px]">
+          <div class="flex h-full items-end gap-0.75">
             {days.value.map(day => (
               <button
                 type="button"
@@ -177,7 +177,7 @@ export default function StatsScreen() {
                 onClick={() => (selectedBar.value = day.date)}
               >
                 <div
-                  class={`w-full rounded-t-[4px] transition-colors ${day.kcal > 0 ? '' : 'min-h-[2px]'} ${selectedBar.value === day.date
+                  class={`w-full rounded-t-sm transition-colors ${day.kcal > 0 ? '' : 'min-h-0.5'} ${selectedBar.value === day.date
                     ? 'bg-ember-bright'
                     : day.kcal > target.value ? 'bg-over/80 group-hover:bg-over' : 'bg-ember/65 group-hover:bg-ember'}`}
                   style={{ height: `${Math.max((day.kcal / chartMax.value) * 100, day.kcal > 0 ? 2 : 1)}%` }}
