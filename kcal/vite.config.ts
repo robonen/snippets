@@ -10,6 +10,12 @@ import { syncEnginePlugin } from 'vue-sync-engine/plugin';
 // DevTools-ветка движка в dev-режиме.
 export default defineConfig({
   plugins: [vueJsxVapor(), tailwindcss(), syncEnginePlugin({ definitions: ['/src/data/defs.ts'] })],
+  resolve: {
+    // vue-sync-engine подключён симлинком (link:), поэтому его импорты `vue`
+    // уходят в собственную vue из devDependencies движка. Без dedupe в бандл
+    // попадают две копии Vue и mount падает на чужом appContext.
+    dedupe: ['vue'],
+  },
   optimizeDeps: {
     // Движок ходит в virtual-модуль — пребандл прятал бы его от плагина.
     exclude: ['vue-sync-engine'],
