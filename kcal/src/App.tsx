@@ -47,7 +47,7 @@ export default function App() {
   });
 
   return (
-    <div class="mx-auto flex min-h-dvh w-full max-w-105 flex-col px-4 pt-5">
+    <div class="pt-screen-safe mx-auto flex min-h-dvh w-full max-w-105 flex-col px-4">
       {!ready.value && (
         <div class="flex flex-1 items-center justify-center">
           <span class="text-display animate-pulse text-2xl font-light text-ember-bright">Ккал</span>
@@ -62,7 +62,7 @@ export default function App() {
 
       {ready.value && hasProfile.value && (
         <>
-          <main class="flex-1 pb-30">
+          <main class="pb-nav-safe flex-1">
             {activeTab.value === 'diary' && <DiaryScreen />}
             {activeTab.value === 'stats' && <StatsScreen />}
             {activeTab.value === 'foods' && <FoodsScreen />}
@@ -71,7 +71,7 @@ export default function App() {
 
           {/* Нижняя навигация */}
           <nav class="fixed inset-x-0 bottom-0 z-40 flex justify-center">
-            <div class="flex w-full max-w-105 items-end border-t hairline bg-[#151210]/92 px-2 pt-2 pb-[max(env(safe-area-inset-bottom),10px)] backdrop-blur-md">
+            <div class="pb-bar-safe flex w-full max-w-105 items-end border-t hairline bg-[#151210]/92 px-2 pt-2 backdrop-blur-md">
               {TABS.slice(0, 2).map(tab => (
                 <button
                   type="button"

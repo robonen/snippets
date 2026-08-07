@@ -25,29 +25,40 @@
   --color-over-bright: #e8836f;
 }
 
-html {
-  background: var(--color-bg);
-  color-scheme: dark;
-}
+@layer base {
+  html {
+    @apply bg-bg;
 
-body {
-  font-family: var(--font-sans);
-  color: var(--color-ink);
-  background:
-    radial-gradient(120% 70% at 50% 0%, #201b14 0%, var(--color-bg) 55%),
-    var(--color-bg);
-  min-height: 100dvh;
-}
+    color-scheme: dark;
+  }
 
-/* Зерно поверх фона — атмосфера бумаги при свете лампы. */
-body::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 70;
-  opacity: 0.05;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  body {
+    @apply min-h-dvh font-sans text-ink;
+
+    background:
+      radial-gradient(120% 70% at 50% 0%, #201b14 0%, var(--color-bg) 55%),
+      var(--color-bg);
+  }
+
+  /* Зерно поверх фона — атмосфера бумаги при свете лампы. */
+  body::after {
+    @apply pointer-events-none fixed inset-0 z-70 opacity-5;
+
+    content: '';
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* Прячем спиннеры числовых инпутов — порции вводятся с клавиатуры и чипсами. */
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  input[type='number'] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
 }
 
 @utility text-display {
@@ -71,15 +82,39 @@ body::after {
   }
 }
 
-/* Появление контента: мягкий подъём, каскад через animation-delay. */
-@keyframes rise {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
+/*
+ * Каскадные слои на @keyframes не влияют (у анимаций своя область имён,
+ * побеждает последнее объявление) — держим их в base только ради единообразия.
+ */
+@layer base {
+  /* Появление контента: мягкий подъём, каскад через animation-delay. */
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+
+  @keyframes sheet-up {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
 }
 
@@ -87,48 +122,55 @@ body::after {
   animation: rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-@keyframes sheet-up {
-  from {
-    transform: translateY(100%);
-  }
-  to {
-    transform: translateY(0);
-  }
-}
-
 @utility animate-sheet-up {
   animation: sheet-up 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-@keyframes fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
 }
 
 @utility animate-fade-in {
   animation: fade-in 0.25s ease-out both;
 }
 
-/* Кольцо калорий: плавное перетекание дуги при изменении данных. */
-.ring-arc {
-  transition: stroke-dashoffset 0.7s cubic-bezier(0.22, 1, 0.36, 1), stroke 0.4s ease;
+/*
+ * Safe-area. В index.html стоит viewport-fit=cover, поэтому контент уходит под
+ * статус-бар и home indicator — края экрана обязаны добавлять инсеты к своим
+ * отступам. В портрете (манифест фиксирует orientation) боковые инсеты нулевые,
+ * поэтому здесь только верх и низ.
+ */
+@layer utilities {
+  /* Верх экрана: собственный отступ плюс статус-бар/вырез. */
+  .pt-screen-safe {
+    padding-top: calc(--spacing(5) + env(safe-area-inset-top));
+  }
+
+  /* Нижняя панель: отступ не меньше высоты home indicator. */
+  .pb-bar-safe {
+    padding-bottom: max(env(safe-area-inset-bottom), --spacing(2.5));
+  }
+
+  /* Скролл контента заканчивается над панелью навигации, а не под ней. */
+  .pb-nav-safe {
+    padding-bottom: calc(--spacing(30) + env(safe-area-inset-bottom));
+  }
 }
 
-.bar-fill {
-  transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.3s ease;
-}
+@layer components {
+  /* Кольцо калорий: плавное перетекание дуги при изменении данных. */
+  .ring-arc {
+    transition: stroke-dashoffset 0.7s cubic-bezier(0.22, 1, 0.36, 1), stroke 0.4s ease;
+  }
 
-/* Прячем спиннеры числовых инпутов — порции вводятся с клавиатуры и чипсами. */
-input[type='number']::-webkit-outer-spin-button,
-input[type='number']::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-input[type='number'] {
-  -moz-appearance: textfield;
-  appearance: textfield;
+  .bar-fill {
+    transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.3s ease;
+  }
+
+  .sheet-overlay {
+    @apply animate-fade-in absolute inset-0 bg-black/65 backdrop-blur-[2px];
+  }
+
+  /* Лист прижат к низу: фон доходит до края экрана, контент — нет. */
+  .sheet-panel {
+    @apply animate-sheet-up relative flex w-full max-w-105 flex-col rounded-t-3xl border border-b-0 hairline bg-[#191511] shadow-[0_-24px_80px_rgba(0,0,0,0.5)];
+
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 }

@@ -205,9 +205,9 @@ export default function AddSheet() {
 
   return (
     <div class="fixed inset-0 z-50 flex items-end justify-center">
-      <div class="animate-fade-in absolute inset-0 bg-black/65 backdrop-blur-[2px]" onClick={close} />
+      <div class="sheet-overlay" onClick={close} />
 
-      <div class="animate-sheet-up relative flex max-h-[90dvh] w-full max-w-105 flex-col rounded-t-3xl border border-b-0 hairline bg-[#191511] shadow-[0_-24px_80px_rgba(0,0,0,0.5)]">
+      <div class="sheet-panel max-h-[90dvh]">
         {/* Шапка */}
         <div class="flex items-center gap-2 px-5 pt-4 pb-3">
           {step.value !== 'pick' && (
