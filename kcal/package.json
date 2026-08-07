@@ -6,7 +6,8 @@
   "description": "Локальный дневник питания: калории, БЖУ, вес. Vue Vapor + vue-sync-engine + IndexedDB, без бэкенда.",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build:engine": "pnpm --dir ../vue-sync-engine install --frozen-lockfile && pnpm --dir ../vue-sync-engine build:lib",
+    "build": "pnpm run build:engine && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -23,7 +24,7 @@
     "date-fns": "^4.4.0",
     "lucide": "^1.28.0",
     "vue": "3.6.0-rc.2",
-    "vue-sync-engine": "file:../vue-sync-engine/lib"
+    "vue-sync-engine": "link:../vue-sync-engine/lib"
   },
   "devDependencies": {
     "@robonen/eslint": "^0.0.1",
