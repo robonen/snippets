@@ -1,0 +1,41 @@
+{
+  "name": "kcal",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Локальный дневник питания: калории, БЖУ, вес. Vue Vapor + vue-sync-engine + IndexedDB, без бэкенда.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
+  },
+  "dependencies": {
+    "@fontsource-variable/golos-text": "^5.3.0",
+    "@fontsource/spectral": "^5.3.0",
+    "@robonen/platform": "^0.0.5",
+    "@robonen/stdlib": "^0.0.12",
+    "@robonen/vue": "^0.2.0",
+    "date-fns": "^4.4.0",
+    "lucide": "^1.28.0",
+    "vue": "3.6.0-rc.2",
+    "vue-sync-engine": "file:../vue-sync-engine/lib"
+  },
+  "devDependencies": {
+    "@robonen/eslint": "^0.0.1",
+    "@robonen/tsconfig": "^0.1.0",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^25.9.1",
+    "eslint": "^10.8.0",
+    "jiti": "^2.7.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~6.0.3",
+    "vite": "^8.2.1",
+    "vitest": "^4.1.8",
+    "vue-jsx-vapor": "^3.2.19"
+  }
+}

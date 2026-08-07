@@ -1,0 +1,134 @@
+@import 'tailwindcss';
+
+/*
+ * «Вечерний гроссбух»: тёплый угольный фон, кремовые чернила, янтарный акцент.
+ * Цвета данных (ember/protein/fat/carbs) проверены на CVD-разделимость и
+ * контраст к поверхности (OKLCH L 0.48–0.67, C ≥ 0.1, ΔE пар ≥ 8).
+ */
+@theme {
+  --font-sans: 'Golos Text Variable', 'Golos Text', system-ui, sans-serif;
+  --font-display: 'Spectral', 'Iowan Old Style', Georgia, serif;
+
+  --color-bg: #12100d;
+  --color-surface: #1b1815;
+  --color-raised: #262119;
+  --color-ink: #ece4d6;
+  --color-ink-soft: #b3a894;
+  --color-ink-faint: #80766a;
+
+  --color-ember: #cf7728;
+  --color-ember-bright: #eda05b;
+  --color-protein: #2aa08b;
+  --color-fat: #ae8e2c;
+  --color-carbs: #6284d0;
+  --color-over: #cf5f4d;
+  --color-over-bright: #e8836f;
+}
+
+html {
+  background: var(--color-bg);
+  color-scheme: dark;
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--color-ink);
+  background:
+    radial-gradient(120% 70% at 50% 0%, #201b14 0%, var(--color-bg) 55%),
+    var(--color-bg);
+  min-height: 100dvh;
+}
+
+/* Зерно поверх фона — атмосфера бумаги при свете лампы. */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 70;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+@utility text-display {
+  font-family: var(--font-display);
+  font-variant-numeric: lining-nums;
+  letter-spacing: -0.01em;
+}
+
+@utility tnum {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+@utility hairline {
+  border-color: color-mix(in oklab, var(--color-ink) 10%, transparent);
+}
+
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Появление контента: мягкий подъём, каскад через animation-delay. */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@utility animate-rise {
+  animation: rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@utility animate-sheet-up {
+  animation: sheet-up 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@utility animate-fade-in {
+  animation: fade-in 0.25s ease-out both;
+}
+
+/* Кольцо калорий: плавное перетекание дуги при изменении данных. */
+.ring-arc {
+  transition: stroke-dashoffset 0.7s cubic-bezier(0.22, 1, 0.36, 1), stroke 0.4s ease;
+}
+
+.bar-fill {
+  transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.3s ease;
+}
+
+/* Прячем спиннеры числовых инпутов — порции вводятся с клавиатуры и чипсами. */
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}

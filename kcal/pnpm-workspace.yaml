@@ -1,0 +1,8 @@
+allowBuilds:
+  unrs-resolver: true
+minimumReleaseAgeExclude:
+  - vite@8.2.1
+peerDependencyRules:
+  allowAny:
+    - vue
+    - rollup

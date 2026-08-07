@@ -1,0 +1,12 @@
+{
+  "extends": "@robonen/tsconfig/tsconfig.dom.json",
+  "compilerOptions": {
+    "jsx": "preserve",
+    "jsxImportSource": "vue-jsx-vapor",
+    "types": ["node", "vite/client"],
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["src", "vite.config.ts", "eslint.config.ts"]
+}
