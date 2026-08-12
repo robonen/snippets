@@ -1,5 +1,5 @@
-import { readdirSync, statSync } from 'node:fs'
-import { join, relative, resolve } from 'node:path'
+import { statSync } from 'node:fs'
+import { relative, resolve } from 'node:path'
 import type { ConfigEnv } from 'vite'
 import type {
   DevToolsServerCommandInput,
@@ -14,7 +14,7 @@ import { flattenFeatures } from './features'
 import type { LayeredResolution, ResolveRecord } from './resolve'
 import { generateTsConfig, type GenerateTsConfigOptions } from './tsconfig'
 import type { LayerStack } from './types'
-import { toPosix } from './util'
+import { toPosix, walkFiles } from './util'
 
 // ---------------------------------------------------------------------------------------------
 // This module imports **only types** from `@vitejs/devtools-kit` — they are erased at emit, so the
@@ -100,11 +100,10 @@ interface HookRow {
 }
 type TsconfigInfo =
   | { enabled: false }
-  | { enabled: true; paths: Record<string, string[]>; appJson: string; nodeJson: string; dts: string }
+  | { enabled: true; paths: Record<string, string[]>; appJson: string; nodeJson: string; dts: string; superDts: string }
 
 interface Snapshot {
   projectName: string
-  appDir: string
   mode: string
   command: string
   layers: LayerRow[]
@@ -118,30 +117,6 @@ interface Snapshot {
   hooks: HookRow[]
   tsconfig: TsconfigInfo
   inheritanceTree: string
-}
-
-/** Recursively list files under a directory (absolute paths); `[]` if it isn't a directory. */
-function walk(dir: string, out: string[] = []): string[] {
-  let entries: string[]
-  try {
-    entries = readdirSync(dir)
-  } catch {
-    return out
-  }
-  for (const name of entries) {
-    const abs = join(dir, name)
-    // Guard each stat: a broken symlink or a file unlinked between readdir and stat (a real TOCTOU
-    // window under the dev watcher) throws ENOENT — skip it instead of failing the whole snapshot.
-    let isDir: boolean
-    try {
-      isDir = statSync(abs).isDirectory()
-    } catch {
-      continue
-    }
-    if (isDir) walk(abs, out)
-    else out.push(abs)
-  }
-  return out
 }
 
 const asArray = (v: unknown): string[] =>
@@ -247,7 +222,7 @@ async function collectSnapshot(data: LayersDevtoolsData): Promise<Snapshot> {
     })
   const byPath = new Map<string, string[]>()
   for (const { name, dir } of publicLayers) {
-    for (const abs of walk(dir)) {
+    for (const abs of walkFiles(dir)) {
       const rel = toPosix(relative(dir, abs))
       ;(byPath.get(rel) ?? byPath.set(rel, []).get(rel)!).push(name)
     }
@@ -288,12 +263,12 @@ async function collectSnapshot(data: LayersDevtoolsData): Promise<Snapshot> {
       appJson: JSON.stringify(gen.tsconfig, null, 2),
       nodeJson: JSON.stringify(gen.nodeTsconfig, null, 2),
       dts: gen.dts,
+      superDts: gen.superDts,
     }
   }
 
   return {
     projectName: layers[0]?.name ?? 'app',
-    appDir: data.appDir,
     mode: data.env.mode,
     command: data.env.command,
     layers: layerRows,
@@ -538,8 +513,6 @@ function buildFeaturesSpec(snap: Snapshot): JsonRenderSpec {
 
 interface ResolveResult {
   id: string
-  sub: string
-  query: string
   candidates: string[]
   error?: string
 }
@@ -588,9 +561,10 @@ function buildResolverSpec(data: LayersDevtoolsData, query: string, result: Reso
   return s.build(s.vstack(sections, 14, 12))
 }
 
-/** Describe how a record resolved: a normal import, a `super()` self-import, or unresolved. */
+/** Describe how a record resolved: a normal import, `#super`, a `super()` self-import, or unresolved. */
 function recordVia(r: ResolveRecord): string {
   if (r.resolved === null) return 'unresolved'
+  if (r.id.startsWith('#super')) return '#super'
   if (r.selfIndex < 0) return 'top match'
   return `super() #${r.selfIndex + 1}`
 }
@@ -619,7 +593,7 @@ function resolveResultEls(s: Spec, data: LayersDevtoolsData, result: ResolveResu
       })),
       '240px',
     ),
-    s.text('A self-import (an override importing its own path) would super()-skip to the next row down.', 'caption'),
+    s.text('#super (or a self-import of an override’s own path) skips to the next row down.', 'caption'),
   ]
 }
 
@@ -662,6 +636,7 @@ function buildAssetsSpec(snap: Snapshot): JsonRenderSpec {
     sections.push(s.card('.vite-layers/tsconfig.json', [s.code(ts.appJson, 'tsconfig.json')], true))
     sections.push(s.card('.vite-layers/tsconfig.node.json', [s.code(ts.nodeJson, 'tsconfig.node.json')], true))
     sections.push(s.card('.vite-layers/features.d.ts', [s.code(ts.dts, 'features.d.ts')], true))
+    sections.push(s.card('.vite-layers/super.d.ts', [s.code(ts.superDts, 'super.d.ts')], true))
   } else {
     sections.push(s.card('TypeScript', [s.text('tsconfig autogeneration is disabled (tsconfig: false).', 'caption')]))
   }
@@ -693,18 +668,16 @@ const action = (name: string, handler: (params?: Record<string, unknown>) => voi
  */
 function runResolve(data: LayersDevtoolsData, rawId: unknown): ResolveResult {
   const id = String(rawId ?? '').trim()
+  if (!id) return { id, candidates: [], error: 'Enter an import id.' }
   const parsed = data.resolution.parse(id)
-  if (!id) return { id, sub: '', query: '', candidates: [], error: 'Enter an import id.' }
   if (!parsed) {
     return {
       id,
-      sub: '',
-      query: '',
       candidates: [],
       error: `Not a layered id — must start with one of: ${data.resolution.prefixes.join(', ')}`,
     }
   }
-  return { id, sub: parsed.sub, query: parsed.query, candidates: data.resolution.candidates(parsed.sub) }
+  return { id, candidates: data.resolution.candidates(parsed.sub) }
 }
 
 /**

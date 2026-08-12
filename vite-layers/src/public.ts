@@ -1,25 +1,8 @@
-import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync } from 'node:fs'
 import { dirname, join, relative, resolve } from 'node:path'
 import sirv from 'sirv'
 import type { Plugin } from 'vite'
-import { toPosix } from './util'
-
-/** Recursively list files under a directory (absolute paths). */
-function walk(dir: string, out: string[] = []): string[] {
-  for (const name of readdirSync(dir)) {
-    const abs = join(dir, name)
-    // Skip a broken symlink / file removed mid-walk (ENOENT) rather than aborting the public copy.
-    let isDir: boolean
-    try {
-      isDir = statSync(abs).isDirectory()
-    } catch {
-      continue
-    }
-    if (isDir) walk(abs, out)
-    else out.push(abs)
-  }
-  return out
-}
+import { toPosix, walkFiles } from './util'
 
 /**
  * Merged `relativePath → sourceAbs` map across all layers. Walked low→high so the higher-priority
@@ -28,7 +11,7 @@ function walk(dir: string, out: string[] = []): string[] {
 function mergePublic(dirs: string[]): Map<string, string> {
   const assets = new Map<string, string>()
   for (const dir of [...dirs].reverse()) {
-    for (const abs of walk(dir)) assets.set(toPosix(relative(dir, abs)), abs)
+    for (const abs of walkFiles(dir)) assets.set(toPosix(relative(dir, abs)), abs)
   }
   return assets
 }

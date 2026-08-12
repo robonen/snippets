@@ -17,6 +17,7 @@ export {
   createLayeredResolution,
   DEFAULT_EXTENSIONS,
   layersResolver,
+  SUPER_MODULE,
   type LayeredResolution,
   type LayersResolverOptions,
   type ParsedLayeredId,

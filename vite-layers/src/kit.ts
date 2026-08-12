@@ -104,16 +104,17 @@ export function buildViteConfig(appDir: string, options: BuildViteConfigOptions 
       '@@': project.rootDir,
       [FEATURE_MODULE]: FEATURE_FILE, // `#feature` → the macro entry (compiled away by featurePlugin)
     }
-    // `#layers/<name>` → layer rootDir. Iterate low→high so the highest-priority layer wins (first-wins).
-    for (const l of [...layers].reverse()) alias[`#layers/${l.name}`] = l.rootDir
+    // Low→high iteration order: for aliases the highest-priority layer overwrites (first-wins by
+    // name), for config fragments it merges last (higher layers override).
+    const lowToHigh = [...layers].reverse()
+    for (const l of lowToHigh) alias[`#layers/${l.name}`] = l.rootDir
 
     let vite: UserConfig = {
       resolve: { alias },
       build: { outDir: options.outDir ?? `dist/${basename(appDir)}` },
     }
 
-    // Layer fragments: low → high so higher-priority layers override.
-    for (const l of [...layers].reverse()) {
+    for (const l of lowToHigh) {
       const frag = typeof l.config.vite === 'function' ? l.config.vite(env) : l.config.vite
       if (frag) vite = mergeConfig(vite, frag)
     }

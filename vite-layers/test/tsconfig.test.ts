@@ -107,6 +107,32 @@ describe('generateTsConfig', () => {
     expect(r.dts).toContain(`declare module '#feature'`)
   })
 
+  it('maps #super/* to the layers BELOW the project layer (explicit super() is typed)', async () => {
+    const { tsconfig } = await generateTsConfig(fixture('stack/app'))
+    const paths = tsconfig.compilerOptions!.paths as Record<string, string[]>
+    // project layer (app) excluded — super() never resolves to the importer's own layer
+    expect(paths['#super/*']).toEqual(['../../base/src/*', '../../core/src/*'])
+  })
+
+  it('omits #super/* for a single-layer stack (paths forbids empty substitution arrays)', async () => {
+    const stack = {
+      merged: {},
+      layers: [{ rootDir: fixture('stack/app'), srcDir: resolve(fixture('stack/app'), 'src'), name: 'app', config: {} }],
+    }
+    const { tsconfig } = await generateTsConfig(fixture('stack/app'), { stack: stack as never })
+    expect(tsconfig.compilerOptions!.paths).not.toHaveProperty('#super/*')
+  })
+
+  it('emits an ambient super.d.ts so a bare `import "#super"` type-checks', async () => {
+    const r = await generateTsConfig(fixture('stack/app'))
+    expect(r.tsconfig.include).toContain('./super.d.ts')
+    expect(r.superDtsFile.replace(/\\/g, '/')).toMatch(/\/\.vite-layers\/super\.d\.ts$/)
+    expect(r.superDts).toContain(`declare module '#super' {}`)
+    // must stay a SCRIPT file: a top-level import would turn `declare module` into an augmentation
+    // of an unresolvable specifier (TS2664)
+    expect(r.superDts).not.toMatch(/^\s*(import|export)\b/m)
+  })
+
   it('maps #feature to the macro entry so tsc resolves the feature() import', async () => {
     const { tsconfig } = await generateTsConfig(fixture('stack/app'))
     const paths = tsconfig.compilerOptions!.paths as Record<string, string[]>

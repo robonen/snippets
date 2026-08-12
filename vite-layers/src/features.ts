@@ -353,29 +353,29 @@ export function featurePlugin(features: Record<string, unknown> = {}): Plugin {
         if (id.includes('/node_modules/')) return null
         if (!code.includes(FEATURE_MODULE) && !code.includes('vite-layers/feature')) return null
 
-      // A real macro module that fails to parse must NEVER be skipped silently — its feature() calls
-      // would ship uncompiled. oxc reports syntax errors in `errors` (it does not throw) and yields an
-      // empty/partial body, which otherwise looks like "no macro here". So: when the module references
-      // `#feature` in a from-clause, any parse failure is a hard build error; if `#feature` only shows
-      // up in a string/comment, stay out of the way and let the rest of the pipeline proceed.
-      let result: ReturnType<typeof parseSync>
-      try {
+        // A real macro module that fails to parse must NEVER be skipped silently — its feature() calls
+        // would ship uncompiled. oxc reports syntax errors in `errors` (it does not throw) and yields an
+        // empty/partial body, which otherwise looks like "no macro here". So: when the module references
+        // `#feature` in a from-clause, any parse failure is a hard build error; if `#feature` only shows
+        // up in a string/comment, stay out of the way and let the rest of the pipeline proceed.
+        let result: ReturnType<typeof parseSync>
+        try {
         result = parseSync(id.split('?', 1)[0]!, code, { sourceType: 'module', lang: langFromId(id) })
-      } catch (err) {
+        } catch (err) {
         if (FEATURE_FROM_RE.test(code)) {
           this.error(`vite-layers: could not parse ${id} to compile its feature() calls — ${(err as Error)?.message ?? err}`)
         }
         return null
-      }
-      if (result.errors?.length && FEATURE_FROM_RE.test(code)) {
+        }
+        if (result.errors?.length && FEATURE_FROM_RE.test(code)) {
         this.error(`vite-layers: ${id} has syntax errors; cannot safely compile its feature() calls — ${result.errors[0]?.message ?? ''}`)
-      }
-      const program = result.program as unknown as AnyNode
+        }
+        const program = result.program as unknown as AnyNode
 
-      // Pass 1: collect the local binding name(s) imported from our module, and the import nodes.
-      const importDecls: AnyNode[] = []
-      const locals = new Set<string>()
-      for (const node of program.body as AnyNode[]) {
+        // Pass 1: collect the local binding name(s) imported from our module, and the import nodes.
+        const importDecls: AnyNode[] = []
+        const locals = new Set<string>()
+        for (const node of program.body as AnyNode[]) {
         if (node.type === 'ImportDeclaration' && isImportSource(node, FEATURE_SPECIFIERS)) {
           if (node.importKind === 'type') continue // `import type { feature }` — fully erased, ignore
           importDecls.push(node)
@@ -400,15 +400,15 @@ export function featurePlugin(features: Record<string, unknown> = {}): Plugin {
         ) {
           this.error('vite-layers: re-exporting the `feature` macro is not supported — import and call it directly.', node.start)
         }
-      }
-      if (locals.size === 0) return null
+        }
+        if (locals.size === 0) return null
 
-      // Pass 2: every reference to the binding (that isn't shadowed by a local of the same name)
-      // must be a direct `feature('known-key')` call; anything else is a hard error.
-      const s = new MagicString(code)
-      const edits: Array<[number, number, string]> = []
+        // Pass 2: every reference to the binding (that isn't shadowed by a local of the same name)
+        // must be a direct `feature('known-key')` call; anything else is a hard error.
+        const s = new MagicString(code)
+        const edits: Array<[number, number, string]> = []
 
-      const handleRef = (node: AnyNode, parent: AnyNode | null) => {
+        const handleRef = (node: AnyNode, parent: AnyNode | null) => {
         if (parent) {
           // Binding/declaration positions and non-reference uses of the name — not macro calls.
           if (parent.type === 'ImportSpecifier' || parent.type === 'ImportDefaultSpecifier' || parent.type === 'ImportNamespaceSpecifier') return
@@ -439,11 +439,11 @@ export function featurePlugin(features: Record<string, unknown> = {}): Plugin {
             node.start,
           )
         }
-      }
+        }
 
-      // Scope-aware descent: a reference is the macro only if no enclosing scope re-binds its name
-      // (so an unrelated local `feature` param/const/catch/… is left untouched, not falsely rejected).
-      const descend = (node: AnyNode, parent: AnyNode | null, shadow: Set<string>) => {
+        // Scope-aware descent: a reference is the macro only if no enclosing scope re-binds its name
+        // (so an unrelated local `feature` param/const/catch/… is left untouched, not falsely rejected).
+        const descend = (node: AnyNode, parent: AnyNode | null, shadow: Set<string>) => {
         let childShadow = shadow
         if (SCOPE_NODES.has(node.type)) {
           const bound = scopeBindings(node, locals)
@@ -466,13 +466,15 @@ export function featurePlugin(features: Record<string, unknown> = {}): Plugin {
             descend(child as AnyNode, node, childShadow)
           }
         }
-      }
-      descend(program, null, new Set())
+        }
+        descend(program, null, new Set())
 
-      for (const [start, end, text] of edits) s.overwrite(start, end, text)
-      for (const decl of importDecls) s.remove(decl.start, decl.end)
+        for (const [start, end, text] of edits) s.overwrite(start, end, text)
+        for (const decl of importDecls) s.remove(decl.start, decl.end)
 
-      return { code: s.toString(), map: s.generateMap({ source: id, hires: true }) }
+        // 'boundary' maps token boundaries instead of every character — far cheaper than `true`,
+        // accurate enough to step over a substituted feature() call.
+        return { code: s.toString(), map: s.generateMap({ source: id, hires: 'boundary' }) }
       },
     },
   }
