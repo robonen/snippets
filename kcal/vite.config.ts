@@ -1,9 +1,17 @@
 /// <reference types="node" />
 import { defineConfig } from 'vite';
+
 import { nitro } from 'nitro/vite';
 import vueJsxVapor from 'vue-jsx-vapor/vite';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
+
+// Куда nitro кладёт клиентскую статику. На Vercel пресет включается САМ по env
+// `VERCEL` — переменной `NITRO_PRESET` там нет, и проверка только по ней молча
+// уводила прекеш workbox в несуществующий `.output/public`.
+const STATIC_DIR = process.env.NITRO_PRESET === 'vercel' || process.env.VERCEL
+  ? '.vercel/output/static'
+  : '.output/public';
 
 // JSX компилируется сразу в Vapor-код (без interop и virtual DOM).
 // Tailwind v4 подключён как Vite-плагин, конфиг живёт в src/app.css (@theme).
@@ -41,7 +49,7 @@ export default defineConfig({
         // по dist давал бы sw.js с пустым манифестом — офлайн умирал бы молча.
         // Порядок надёжен: nitro собирает статику до генерации sw.js (поэтому
         // же существует scripts/copy-pwa.mjs — он и проверяет манифест).
-        globDirectory: process.env.NITRO_PRESET === 'vercel' ? '.vercel/output/static' : '.output/public',
+        globDirectory: STATIC_DIR,
         // woff тут дубли woff2 от fontsource — в прекеш идёт только woff2.
         globPatterns: ['**/*.{js,css,html,woff2,svg,png,ico}'],
         runtimeCaching: [
@@ -79,21 +87,28 @@ export default defineConfig({
       allow: ['.', '../sync-crdt'],
     },
   },
-  build: {
-    rollupOptions: {
-      output: {
-        /**
-         * Вендоры — отдельными чанками, и это про КЭШ, а не про скорость парсинга:
-         * PWA прекэширует ассеты по хэшам, и при каждом деплое пользователь
-         * докачивает только изменившееся. Код приложения меняется каждый релиз,
-         * Vue и ядро — раз в месяц; в одном чанке правка одной строки дневника
-         * инвалидировала бы все 95 КБ, в раздельных — докачивается ~40.
-         */
-        codeSplitting: {
-          groups: [
-            { name: 'vue', test: /node_modules\/@?vue/, priority: 20 },
-            { name: 'sync', test: /sync-crdt\/packages|alien-signals/, priority: 10 },
-          ],
+  environments: {
+    // Только БРАУЗЕРНОЕ окружение: серверному бандлу дробление вендоров не даёт
+    // ничего (кэша по хэшам там нет), а на общем `build` оно применялось и к
+    // функциям nitro — лишний риск в чужом окружении ради нулевой пользы.
+    client: {
+      build: {
+        rollupOptions: {
+          output: {
+            /**
+             * Вендоры — отдельными чанками, и это про КЭШ, а не про скорость парсинга:
+             * PWA прекэширует ассеты по хэшам, и при каждом деплое пользователь
+             * докачивает только изменившееся. Код приложения меняется каждый релиз,
+             * Vue и ядро — раз в месяц; в одном чанке правка одной строки дневника
+             * инвалидировала бы все 95 КБ, в раздельных — докачивается ~40.
+             */
+            codeSplitting: {
+              groups: [
+                { name: 'vue', test: /node_modules\/@?vue/, priority: 20 },
+                { name: 'sync', test: /sync-crdt\/packages|alien-signals/, priority: 10 },
+              ],
+            },
+          },
         },
       },
     },
