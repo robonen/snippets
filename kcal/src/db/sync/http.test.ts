@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { Land, Link, exchange, fixedClock } from '@sync/core';
 import type { LandId } from '@sync/core';
-import { ROOT } from './models.test-helpers';
-import { syncServer } from '@/db/server';
+import { ROOT } from '../models.test-helpers';
+import { syncServer } from '@/db/sync';
 
 /**
  * Клиент против НАСТОЯЩЕЙ серверной логики: fetch подделан, но за ним стоит
@@ -48,13 +48,13 @@ describe(syncServer, () => {
     const a = device(0x000300);
     a.post(ROOT, ROOT, 'написано до подключения');
 
-    const syncA = syncServer({ land: a, id: LAND, url: 'https://x', token: 't', fetcher: remote.fetcher, intervalMs: 60_000 });
+    const syncA = syncServer({ land: a, id: LAND, url: 'https://x', token: 't', fetcher: remote.fetcher, intervalMs: 60_000, socket: false });
     await syncA.nudge();
     expect(values(remote.land)).toEqual(['написано до подключения']);
 
     // Второе устройство с пустым лендом получает всё одним приветом.
     const b = device(0x800300);
-    const syncB = syncServer({ land: b, id: LAND, url: 'https://x', token: 't', fetcher: remote.fetcher, intervalMs: 60_000 });
+    const syncB = syncServer({ land: b, id: LAND, url: 'https://x', token: 't', fetcher: remote.fetcher, intervalMs: 60_000, socket: false });
     await syncB.nudge();
     expect(values(b)).toEqual(['написано до подключения']);
 
@@ -65,7 +65,7 @@ describe(syncServer, () => {
   it('живая запись уезжает краном без привета', async () => {
     const remote = fakeServer(LAND);
     const a = device(0x000300);
-    const syncA = syncServer({ land: a, id: LAND, url: 'https://x', token: 't', fetcher: remote.fetcher, intervalMs: 60_000 });
+    const syncA = syncServer({ land: a, id: LAND, url: 'https://x', token: 't', fetcher: remote.fetcher, intervalMs: 60_000, socket: false });
     await syncA.nudge();
     const before = remote.requests();
 
@@ -81,7 +81,7 @@ describe(syncServer, () => {
   it('после close ничего не шлётся', async () => {
     const remote = fakeServer(LAND);
     const a = device(0x000300);
-    const syncA = syncServer({ land: a, id: LAND, url: 'https://x', token: 't', fetcher: remote.fetcher, intervalMs: 60_000 });
+    const syncA = syncServer({ land: a, id: LAND, url: 'https://x', token: 't', fetcher: remote.fetcher, intervalMs: 60_000, socket: false });
     await syncA.nudge();
     syncA.close();
     const before = remote.requests();

@@ -10,8 +10,8 @@ import {
 import type { Clock, Space } from '@sync/core';
 import { SEED_FOODS } from '@/db/seed';
 import { KcalModel, writeFood } from '@/db/models';
-import { syncServer } from '@/db/server';
-import type { ServerSync } from '@/db/server';
+import { syncServer } from '@/db/sync';
+import type { ServerSync } from '@/db/sync';
 
 /**
  * Сборка пространства — те самые четыре строки, которые мост намеренно не
