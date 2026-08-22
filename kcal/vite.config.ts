@@ -26,9 +26,13 @@ export default defineConfig({
     nitro(),
     // Установка на домашний экран — единственный способ вывести IndexedDB
     // из-под 7-дневной очистки ITP в WebKit (Safari и Chrome на iOS).
-    VitePWA({
+    ...VitePWA({
       registerType: 'autoUpdate',
       injectRegister: 'auto',
+      // Писать СРАЗУ в статику nitro, а не в `dist`: nitro индексирует public на
+      // сборке, и файл, доложенный после, он отдаёт рендерером — сервис-воркер
+      // приезжал с `text/html` и браузер отказывался его регистрировать вовсе.
+      outDir: STATIC_DIR,
       // Иконки и <link>-теги берутся из pwa-assets.config.ts.
       pwaAssets: { config: true },
       manifest: {
@@ -45,13 +49,18 @@ export default defineConfig({
       },
       workbox: {
         // Прекеш собирается по СТАТИКЕ NITRO, а не по dist: клиентский бандл
-        // nitro уносит в .output/public (Vercel — .vercel/output/static), и глоб
-        // по dist давал бы sw.js с пустым манифестом — офлайн умирал бы молча.
-        // Порядок надёжен: nitro собирает статику до генерации sw.js (поэтому
-        // же существует scripts/copy-pwa.mjs — он и проверяет манифест).
+        // уходит в .output/public (Vercel — .vercel/output/static), и глоб по
+        // dist давал бы sw.js с пустым манифестом — офлайн умирал бы молча.
+        // Итог проверяет scripts/check-pwa.mjs, роняя сборку.
         globDirectory: STATIC_DIR,
         // woff тут дубли woff2 от fontsource — в прекеш идёт только woff2.
         globPatterns: ['**/*.{js,css,html,woff2,svg,png,ico}'],
+        // Оболочка SPA (`index.html`) попадает в прекеш ЗДЕСЬ, на клиентской
+        // фазе, пока файл ещё лежит в статике: дальше nitro забирает его себе как
+        // шаблон рендерера. Без неё `navigateFallback` ссылается на
+        // непрекэшированный адрес и воркер падает `non-precached-url`, унося
+        // с собой весь офлайн. Добавлять её вручную нельзя — будет дубль с
+        // разными ревизиями, а это отказ установки.
         runtimeCaching: [
           // Распознавание штрихкодов на WebKit — ~1 МБ wasm. В прекеш его класть
           // жалко (нужен не всем), поэтому кэшируем после первого запуска
@@ -78,7 +87,13 @@ export default defineConfig({
           },
         ],
       },
-    }),
+    }).map(plugin => ({
+      // Плагин срабатывает в КАЖДОМ окружении, а nitro индексирует статику
+      // между его записями: вторая версия sw.js оказывается длиннее записанной
+      // в индексе, и сервер отдаёт её обрезанной. Держим одну запись — клиентскую.
+      ...plugin,
+      applyToEnvironment: (env: { name: string }) => env.name === 'client',
+    })),
   ],
   server: {
     fs: {

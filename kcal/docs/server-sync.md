@@ -301,11 +301,35 @@ const server = syncServer({ land, id: LAND_ID, url, token }); // новое
   умеет ставить свои заголовки на рукопожатие; HTTP-роут остаётся на
   `authorization: Bearer`.
 
-**Деплой:** `cd server && NITRO_PRESET=vercel vite build`, env — `SYNC_TOKEN`
-(+ `REDIS_URL` из Marketplace для хранилища; без него функции без общего
-состояния бессмысленны). Дымовые скрипты — `server/smoke.mjs` (HTTP) и
-`server/ws-smoke.mjs` (WS): `SYNC_TOKEN=dev-secret vite dev` и
-`node smoke.mjs http://localhost:5173`.
+**Деплой:** `pnpm build` (пресет vercel включается сам по env `VERCEL`), env —
+`SYNC_TOKEN` для функций, `VITE_SYNC_TOKEN` тем же значением для клиента (он
+вшивается НА СБОРКЕ — после добавления нужен новый деплой) и `REDIS_URL` из
+Marketplace: файловый драйвер на Vercel бесполезен, ФС функции эфемерна.
+Драйвер redis из unstorage тянет пакет `ioredis` — он в зависимостях, без него
+сборка падает на рендере чанков. Дымовые скрипты — `server/smoke.mjs` (HTTP) и
+`server/ws-smoke.mjs` (WS): `SYNC_TOKEN=… pnpm dev` и
+`SYNC_TOKEN=… node server/smoke.mjs http://localhost:3000`.
+
+## 7. PWA рядом с nitro — четыре грабли
+
+Сервис-воркер и nitro делят одну статику, и все ошибки здесь тихие: сборка
+зелёная, а офлайн мёртв. Порядок, который работает (закреплён
+`scripts/check-pwa.mjs`, он роняет сборку):
+
+1. **Писать sw.js сразу в статику nitro** (`outDir: STATIC_DIR`). Nitro
+   индексирует public на сборке; файл, доложенный после, он отдаёт рендерером с
+   `text/html`, и браузер отказывается регистрировать такой воркер.
+2. **Плагин PWA — только в клиентском окружении** (`applyToEnvironment`). Иначе
+   он пишет sw.js дважды, индексация проходит между записями, и сервер отдаёт
+   файл обрезанным по устаревшей длине — воркер падает на выполнении.
+3. **`globDirectory` — статика nitro, а не `dist`** (на Vercel это
+   `.vercel/output/static`, и пресет там определяется по env `VERCEL`, а не по
+   `NITRO_PRESET`). Иначе манифест прекеша пуст.
+4. **`index.html` попадает в прекеш только на клиентской фазе**, пока файл ещё
+   лежит в статике: дальше nitro забирает его как шаблон рендерера. Добавлять
+   его руками через `additionalManifestEntries` нельзя — выйдет дубль с разными
+   ревизиями, а это отказ установки. Без него `navigateFallback` роняет воркер
+   ошибкой `non-precached-url`.
 
 ---
 
