@@ -1,0 +1,46 @@
+{
+  "name": "@sync/fiber",
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Fiber reactivity: synchronous reads over asynchronous sources via Suspense.",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json",
+    "./inspect": {
+      "types": "./dist/inspect.d.ts",
+      "import": "./dist/inspect.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsdown",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "bench": "pnpm build && node bench/run.mjs && node --expose-gc bench/memory.mjs && node --expose-gc bench/async.mjs && node bench/compare.mjs && node bench/links.mjs && node --allow-natives-syntax bench/shapes.mjs && node --allow-natives-syntax bench/assert-opt.mjs && node bench/size.mjs",
+    "bench:deopt": "pnpm build && node --trace-deopt bench/run.mjs 2>&1 | grep -iE \"deoptimizing\" | grep -icE \"read|update|put|link\" || true",
+    "bench:probe": "pnpm build && node bench/probe.mjs && node bench/probe-async.mjs",
+    "test:browser": "vitest run --config vitest.browser.config.ts"
+  },
+  "dependencies": {
+    "alien-signals": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@vitest/browser": "catalog:",
+    "@vitest/browser-playwright": "catalog:",
+    "fast-check": "catalog:",
+    "mitata": "catalog:",
+    "playwright": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}
