@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Steam Glow — WebGL</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #02040a; overflow: hidden; }
+  canvas { display: block; width: 100%; height: 100%; }
+  .fallback {
+    color: #7aa7d0; font: 14px/1.5 system-ui, sans-serif;
+    display: grid; place-items: center; height: 100%;
+  }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+
+<script>
+const LOGO_SVG = `<svg width="46" height="46" viewBox="0 0 46 46" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M0.952295 29.6125C3.79136 39.091 12.5781 46 22.982 46C35.6859 46 45.982 35.7039 45.982 23C45.982 10.2961 35.6859 0 22.982 0C10.7992 0 0.826514 9.47852 0.0358887 21.4727C1.52729 23.9703 2.10229 25.5156 0.952295 29.6125Z" fill="url(#g)"/>
+<path d="M21.7962 17.241V17.3578L16.1719 25.5336C15.2645 25.4887 14.3481 25.6504 13.4766 26.0098C13.0903 26.1625 12.7399 26.3602 12.3985 26.5758L0.0449919 21.4817C0.0449919 21.4817 -0.242508 26.1895 0.952414 29.6934L9.68523 33.2961C10.1255 35.2547 11.4731 36.9797 13.4497 37.8063C16.693 39.1629 20.4395 37.6176 21.7872 34.3652C22.1376 33.5207 22.2993 32.6223 22.2813 31.7418L30.3313 25.9828H30.529C35.3446 25.9828 39.2618 22.0567 39.2618 17.232C39.2618 12.4074 35.3446 8.48126 30.529 8.48126C25.7223 8.49025 21.7962 12.4164 21.7962 17.241ZM20.4485 33.8082C19.4063 36.3149 16.5223 37.5098 14.0157 36.4676C12.8567 35.9824 11.9852 35.102 11.4821 34.0508L14.3301 35.2278C16.1809 36.0004 18.3012 35.1199 19.0649 33.2692C19.8376 31.4184 18.9571 29.2981 17.1153 28.5254L14.1774 27.3035C15.3094 26.8723 16.6032 26.8543 17.8071 27.3574C19.02 27.8606 19.9634 28.8129 20.4665 30.0348C20.9606 31.2567 20.9516 32.5953 20.4485 33.8082ZM30.538 23.0719C27.3305 23.0719 24.7161 20.4574 24.7161 17.241C24.7161 14.0246 27.3305 11.4102 30.538 11.4102C33.7454 11.4102 36.3598 14.0246 36.3598 17.241C36.3598 20.4574 33.7454 23.0719 30.538 23.0719ZM26.1716 17.232C26.1716 14.8152 28.1301 12.8477 30.5469 12.8477C32.9637 12.8477 34.9223 14.8063 34.9223 17.232C34.9223 19.6488 32.9637 21.6074 30.5469 21.6074C28.1301 21.6074 26.1716 19.6488 26.1716 17.232Z" fill="white"/>
+<defs>
+<linearGradient id="g" x1="23.013" y1="0.000136203" x2="23.013" y2="46.009" gradientUnits="userSpaceOnUse">
+<stop stop-color="#111D2E"/>
+<stop offset="0.21" stop-color="#051839"/>
+<stop offset="0.41" stop-color="#0A1B48"/>
+<stop offset="0.58" stop-color="#132E62"/>
+<stop offset="0.74" stop-color="#144B7E"/>
+<stop offset="0.87" stop-color="#136497"/>
+<stop offset="1" stop-color="#1387B8"/>
+</linearGradient>
+</defs>
+</svg>`;
+
+const VERT = `#version 300 es
+void main() {
+  // Fullscreen triangle from gl_VertexID, no buffers needed
+  vec2 pos = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2);
+  gl_Position = vec4(pos * 2.0 - 1.0, 0.0, 1.0);
+}`;
+
+const FRAG = `#version 300 es
+precision highp float;
+
+uniform vec2  uRes;
+uniform float uTime;
+uniform sampler2D uLogo;   // rasterized SVG, logo occupies central 80%
+uniform float uLogoReady;
+
+out vec4 outColor;
+
+float hash21(vec2 p) {
+  p = fract(p * vec2(234.34, 435.345));
+  p += dot(p, p + 34.23);
+  return fract(p.x * p.y);
+}
+
+// Dave Hoskins hash: safe at pixel-scale magnitudes, unlike hash21
+// whose degenerate lines show up as moving dotted streaks in the grain
+float hash12(vec2 p) {
+  vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+  p3 += dot(p3, p3.yzx + 33.33);
+  return fract((p3.x + p3.y) * p3.z);
+}
+
+float vnoise(vec2 p) {
+  vec2 i = floor(p), f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash21(i),                 hash21(i + vec2(1, 0)), f.x),
+             mix(hash21(i + vec2(0, 1)),    hash21(i + vec2(1, 1)), f.x), f.y);
+}
+
+float fbm(vec2 p) {
+  float v = 0.0, a = 0.5;
+  for (int i = 0; i < 3; i++) { v += a * vnoise(p); p = p * 2.03 + 11.3; a *= 0.5; }
+  return v;
+}
+
+float sdRBox(vec2 p, vec2 b, float r) {
+  vec2 q = abs(p) - b + r;
+  return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
+}
+
+mat3 rotX(float a) { float c = cos(a), s = sin(a); return mat3(1,0,0,  0,c,s,  0,-s,c); }
+mat3 rotY(float a) { float c = cos(a), s = sin(a); return mat3(c,0,-s, 0,1,0,  s,0,c); }
+mat3 rotZ(float a) { float c = cos(a), s = sin(a); return mat3(c,s,0, -s,c,0,  0,0,1); }
+
+// logo radius in texture uv units; must stay in sync with the 10% raster
+// margin in loadLogo(): (1 - 2*0.1) / 2 = 0.4
+const float LOGO_SCALE = 0.4;
+
+// plane coords (coin radius = rc) -> texture uv
+vec2 logoUV(vec2 u, float rc) {
+  vec2 nu = u / rc;
+  return vec2(0.5 + nu.x * LOGO_SCALE, 0.5 - nu.y * LOGO_SCALE);
+}
+
+const float COIN_R = 0.42;
+const float COIN_H = 0.085;
+const float PITCH = 0.72;   // tile grid step
+const float TILE_TH = 0.06; // slab thickness
+
+// one grid cell's slab: straight rgb + coverage, plus the front-face depth at
+// this pixel (z <= 0, hinge edge at 0) so overlapping neighbors can be
+// depth-sorted. Side-wall pixels reuse the front-plane depth — approximate,
+// but monotonic, which is all the painter's sort needs.
+vec4 shadeTile(vec2 pt, vec2 id, vec3 lightC, float pulse, float px, float t, out float z) {
+  z = -1e3;
+  if (abs(id.x) < 0.5 && abs(id.y) < 0.5) return vec4(0.0); // center cell stays open
+
+  vec2 cellC = id * PITCH;
+  vec2 q = pt - cellC;
+  float hA = hash21(id + 3.7);
+  float rd = length(pt);
+
+  // tilt around the axis perpendicular to the outward direction dirO:
+  // the outer edge recedes, side tiles tip hardest
+  vec2 dirO = normalize(cellC);
+  float theta = (0.75 + 0.25 * hA + 0.08 * sin(t * 0.5 + hA * 6.28))
+              * (0.45 + 0.95 * exp(-length(cellC)));
+  theta = min(theta, 1.35); // keep the projection away from degenerate cos(theta) -> 0
+  float ct = cos(theta), st = sin(theta);
+  float tw = (hA - 0.5) * 0.10;
+  float ctw = cos(tw), stw = sin(tw);
+
+  // screen block of Rz(a)*RotY(theta)*Rz(-a)*Twist is Ra*diag(ct,1)*Ra^T*Tw —
+  // built by hand: no mat3 chains, and the inverse just swaps ct for 1/ct
+  mat2 Ra = mat2(dirO.x, dirO.y, -dirO.y, dirO.x);
+  mat2 Tw = mat2(ctw, stw, -stw, ctw);
+  mat2 At = Ra * mat2(ct, 0.0, 0.0, 1.0) * transpose(Ra) * Tw;
+  mat2 iAt = transpose(Tw) * Ra * mat2(1.0 / ct, 0.0, 0.0, 1.0) * transpose(Ra);
+  vec2 zct = st * dirO;                    // screen shift of the thickness axis
+  vec2 zRow = -st * (transpose(Tw) * dirO); // depth of a plane point = dot(zRow, u - P)
+
+  q += 0.010 * vec2(sin(t * 0.6 + hA * 7.0), cos(t * 0.5 + hA * 9.0)); // slow float
+
+  // hinge on the inner edge like a door: it stays put while the outer edge swings back
+  vec2 P = -0.35 * dirO;
+  vec2 uq = P + iAt * (q - P); // front face plane coords
+  z = dot(zRow, uq - P);
+  float d = sdRBox(uq, vec2(0.35), 0.16);
+  // plane coords are stretched up to 1/ct by the tilt, so widen the AA band to
+  // match one screen pixel (fwidth is off-limits: early return above diverges)
+  float w = px / ct;
+  float m = 1.0 - smoothstep(-w, w, d);
+
+  // slab side wall: the band outside the front face but inside the shifted back face
+  float dB = sdRBox(P + iAt * (q + zct * TILE_TH - P), vec2(0.35), 0.16);
+  float wallMask = smoothstep(w, -w, dB) * smoothstep(-w, w, d);
+  float wallK = clamp(d / max(st * TILE_TH, 1e-4), 0.0, 1.0); // 0 front edge, 1 back
+  vec3 wallC = mix(vec3(0.02, 0.05, 0.14), lightC * 0.85, 0.25 + 0.65 * wallK);
+  wallC *= (1.6 * exp(-rd * 1.2) + 0.25) * pulse;
+
+  float vgrad = clamp(uq.y / 0.65 + 0.5, 0.0, 1.0);
+  vec3 tcol = mix(vec3(0.004, 0.008, 0.03), vec3(0.012, 0.035, 0.10), vgrad);
+  tcol *= 0.80 + 0.25 * hA;
+  // the inner half of each face catches the central light
+  float sOut = dot(uq, dirO);
+  tcol += lightC * 0.16 * pulse * smoothstep(0.35, -0.35, sOut) * (exp(-rd * 1.2) + 0.1);
+  float sheen = fbm(uq * 2.5 + id * 3.1 + t * 0.03);
+  tcol += vec3(0.03, 0.07, 0.16) * sheen * sheen;
+  tcol *= mix(1.0, 0.55, smoothstep(-0.12, 0.0, d)); // darker toward edges
+
+  // radial direction from the tile center approximates the edge normal —
+  // smooth, unlike SDF-gradient derivatives which seam along box diagonals
+  float facing = clamp(dot(normalize(At * uq + 1e-5), normalize(-pt + 1e-4)), 0.0, 1.0);
+  float rim = exp(-max(-d, 0.0) * 42.0) * (0.20 + 0.80 * facing * facing);
+  tcol += lightC * rim * (2.2 * exp(-rd * 1.3) + 0.10) * pulse;
+
+  float a = clamp(m + wallMask, 0.0, 1.0);
+  vec3 c = (tcol * m + wallC * wallMask) / max(a, 1e-4);
+  return vec4(c, a);
+}
+
+void main() {
+  vec2 frag = gl_FragCoord.xy;
+  vec2 p = (2.0 * frag - uRes) / uRes.y;
+  float t = uTime;
+  float px = 2.0 / uRes.y; // one pixel in scene units
+
+  float rd = length(p);
+  float ang = atan(p.y, p.x);
+
+  // breathing of the light source
+  float pulse = 0.85 + 0.15 * sin(t * 0.6) + 0.08 * sin(t * 1.7 + 2.0);
+
+  // slowly shifting light hue: deep blue <-> cyan
+  vec3 cBlue = vec3(0.10, 0.30, 0.95);
+  vec3 cCyan = vec3(0.30, 0.75, 1.05);
+  vec3 cIce  = vec3(0.75, 0.92, 1.05);
+  vec3 lightC = mix(cBlue, cCyan, 0.5 + 0.5 * sin(t * 0.23));
+
+  // ---- background + light behind the tiles ----
+  vec3 col = vec3(0.004, 0.008, 0.02) * (1.0 + 0.4 * fbm(p * 2.0 + t * 0.02));
+
+  float wide = exp(-rd * 2.2);
+  float core = 0.05 / (rd * rd + 0.015);
+  col += lightC * (wide * 1.0 + core) * pulse + cIce * 0.25 * exp(-rd * 5.0);
+
+  // god rays: integer angular harmonics are seam-free at +-PI; the whole fan spins
+  float angR = ang - t * 0.05;
+  float r1 = sin(angR * 6.0  - t * 0.55);
+  float r2 = sin(angR * 11.0 + t * 0.42);
+  float r3 = sin(angR * 4.0  + t * 0.26);
+  // pow(0, k) is undefined in GLSL (NaN on some GPUs -> black dotted rays), keep bases positive
+  float rays = pow(clamp(0.5 + 0.5 * (0.6 * r1 * r2 + 0.4 * r3), 1e-5, 1.0), 3.0);
+  rays *= 0.75 + 0.5 * fbm(vec2(rd * 2.0 - t * 0.15 + 3.0, 3.0));
+  col += lightC * rays * exp(-rd * 1.4) * 1.6 * pulse;
+
+  // two counter-rotating sweep beams — moving glints in the burst
+  float sweep = pow(max(0.5 + 0.5 * cos(ang - t * 0.30), 1e-5), 24.0)
+              + pow(max(0.5 + 0.5 * cos(ang + t * 0.23 + 2.6), 1e-5), 32.0);
+  col += cIce * sweep * exp(-rd * 1.3) * 0.7 * pulse;
+
+  // ---- grid of rounded tiles: tilted 3D slabs bursting away from the center ----
+  vec2 pt = p;
+  // the burst pushes tiles outward: sample the grid slightly pulled-in near the center
+  pt *= 1.0 - 0.025 * exp(-dot(pt, pt) * 1.8) * (0.8 + 0.2 * pulse);
+
+  // tilted slabs lean past their own grid cell, so composite the 2x2 nearest
+  // cells per pixel instead of clipping each tile to the cell it lives in
+  vec2 baseId = floor(pt / PITCH + 0.5);
+  vec2 sgn = step(baseId * PITCH, pt) * 2.0 - 1.0; // sign() would give 0 on cell axes
+  vec4 tcs[4];
+  float tzs[4];
+  for (int i = 0; i < 4; i++) {
+    vec2 nid = baseId + vec2(float(i & 1), float(i >> 1)) * sgn;
+    tcs[i] = shadeTile(pt, nid, lightC, pulse, px, t, tzs[i]);
+  }
+  // painter's algorithm: sort by depth and draw far tiles before near ones
+  for (int a = 0; a < 3; a++)
+    for (int b = a + 1; b < 4; b++)
+      if (tzs[a] > tzs[b]) {
+        vec4 c4 = tcs[a]; tcs[a] = tcs[b]; tcs[b] = c4;
+        float zz = tzs[a]; tzs[a] = tzs[b]; tzs[b] = zz;
+      }
+  // premultiplied "over" accumulation: a plain mix() into a black buffer and a
+  // second mix() by total alpha would weight AA edges by alpha^2 and darken them
+  vec3 tileP = vec3(0.0);
+  float tileA = 0.0;
+  for (int i = 0; i < 4; i++) {
+    tileP = tcs[i].rgb * tcs[i].a + tileP * (1.0 - tcs[i].a);
+    tileA = tcs[i].a + tileA * (1.0 - tcs[i].a);
+  }
+  col = col * (1.0 - tileA) + tileP;
+
+  // a faint trace of light in front of the tiles; the source itself stays behind them
+  col += lightC * rays * 0.18 * exp(-rd * 1.2);
+  col += cIce * sweep * 0.15 * exp(-rd * 1.2);
+
+  // ---- 3D coin with the logo ----
+  // the face points toward the upper-left corner; incommensurate sine stacks
+  // give a small chaotic-looking wobble that never visibly repeats.
+  // keep base + summed amplitudes under ~0.8 rad per axis: past that the face
+  // normal can cross the screen plane and the front face flips away
+  float ax = -(0.38 + 0.10 * sin(t * 0.50) + 0.06 * sin(t * 1.13 + 0.7) + 0.035 * sin(t * 0.29 + 2.1));
+  float ay = -(0.30 + 0.10 * sin(t * 0.33 + 1.3) + 0.06 * sin(t * 0.91 + 4.2) + 0.035 * sin(t * 0.17));
+  float az = 0.12 + 0.06 * sin(t * 0.27) + 0.04 * sin(t * 0.73 + 3.0); // slight CCW twist
+  mat3 R = rotZ(az) * rotX(ax) * rotY(ay);
+  mat2 A  = mat2(R[0].xy, R[1].xy); // plane xy -> screen (orthographic)
+  vec2 zc = R[2].xy;                // screen shift of the thickness axis
+  mat2 iA = inverse(A);
+  // breathing scale: the coin drifts toward the viewer and back
+  float rc = COIN_R * (1.0 + 0.07 * sin(t * 0.45) + 0.025 * sin(t * 1.1 + 2.0));
+
+  vec2 uF = iA * (p - zc * COIN_H); // front face plane coords
+  vec4 texF = texture(uLogo, clamp(logoUV(uF, rc), 0.0, 1.0));
+  float aF = texF.a * uLogoReady;
+
+  // extrusion side: the disc swept from back (k=0) to front (k=1).
+  // |u0 - k*W| is quadratic in k, so the closest layer is analytic — no step banding
+  vec2 u0 = iA * p;
+  vec2 W = iA * (zc * COIN_H);
+  float kMin = clamp(dot(u0, W) / max(dot(W, W), 1e-6), 0.0, 1.0);
+  float dMin = length(u0 - kMin * W);
+  float aaC = fwidth(dMin) * 1.5 + 1e-4;
+  float sideMask = smoothstep(rc + aaC, rc - aaC, dMin) * uLogoReady;
+
+  // side wall: backlit — brighter toward the back
+  float kBack = 1.0 - kMin;
+  vec3 sideC = mix(vec3(0.015, 0.04, 0.12), lightC * 0.7, kBack * kBack * 0.9);
+
+  // texture is uploaded premultiplied (correct mips/bilinear at the silhouette),
+  // un-premultiply for the face color
+  vec3 faceC = texF.rgb / max(texF.a, 1e-3) * 1.1;
+  faceC += lightC * 0.08 * pulse * exp(-rd * 2.0);
+  float faceRim = smoothstep(0.55, 1.0, length(uF) / rc);
+  faceC += cIce * faceRim * faceRim * faceRim * 0.18 * pulse;
+
+  float faceMask = smoothstep(0.35, 0.65, aF);
+
+  // analytic distance to the coin disc: mip-blurred alpha here shows up as pixel blocks
+  float eB = length(iA * p) / rc; // 1.0 = silhouette edge
+
+  // contact shadow the coin casts on the tiles behind it (not on the light itself)
+  float shadow = exp(-max(eB - 1.0, 0.0) * 9.0) * uLogoReady;
+  col *= 1.0 - 0.35 * shadow * tileA;
+
+  col = mix(col, sideC, sideMask);
+  col = mix(col, faceC, faceMask);
+
+  // bright edge right on the silhouette + smooth halo hugging the coin
+  col += cIce * aF * (1.0 - aF) * 2.0 * pulse;
+  float halo = exp(-max(eB - 1.0, 0.0) * 5.0) * uLogoReady;
+  col += lightC * halo * 0.9 * pulse * (1.0 - faceMask) * (1.0 - sideMask);
+
+  // ---- finish ----
+  col *= 1.0 - 0.4 * smoothstep(0.7, 1.7, rd);
+  col = 1.0 - exp(-col * 1.25);
+  col += (hash12(frag + fract(t) * 371.0) - 0.5) * 0.012;
+
+  outColor = vec4(col, 1.0);
+}`;
+
+function compile(gl, type, src) {
+  const sh = gl.createShader(type);
+  gl.shaderSource(sh, src);
+  gl.compileShader(sh);
+  if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+    const log = gl.getShaderInfoLog(sh);
+    gl.deleteShader(sh);
+    throw new Error('Shader compile error: ' + log);
+  }
+  return sh;
+}
+
+function main() {
+  const canvas = document.getElementById('gl');
+  const gl = canvas.getContext('webgl2', { alpha: false, antialias: false });
+  if (!gl) {
+    canvas.remove();
+    document.body.insertAdjacentHTML('beforeend', '<div class="fallback">WebGL2 is not supported</div>');
+    return;
+  }
+
+  let program, uniforms, logoTex, raf = 0;
+
+  function init() {
+    const vs = compile(gl, gl.VERTEX_SHADER, VERT);
+    const fs = compile(gl, gl.FRAGMENT_SHADER, FRAG);
+    program = gl.createProgram();
+    gl.attachShader(program, vs);
+    gl.attachShader(program, fs);
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS))
+      throw new Error('Link error: ' + gl.getProgramInfoLog(program));
+    gl.deleteShader(vs);
+    gl.deleteShader(fs);
+
+    uniforms = {};
+    for (const name of ['uRes', 'uTime', 'uLogo', 'uLogoReady'])
+      uniforms[name] = gl.getUniformLocation(program, name);
+
+    gl.useProgram(program);
+    gl.uniform1i(uniforms.uLogo, 0); // texture unit never changes
+    gl.bindVertexArray(gl.createVertexArray());
+
+    // 1x1 transparent placeholder until the SVG rasterizes
+    logoTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, logoTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4));
+    logoReady = 0;
+    loadLogo();
+  }
+
+  let logoReady = 0;
+  function loadLogo() {
+    const img = new Image();
+    const url = URL.createObjectURL(new Blob([LOGO_SVG], { type: 'image/svg+xml' }));
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const S = 1024, margin = S * 0.1; // 10% margin so mip blur / clamp never smears past the edge
+      const cv = document.createElement('canvas');
+      cv.width = cv.height = S;
+      const ctx = cv.getContext('2d');
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, margin, margin, S - margin * 2, S - margin * 2);
+
+      gl.bindTexture(gl.TEXTURE_2D, logoTex);
+      // premultiplied upload: mips/bilinear at the silhouette average toward
+      // transparent correctly instead of pulling in black RGB from a=0 texels
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv);
+      gl.generateMipmap(gl.TEXTURE_2D);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      logoReady = 1;
+    };
+    img.src = url;
+  }
+
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const timeScale = reduced ? 0.15 : 1.0;
+
+  function frame(now) {
+    raf = requestAnimationFrame(frame);
+    const dpr = Math.min(devicePixelRatio || 1, 2);
+    const w = Math.round(canvas.clientWidth * dpr);
+    const h = Math.round(canvas.clientHeight * dpr);
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+      gl.viewport(0, 0, w, h);
+    }
+
+    gl.useProgram(program);
+    gl.uniform2f(uniforms.uRes, w, h);
+    gl.uniform1f(uniforms.uTime, (now / 1000) * timeScale);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, logoTex);
+    gl.uniform1f(uniforms.uLogoReady, logoReady);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+
+  // save battery: stop rendering while the tab is hidden
+  document.addEventListener('visibilitychange', () => {
+    cancelAnimationFrame(raf);
+    if (!document.hidden) raf = requestAnimationFrame(frame);
+  });
+
+  canvas.addEventListener('webglcontextlost', (e) => {
+    e.preventDefault();
+    cancelAnimationFrame(raf);
+  });
+  canvas.addEventListener('webglcontextrestored', () => {
+    init();
+    raf = requestAnimationFrame(frame);
+  });
+
+  init();
+  raf = requestAnimationFrame(frame);
+}
+
+main();
+</script>
+</body>
+</html>

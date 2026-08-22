@@ -1,19 +1,21 @@
 /// <reference types="node" />
-import { defineConfig } from 'vitest/config';
+import { defineConfig } from 'vite';
+import { nitro } from 'nitro/vite';
 import vueJsxVapor from 'vue-jsx-vapor/vite';
 import tailwindcss from '@tailwindcss/vite';
-import { syncEnginePlugin } from 'vue-sync-engine/plugin';
 import { VitePWA } from 'vite-plugin-pwa';
 
 // JSX компилируется сразу в Vapor-код (без interop и virtual DOM).
 // Tailwind v4 подключён как Vite-плагин, конфиг живёт в src/app.css (@theme).
-// syncEnginePlugin собирает дефы в virtual:sync-engine-registry — его требует
-// DevTools-ветка движка в dev-режиме.
 export default defineConfig({
   plugins: [
     vueJsxVapor(),
     tailwindcss(),
-    syncEnginePlugin({ definitions: ['/src/data/defs.ts'] }),
+    // Сервер синхронизации живёт В ЭТОМ ЖЕ приложении (docs/server-sync.md):
+    // nitro подхватывает server/routes, dev-сервер отдаёт и SPA, и /sync/:land,
+    // а Vercel-пресет собирает статику и функции одним деплоем — роутинг между
+    // ними генерирует сам пресет. У vitest свой конфиг без этого плагина.
+    nitro(),
     // Установка на домашний экран — единственный способ вывести IndexedDB
     // из-под 7-дневной очистки ITP в WebKit (Safari и Chrome на iOS).
     VitePWA({
@@ -34,6 +36,12 @@ export default defineConfig({
         background_color: '#12100d',
       },
       workbox: {
+        // Прекеш собирается по СТАТИКЕ NITRO, а не по dist: клиентский бандл
+        // nitro уносит в .output/public (Vercel — .vercel/output/static), и глоб
+        // по dist давал бы sw.js с пустым манифестом — офлайн умирал бы молча.
+        // Порядок надёжен: nitro собирает статику до генерации sw.js (поэтому
+        // же существует scripts/copy-pwa.mjs — он и проверяет манифест).
+        globDirectory: process.env.NITRO_PRESET === 'vercel' ? '.vercel/output/static' : '.output/public',
         // woff тут дубли woff2 от fontsource — в прекеш идёт только woff2.
         globPatterns: ['**/*.{js,css,html,woff2,svg,png,ico}'],
         runtimeCaching: [
@@ -64,26 +72,55 @@ export default defineConfig({
       },
     }),
   ],
-  resolve: {
-    // vue-sync-engine подключён симлинком (link:), поэтому его импорты `vue`
-    // уходят в собственную vue из devDependencies движка. Без dedupe в бандл
-    // попадают две копии Vue и mount падает на чужом appContext.
-    dedupe: ['vue'],
+  server: {
+    fs: {
+      // Пакеты @sync подключены симлинками из соседнего репозитория — за корнем
+      // проекта; без разрешения серверные роуты не могут загрузить их dist.
+      allow: ['.', '../sync-crdt'],
+    },
   },
-  optimizeDeps: {
-    // Движок ходит в virtual-модуль — пребандл прятал бы его от плагина.
-    exclude: ['vue-sync-engine'],
+  build: {
+    rollupOptions: {
+      output: {
+        /**
+         * Вендоры — отдельными чанками, и это про КЭШ, а не про скорость парсинга:
+         * PWA прекэширует ассеты по хэшам, и при каждом деплое пользователь
+         * докачивает только изменившееся. Код приложения меняется каждый релиз,
+         * Vue и ядро — раз в месяц; в одном чанке правка одной строки дневника
+         * инвалидировала бы все 95 КБ, в раздельных — докачивается ~40.
+         */
+        codeSplitting: {
+          groups: [
+            { name: 'vue', test: /node_modules\/@?vue/, priority: 20 },
+            { name: 'sync', test: /sync-crdt\/packages|alien-signals/, priority: 10 },
+          ],
+        },
+      },
+    },
+  },
+  resolve: {
+    alias: { '@': new URL('./src', import.meta.url).pathname },
+    // @sync/vue подключён симлинком (link:), поэтому его импорт `vue` ушёл бы в
+    // собственную копию из node_modules пакета. Без dedupe в бандле две Vue, и
+    // mount падает на чужом appContext.
+    dedupe: ['vue'],
   },
   define: {
     __VUE_OPTIONS_API__: 'false',
     __VUE_PROD_DEVTOOLS__: 'false',
     __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: 'false',
-    // Dev-ветки vue-sync-engine (DevTools-панель) остаются в `vite dev`,
-    // вырезаются из прод-сборки.
-    __SYNC_ENGINE_DEV__: JSON.stringify(process.env.NODE_ENV !== 'production'),
   },
-  test: {
-    environment: 'node',
-    include: ['src/**/*.test.ts'],
+  nitro: {
+    // Серверные исходники — в `server/` (routes, utils дым-скриптов рядом).
+    serverDir: './server',
+    features: {
+      // WebSocket-транспорт (server/routes/sync/[land].ts); HTTP-роут работает везде.
+      websocket: true,
+    },
+    // Хранилище лендов: в dev — файлы, в бою — Redis (Vercel Marketplace).
+    // Роуты ходят в useStorage('lands') и знают только про байты.
+    storage: process.env.REDIS_URL
+      ? { lands: { driver: 'redis', url: process.env.REDIS_URL, base: 'kcal' } }
+      : { lands: { driver: 'fs', base: './server/.data/lands' } },
   },
 });

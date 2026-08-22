@@ -1,0 +1,285 @@
+{
+  "note": "Кросс-рантайм: одни и те же байты и хэши в Node и в Chromium (docs/11-roadmap.md, DoD S2). Собрано прибором cross-runtime.oracle.mjs — UTF-8 от Buffer, SHA-256 от node:crypto, порядок ключей от Buffer.compare, байты тега выведены руками из таблицы §6. Реализация из src/binary при сборке не участвовала.",
+  "layout": "text: tag = 0x80 | len при len <= 30, иначе 0x9f + LEB128(len − 31), дальше UTF-8; dict: tag = 0xc0 | count при count <= 30, дальше пары «ключ TEXT, значение TEXT» по возрастанию байт ключа",
+  "strings": [
+    {
+      "name": "ascii",
+      "str": "plain",
+      "utf8": "706c61696e",
+      "vary": "85706c61696e",
+      "sha256": "a116c9ed46d6207734a43317d30fd88f52ac8634c37d904bbf4e41d865f90475"
+    },
+    {
+      "name": "пусто",
+      "str": "",
+      "utf8": "",
+      "vary": "80",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "кириллица",
+      "str": "привет, ленд",
+      "utf8": "d0bfd180d0b8d0b2d0b5d1822c20d0bbd0b5d0bdd0b4",
+      "vary": "96d0bfd180d0b8d0b2d0b5d1822c20d0bbd0b5d0bdd0b4",
+      "sha256": "6425da9b828a50bde20f05ae7d8a9c24dc5110a40b7f2eb6558ca22b8165a66c"
+    },
+    {
+      "name": "cjk — по три байта на символ",
+      "str": "中文字符",
+      "utf8": "e4b8ade69687e5ad97e7aca6",
+      "vary": "8ce4b8ade69687e5ad97e7aca6",
+      "sha256": "76b1b5e05a5793dff353fbf1290a0a6ba15b651b11a3dccb4c7e8da55c5c0259"
+    },
+    {
+      "name": "эмодзи — одна суррогатная пара",
+      "str": "😀",
+      "utf8": "f09f9880",
+      "vary": "84f09f9880",
+      "sha256": "f0443a342c5ef54783a111b51ba56c938e474c32324d90c3a60c9c8e3a37e2d9"
+    },
+    {
+      "name": "эмодзи внутри ascii",
+      "str": "a😀b",
+      "utf8": "61f09f988062",
+      "vary": "8661f09f988062",
+      "sha256": "6fba5b2ea783ded096fc2444d540ffbdf49168df30993b155b7efb683313f110"
+    },
+    {
+      "name": "семья через ZWJ",
+      "str": "👨‍👩‍👧‍👦",
+      "utf8": "f09f91a8e2808df09f91a9e2808df09f91a7e2808df09f91a6",
+      "vary": "99f09f91a8e2808df09f91a9e2808df09f91a7e2808df09f91a6",
+      "sha256": "32b7d42dae221e37043eef14ee3525ad7c3c081364c26eb3652709873ee78f15"
+    },
+    {
+      "name": "флаг из региональных индикаторов",
+      "str": "🇷🇺",
+      "utf8": "f09f87b7f09f87ba",
+      "vary": "88f09f87b7f09f87ba",
+      "sha256": "cd8d221b4b943889c25250536fcdccba14c945bbd2a2db1d77c68302abe1754a"
+    },
+    {
+      "name": "математический алфавит",
+      "str": "𝒳𝓁",
+      "utf8": "f09d92b3f09d9381",
+      "vary": "88f09d92b3f09d9381",
+      "sha256": "bddd01d7e5d3c846dc970d39dfcdfccb2b3c3fd2e34b50dd2be9fe36928acb50"
+    },
+    {
+      "name": "тон модификатора кожи",
+      "str": "👍🏿",
+      "utf8": "f09f918df09f8fbf",
+      "vary": "88f09f918df09f8fbf",
+      "sha256": "bf617e41d80f933fb93e0ba6288ab9cac7b5a5b2c05bbb464e0a2f80bb3e25ee"
+    },
+    {
+      "name": "вариационный селектор",
+      "str": "❤️",
+      "utf8": "e29da4efb88f",
+      "vary": "86e29da4efb88f",
+      "sha256": "16e81418a36c58995e00aeb9c261c9ef7fb739b37c72351f511dc3b3a89e5962"
+    },
+    {
+      "name": "комбинирующая диакритика (NFD) — нормализовать нельзя",
+      "str": "é",
+      "utf8": "65cc81",
+      "vary": "8365cc81",
+      "sha256": "bf12767b0f2a56b2190075bae8169f656e3ce8d6357d4aff184bc6c7ea48f9f6"
+    },
+    {
+      "name": "предсоставленный символ (NFC) — другие байты у того же вида",
+      "str": "é",
+      "utf8": "c3a9",
+      "vary": "82c3a9",
+      "sha256": "4a99557e4033c3539de2eb65472017cad5f9557f7a0625a09f1c3f6e2ba69c4c"
+    },
+    {
+      "name": "управляющие символы",
+      "str": "\u0000\u0001\u001f",
+      "utf8": "00011f7f",
+      "vary": "8400011f7f",
+      "sha256": "3d73415fb2539f652804f0bead0f85a7b678ac9279c1aa2ad4e5c7fe504cd4ee"
+    },
+    {
+      "name": "ровно 30 байт UTF-8 — короткая форма аргумента",
+      "str": "яяяяяяяяяяяяяяя",
+      "utf8": "d18fd18fd18fd18fd18fd18fd18fd18fd18fd18fd18fd18fd18fd18fd18f",
+      "vary": "9ed18fd18fd18fd18fd18fd18fd18fd18fd18fd18fd18fd18fd18fd18fd18f",
+      "sha256": "4fc1b18eb1e51f5ce9c48731ce2339348f8d278bf19b668733756ebf756a3910"
+    },
+    {
+      "name": "ровно 32 байта UTF-8 — расширенная форма",
+      "str": "яяяяяяяяяяяяяяяя",
+      "utf8": "d18fd18fd18fd18fd18fd18fd18fd18fd18fd18fd18fd18fd18fd18fd18fd18f",
+      "vary": "9f01d18fd18fd18fd18fd18fd18fd18fd18fd18fd18fd18fd18fd18fd18fd18fd18f",
+      "sha256": "8780b9c0b3174eabb1935c48c48932322974bc42ccc9dad6b9ed7c07014bb11d"
+    },
+    {
+      "name": "длинная строка с эмодзи, за 200 байт",
+      "str": "ёжик 🌫️🌫️🌫️🌫️🌫️🌫️🌫️🌫️🌫️🌫️🌫️🌫️🌫️🌫️🌫️🌫️🌫️🌫️🌫️🌫️🌫️🌫️🌫️🌫️🌫️🌫️🌫️🌫️🌫️🌫️",
+      "utf8": "d191d0b6d0b8d0ba20f09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88f",
+      "vary": "9fbc01d191d0b6d0b8d0ba20f09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88ff09f8cabefb88f",
+      "sha256": "15ff5ac40f66746cf5229d42c11c39479f6390ed828b19615f686363917d02f3"
+    },
+    {
+      "name": "плоскость 16, последний код-пойнт",
+      "str": "􏿿",
+      "utf8": "f48fbfbf",
+      "vary": "84f48fbfbf",
+      "sha256": "708b8add9f6b5b556a07b72973b10ff9a3ec30e002034ef24aa076fab4b40e50"
+    },
+    {
+      "name": "BOM в середине",
+      "str": "a﻿b",
+      "utf8": "61efbbbf62",
+      "vary": "8561efbbbf62",
+      "sha256": "47a12dcb64e9ad8dc2c0819464d72388679ea0da7811edea2acedaf2f13deda7"
+    },
+    {
+      "name": "U+FFFD как настоящий символ, а не подстановка",
+      "str": "�",
+      "utf8": "efbfbd",
+      "vary": "83efbfbd",
+      "sha256": "83d544ccc223c057d2bf80d3f2a32982c32c3c0db8e2674820da5064783fb097"
+    }
+  ],
+  "dicts": [
+    {
+      "name": "ключи вне ASCII: порядок по байтам, не по UTF-16",
+      "pairs": [
+        [
+          "я",
+          "a"
+        ],
+        [
+          "😀",
+          "b"
+        ],
+        [
+          "�",
+          "c"
+        ],
+        [
+          "a",
+          "d"
+        ],
+        [
+          "Я",
+          "e"
+        ]
+      ],
+      "order": [
+        "a",
+        "Я",
+        "я",
+        "�",
+        "😀"
+      ],
+      "vary": "c58161816482d0af816582d18f816183efbfbd816384f09f98808162"
+    },
+    {
+      "name": "числоподобные ключи: порядок перечисления движка не должен просочиться",
+      "pairs": [
+        [
+          "10",
+          "x"
+        ],
+        [
+          "2",
+          "y"
+        ],
+        [
+          "1",
+          "z"
+        ],
+        [
+          "ё",
+          "w"
+        ]
+      ],
+      "order": [
+        "1",
+        "10",
+        "2",
+        "ё"
+      ],
+      "vary": "c48131817a82313081788132817982d1918177"
+    },
+    {
+      "name": "ключ с суррогатной парой длиннее ключа-префикса",
+      "pairs": [
+        [
+          "😀😀",
+          "a"
+        ],
+        [
+          "😀",
+          "b"
+        ]
+      ],
+      "order": [
+        "😀",
+        "😀😀"
+      ],
+      "vary": "c284f09f9880816288f09f9880f09f98808161"
+    },
+    {
+      "name": "NFC и NFD рядом — это два разных ключа",
+      "pairs": [
+        [
+          "é",
+          "nfd"
+        ],
+        [
+          "é",
+          "nfc"
+        ],
+        [
+          "e",
+          "ascii"
+        ]
+      ],
+      "order": [
+        "e",
+        "é",
+        "é"
+      ],
+      "vary": "c381658561736369698365cc81836e666482c3a9836e6663"
+    }
+  ],
+  "rejects": [
+    {
+      "name": "одинокий верхний суррогат",
+      "units": [
+        55296
+      ]
+    },
+    {
+      "name": "одинокий нижний суррогат",
+      "units": [
+        56320
+      ]
+    },
+    {
+      "name": "верхний суррогат перед буквой",
+      "units": [
+        55357,
+        120
+      ]
+    },
+    {
+      "name": "перевёрнутая пара",
+      "units": [
+        56832,
+        55357
+      ]
+    },
+    {
+      "name": "верхний суррогат в конце строки",
+      "units": [
+        120,
+        55357
+      ]
+    }
+  ]
+}

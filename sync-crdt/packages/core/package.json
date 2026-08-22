@@ -1,0 +1,41 @@
+{
+  "name": "@sync/core",
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Local-first CRDT core: units, lands, pawns, sync.",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "types": "./dist/index.d.ts",
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsdown",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:browser": "vitest run --config vitest.browser.config.ts",
+    "typecheck": "tsc --noEmit",
+    "bench": "tsdown -c tsdown.bench.config.ts && node --expose-gc bench/run.mjs"
+  },
+  "dependencies": {
+    "@sync/fiber": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@vitest/browser": "catalog:",
+    "@vitest/browser-playwright": "catalog:",
+    "fake-indexeddb": "catalog:",
+    "fast-check": "catalog:",
+    "mitata": "catalog:",
+    "playwright": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

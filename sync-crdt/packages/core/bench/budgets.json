@@ -1,0 +1,1742 @@
+{
+  "measuredAt": "2026-08-22T09:30:32.557Z",
+  "node": "v24.19.0",
+  "platform": "darwin/arm64",
+  "note": "База для сравнения. Регресс > 10 % — красный билд (PRINCIPLES.md, правило 2).",
+  "order_ns": {
+    "flat/100": {
+      "sands": 100,
+      "visible": 100,
+      "stalled_share": 0,
+      "equal_to_naive": true,
+      "order": {
+        "avg_ns": 9781.23,
+        "p50_ns": 9776.86,
+        "p99_ns": 9810.77
+      },
+      "orderNaive": {
+        "avg_ns": 12180.29,
+        "p50_ns": 12189.92,
+        "p99_ns": 12216.94
+      },
+      "resolveNaive": {
+        "avg_ns": 3266.14,
+        "p50_ns": 3254.67,
+        "p99_ns": 3329.98
+      },
+      "ratio_order_vs_naive": 0.8,
+      "layout_share_of_order": 0.67
+    },
+    "flat/1000": {
+      "sands": 1000,
+      "visible": 1000,
+      "stalled_share": 0,
+      "equal_to_naive": true,
+      "order": {
+        "avg_ns": 111102.92,
+        "p50_ns": 110375,
+        "p99_ns": 133584
+      },
+      "orderNaive": {
+        "avg_ns": 150407.58,
+        "p50_ns": 148667,
+        "p99_ns": 169875
+      },
+      "resolveNaive": {
+        "avg_ns": 39369.37,
+        "p50_ns": 39317.03,
+        "p99_ns": 39475.75
+      },
+      "ratio_order_vs_naive": 0.74,
+      "layout_share_of_order": 0.65
+    },
+    "flat/10000": {
+      "sands": 10000,
+      "visible": 10000,
+      "stalled_share": 0,
+      "equal_to_naive": true,
+      "order": {
+        "avg_ns": 1607487.29,
+        "p50_ns": 1571542,
+        "p99_ns": 2829583
+      },
+      "orderNaive": {
+        "avg_ns": 2379042.02,
+        "p50_ns": 2341625,
+        "p99_ns": 4041666
+      },
+      "resolveNaive": {
+        "avg_ns": 632827.86,
+        "p50_ns": 617750,
+        "p99_ns": 666375
+      },
+      "ratio_order_vs_naive": 0.68,
+      "layout_share_of_order": 0.61
+    },
+    "tombstones30/100": {
+      "sands": 100,
+      "visible": 70,
+      "stalled_share": 0.7,
+      "equal_to_naive": true,
+      "order": {
+        "avg_ns": 19495.67,
+        "p50_ns": 19399.15,
+        "p99_ns": 19506.01
+      },
+      "orderNaive": {
+        "avg_ns": 11995.95,
+        "p50_ns": 11998.04,
+        "p99_ns": 12017.83
+      },
+      "resolveNaive": {
+        "avg_ns": 3257.05,
+        "p50_ns": 3255.65,
+        "p99_ns": 3299.46
+      },
+      "ratio_order_vs_naive": 1.63,
+      "layout_share_of_order": 0.83
+    },
+    "tombstones30/1000": {
+      "sands": 1000,
+      "visible": 700,
+      "stalled_share": 0.7,
+      "equal_to_naive": true,
+      "order": {
+        "avg_ns": 226738.95,
+        "p50_ns": 225833,
+        "p99_ns": 236875
+      },
+      "orderNaive": {
+        "avg_ns": 144069.75,
+        "p50_ns": 143333,
+        "p99_ns": 151084
+      },
+      "resolveNaive": {
+        "avg_ns": 39299.86,
+        "p50_ns": 39323.15,
+        "p99_ns": 39476.63
+      },
+      "ratio_order_vs_naive": 1.57,
+      "layout_share_of_order": 0.83
+    },
+    "tombstones30/10000": {
+      "sands": 10000,
+      "visible": 7000,
+      "stalled_share": 0.7,
+      "equal_to_naive": true,
+      "order": {
+        "avg_ns": 3155026.18,
+        "p50_ns": 3113250,
+        "p99_ns": 3917959
+      },
+      "orderNaive": {
+        "avg_ns": 2382388.23,
+        "p50_ns": 2346708,
+        "p99_ns": 4013375
+      },
+      "resolveNaive": {
+        "avg_ns": 627943.79,
+        "p50_ns": 612375,
+        "p99_ns": 673667
+      },
+      "ratio_order_vs_naive": 1.32,
+      "layout_share_of_order": 0.8
+    },
+    "moved200/100": {
+      "sands": 184,
+      "visible": 100,
+      "stalled_share": 0.65,
+      "equal_to_naive": true,
+      "order": {
+        "avg_ns": 21396.35,
+        "p50_ns": 21166,
+        "p99_ns": 25875
+      },
+      "orderNaive": {
+        "avg_ns": 15745.8,
+        "p50_ns": 15654.73,
+        "p99_ns": 15834.09
+      },
+      "resolveNaive": {
+        "avg_ns": 5156.43,
+        "p50_ns": 5162.65,
+        "p99_ns": 5182.41
+      },
+      "ratio_order_vs_naive": 1.36,
+      "layout_share_of_order": 0.76
+    },
+    "moved200/1000": {
+      "sands": 1179,
+      "visible": 1000,
+      "stalled_share": 0.99,
+      "equal_to_naive": true,
+      "order": {
+        "avg_ns": 387009.25,
+        "p50_ns": 388458,
+        "p99_ns": 482667
+      },
+      "orderNaive": {
+        "avg_ns": 287497.77,
+        "p50_ns": 285750,
+        "p99_ns": 312208
+      },
+      "resolveNaive": {
+        "avg_ns": 46059.03,
+        "p50_ns": 46182.35,
+        "p99_ns": 46298.05
+      },
+      "ratio_order_vs_naive": 1.35,
+      "layout_share_of_order": 0.88
+    },
+    "moved200/10000": {
+      "sands": 10195,
+      "visible": 10000,
+      "stalled_share": 1,
+      "equal_to_naive": true,
+      "order": {
+        "avg_ns": 3947786.68,
+        "p50_ns": 3877334,
+        "p99_ns": 5014166
+      },
+      "orderNaive": {
+        "avg_ns": 3425381.35,
+        "p50_ns": 3381375,
+        "p99_ns": 4863958
+      },
+      "resolveNaive": {
+        "avg_ns": 642852.81,
+        "p50_ns": 627625,
+        "p99_ns": 686250
+      },
+      "ratio_order_vs_naive": 1.15,
+      "layout_share_of_order": 0.84
+    },
+    "nested/100x100/one-head": {
+      "sands": 10000,
+      "visible": 100,
+      "stalled_share": 0,
+      "equal_to_naive": true,
+      "order": {
+        "avg_ns": 60948.38,
+        "p50_ns": 60208,
+        "p99_ns": 118583
+      },
+      "orderNaive": {
+        "avg_ns": 64373.07,
+        "p50_ns": 63875,
+        "p99_ns": 79625
+      },
+      "resolveNaive": {
+        "avg_ns": 53413.94,
+        "p50_ns": 53420.28,
+        "p99_ns": 53434.68
+      },
+      "ratio_order_vs_naive": 0.95,
+      "layout_share_of_order": 0.12
+    },
+    "nested/100x100/all-heads": {
+      "sands": 10000,
+      "visible": 10000,
+      "order": {
+        "avg_ns": 6021599.83,
+        "p50_ns": 6015625,
+        "p99_ns": 6108625
+      },
+      "orderNaive": {
+        "avg_ns": 6592591.3,
+        "p50_ns": 6586792,
+        "p99_ns": 6682042
+      },
+      "ratio_order_vs_naive": 0.91
+    },
+    "budget": {
+      "spec": "order() на 1000 детей ≤ 2 мс (docs/11-roadmap.md, S3)",
+      "limit_ns": 2000000,
+      "measured_ns": 111102.92,
+      "passed": true
+    }
+  },
+  "link_ns": {
+    "from/pawn": {
+      "avg_ns": 59.11,
+      "p50_ns": 58.74,
+      "p99_ns": 73.66
+    },
+    "parse/pawn": {
+      "avg_ns": 256.04,
+      "p50_ns": 254.4,
+      "p99_ns": 279.86
+    },
+    "toString/cached": {
+      "avg_ns": 3.25,
+      "p50_ns": 3.21,
+      "p99_ns": 3.47
+    },
+    "toString/cold": {
+      "avg_ns": 293.72,
+      "p50_ns": 292.6,
+      "p99_ns": 315.13
+    },
+    "equals/same": {
+      "avg_ns": 32.44,
+      "p50_ns": 28.36,
+      "p99_ns": 121.58
+    },
+    "equals/other": {
+      "avg_ns": 6.67,
+      "p50_ns": 6.61,
+      "p99_ns": 6.93
+    },
+    "map.get": {
+      "avg_ns": 24.88,
+      "p50_ns": 24.45,
+      "p99_ns": 33.98
+    },
+    "map.get/cold": {
+      "avg_ns": 496.43,
+      "p50_ns": 493.37,
+      "p99_ns": 519.05
+    },
+    "relate": {
+      "avg_ns": 93.17,
+      "p50_ns": 92.29,
+      "p99_ns": 110.71
+    },
+    "resolve": {
+      "avg_ns": 127.85,
+      "p50_ns": 127.16,
+      "p99_ns": 142.36
+    },
+    "xor": {
+      "avg_ns": 72.43,
+      "p50_ns": 72.49,
+      "p99_ns": 88.39
+    },
+    "memory_bytes": {
+      "bytes_only": 288,
+      "bytes_and_text": 472
+    },
+    "budget": {
+      "spec": "бюджеты зафиксированы в bench/link.mjs до первого замера",
+      "passed": true,
+      "from/pawn": {
+        "limit_ns": 120,
+        "measured_ns": 59.11,
+        "passed": true
+      },
+      "parse/pawn": {
+        "limit_ns": 400,
+        "measured_ns": 256.04,
+        "passed": true
+      },
+      "toString/cached": {
+        "limit_ns": 10,
+        "measured_ns": 3.25,
+        "passed": true
+      },
+      "toString/cold": {
+        "limit_ns": 500,
+        "measured_ns": 293.72,
+        "passed": true
+      },
+      "equals/same": {
+        "limit_ns": 40,
+        "measured_ns": 32.44,
+        "passed": true
+      },
+      "map.get": {
+        "limit_ns": 150,
+        "measured_ns": 24.88,
+        "passed": true
+      }
+    }
+  },
+  "vary_ns": {
+    "encode/int": {
+      "avg_ns": 63.95,
+      "p50_ns": 63.43,
+      "p99_ns": 78.09
+    },
+    "encode/str-short": {
+      "avg_ns": 92.06,
+      "p50_ns": 91.71,
+      "p99_ns": 106.01
+    },
+    "encode/str-4k": {
+      "avg_ns": 11216.24,
+      "p50_ns": 11183.96,
+      "p99_ns": 11384.41
+    },
+    "encode/str-4k-ascii": {
+      "avg_ns": 867.97,
+      "p50_ns": 759.34,
+      "p99_ns": 1271.19
+    },
+    "encode/arr-100": {
+      "avg_ns": 1285.62,
+      "p50_ns": 1261.57,
+      "p99_ns": 1402.28
+    },
+    "encode/nested": {
+      "avg_ns": 1314.81,
+      "p50_ns": 1302.87,
+      "p99_ns": 1433.76
+    },
+    "encode/blob-32k": {
+      "avg_ns": 2938.62,
+      "p50_ns": 2960.21,
+      "p99_ns": 3133.29
+    },
+    "decode/int": {
+      "avg_ns": 14.79,
+      "p50_ns": 14.64,
+      "p99_ns": 18.97
+    },
+    "decode/str-short": {
+      "avg_ns": 41.59,
+      "p50_ns": 41.27,
+      "p99_ns": 55.59
+    },
+    "decode/str-4k": {
+      "avg_ns": 4834.83,
+      "p50_ns": 4848.28,
+      "p99_ns": 4884.72
+    },
+    "decode/str-4k-ascii": {
+      "avg_ns": 392.31,
+      "p50_ns": 413.73,
+      "p99_ns": 478.01
+    },
+    "decode/arr-100": {
+      "avg_ns": 1431.6,
+      "p50_ns": 1429.43,
+      "p99_ns": 1462.99
+    },
+    "decode/nested": {
+      "avg_ns": 1613.46,
+      "p50_ns": 1608.37,
+      "p99_ns": 1656.57
+    },
+    "decode/blob-32k": {
+      "avg_ns": 1864.38,
+      "p50_ns": 1946.25,
+      "p99_ns": 2039.79
+    },
+    "equal/same": {
+      "avg_ns": 2889.88,
+      "p50_ns": 2833.53,
+      "p99_ns": 3474.64
+    },
+    "equal/reordered": {
+      "avg_ns": 2855.49,
+      "p50_ns": 2799.12,
+      "p99_ns": 3460.1
+    },
+    "bytes": {
+      "int": 4,
+      "str-short": 6,
+      "str-4k": 5997,
+      "str-4k-ascii": 4099,
+      "arr-100": 401,
+      "nested": 139,
+      "blob-32k": 32772
+    },
+    "alloc_floor_ns": {
+      "int": 28.34,
+      "str-short": 28.99,
+      "str-4k": 886.17,
+      "str-4k-ascii": 753.67,
+      "arr-100": 258.44,
+      "nested": 223.1,
+      "blob-32k": 1453.47
+    },
+    "vs_json": {
+      "int": {
+        "vary_bytes": 4,
+        "json_bytes": 7,
+        "ratio": 0.57
+      },
+      "str-short": {
+        "vary_bytes": 6,
+        "json_bytes": 7,
+        "ratio": 0.86
+      },
+      "str-4k": {
+        "vary_bytes": 5997,
+        "json_bytes": 5996,
+        "ratio": 1
+      },
+      "arr-100": {
+        "vary_bytes": 401,
+        "json_bytes": 695,
+        "ratio": 0.58
+      },
+      "nested": {
+        "vary_bytes": 139,
+        "json_bytes": 197,
+        "ratio": 0.71
+      }
+    },
+    "gate_s2": {
+      "spec": "кодирование значения ≤ 1 мкс (docs/11-roadmap.md, S2)",
+      "limit_ns": 1000,
+      "inline_value_ns": 92.06,
+      "inline_passed": true,
+      "nested_object_ns": 1314.81,
+      "nested_passed": false,
+      "native_json_ns": 1230,
+      "note": "Строгое прочтение (вложенный объект на 139 Б) не пройдено и НЕДОСТИЖИМО: тот же объём работы у нативного JSON.stringify + TextEncoder стоит 1.23 мкс, то есть само обещание в 1 мкс ниже пола движка на этих данных — а мы идём с ним вровень, выдавая 139 байт против 197 и сохраняя Date и BigInt точно. Из измеренного ~220 нс — цена выдачи свежего Uint8Array: V8 выносит хранилище типизированного массива из кучи при размере больше 64 Б. Прочтение «значение, которое влезает в юнит» (≤ 62 Б) пройдено с запасом в 10 раз, и именно оно отвечает формату: 139 байт в юнит inline не кладутся вовсе — такое значение уезжает в ball."
+    },
+    "budget": {
+      "spec": "бюджеты зафиксированы в bench/vary.mjs до первого замера",
+      "passed": false,
+      "encode/int": {
+        "limit_ns": 100,
+        "measured_ns": 63.95,
+        "passed": true
+      },
+      "decode/int": {
+        "limit_ns": 100,
+        "measured_ns": 14.79,
+        "passed": true
+      },
+      "encode/str-short": {
+        "limit_ns": 150,
+        "measured_ns": 92.06,
+        "passed": true
+      },
+      "decode/str-short": {
+        "limit_ns": 150,
+        "measured_ns": 41.59,
+        "passed": true
+      },
+      "encode/str-4k": {
+        "limit_ns": 13000,
+        "measured_ns": 11216.24,
+        "passed": true
+      },
+      "decode/str-4k": {
+        "limit_ns": 6000,
+        "measured_ns": 4834.83,
+        "passed": true
+      },
+      "encode/arr-100": {
+        "limit_ns": 2000,
+        "measured_ns": 1285.62,
+        "passed": true
+      },
+      "decode/arr-100": {
+        "limit_ns": 3000,
+        "measured_ns": 1431.6,
+        "passed": true
+      },
+      "encode/nested": {
+        "limit_ns": 1600,
+        "measured_ns": 1314.81,
+        "passed": true
+      },
+      "decode/nested": {
+        "limit_ns": 1500,
+        "measured_ns": 1613.46,
+        "passed": false
+      },
+      "encode/blob-32k": {
+        "limit_ns": 5000,
+        "measured_ns": 2938.62,
+        "passed": true
+      },
+      "decode/blob-32k": {
+        "limit_ns": 5000,
+        "measured_ns": 1864.38,
+        "passed": true
+      }
+    }
+  },
+  "vary_reference_ns": {
+    "decode/int": {
+      "avg_ns": 14.76,
+      "p50_ns": 14.61,
+      "p99_ns": 18.83
+    },
+    "decode/str-short": {
+      "avg_ns": 46.23,
+      "p50_ns": 45.99,
+      "p99_ns": 59.01
+    },
+    "decode/str-1k": {
+      "avg_ns": 1273.31,
+      "p50_ns": 1273.59,
+      "p99_ns": 1316.36
+    },
+    "decode/arr-100": {
+      "avg_ns": 1435.02,
+      "p50_ns": 1430.86,
+      "p99_ns": 1460.71
+    },
+    "decode/nested": {
+      "avg_ns": 1642.51,
+      "p50_ns": 1646.66,
+      "p99_ns": 1683.54
+    },
+    "decode/blob-1k": {
+      "avg_ns": 328.79,
+      "p50_ns": 269.71,
+      "p99_ns": 786.07
+    },
+    "reference/int": {
+      "avg_ns": 66.07,
+      "p50_ns": 65.32,
+      "p99_ns": 85.35
+    },
+    "reference/str-short": {
+      "avg_ns": 110.51,
+      "p50_ns": 109.75,
+      "p99_ns": 126.62
+    },
+    "reference/str-1k": {
+      "avg_ns": 6504.67,
+      "p50_ns": 6474.18,
+      "p99_ns": 6613.49
+    },
+    "reference/arr-100": {
+      "avg_ns": 6785.56,
+      "p50_ns": 6782.3,
+      "p99_ns": 6806.84
+    },
+    "reference/nested": {
+      "avg_ns": 4858.49,
+      "p50_ns": 4851.68,
+      "p99_ns": 4905.09
+    },
+    "reference/blob-1k": {
+      "avg_ns": 377.69,
+      "p50_ns": 322.78,
+      "p99_ns": 830.89
+    },
+    "bytes": {
+      "int": 4,
+      "str-short": 6,
+      "str-1k": 1499,
+      "arr-100": 402,
+      "nested": 139,
+      "blob-1k": 1027
+    },
+    "ratio_reference_vs_decode": {
+      "int": 4.48,
+      "str-short": 2.39,
+      "str-1k": 5.11,
+      "arr-100": 4.73,
+      "nested": 2.96,
+      "blob-1k": 1.15
+    },
+    "property_run_ns": 6342.06,
+    "property_runs_total_ms": 285.39,
+    "budget": {
+      "spec": "независимый разбор не медленнее боевого в 60 раз (иначе сверка на 45 000 прогонов не влезает в CI)",
+      "limit_ratio": 60,
+      "worst_case": "str-1k",
+      "worst_ratio": 5.11,
+      "passed": true,
+      "note": "Прибор написан прямолинейно намеренно: bigint вместо чисел, свой разбор UTF-8, каждое правило каноничности отдельной проверкой. Разрыв — это цена оптимизаций vary.ts, а не дефект прибора."
+    }
+  },
+  "unit_ns": {
+    "make/inline": {
+      "avg_ns": 343.94,
+      "p50_ns": 341.91,
+      "p99_ns": 386.21
+    },
+    "make/gift": {
+      "avg_ns": 108.47,
+      "p50_ns": 107.42,
+      "p99_ns": 123.35
+    },
+    "make/seal": {
+      "avg_ns": 352.93,
+      "p50_ns": 322.5,
+      "p99_ns": 534.28
+    },
+    "make/pass": {
+      "avg_ns": 116.14,
+      "p50_ns": 116.27,
+      "p99_ns": 133.7
+    },
+    "parse/sand": {
+      "avg_ns": 56.09,
+      "p50_ns": 55.78,
+      "p99_ns": 61.06
+    },
+    "parse/mixed": {
+      "avg_ns": 58.52,
+      "p50_ns": 57.8,
+      "p99_ns": 66.27
+    },
+    "read/time": {
+      "avg_ns": 4.59,
+      "p50_ns": 4.56,
+      "p99_ns": 4.68
+    },
+    "read/tick": {
+      "avg_ns": 4.07,
+      "p50_ns": 4.04,
+      "p99_ns": 4.17
+    },
+    "read/peer/cached": {
+      "avg_ns": 4.69,
+      "p50_ns": 4.66,
+      "p99_ns": 4.93
+    },
+    "read/head/cached": {
+      "avg_ns": 5.67,
+      "p50_ns": 5.64,
+      "p99_ns": 6.67
+    },
+    "read/value/cached": {
+      "avg_ns": 7.55,
+      "p50_ns": 7.5,
+      "p99_ns": 7.77
+    },
+    "read/peer/cold": {
+      "avg_ns": 134.12,
+      "p50_ns": 133.95,
+      "p99_ns": 153.81
+    },
+    "read/value/cold": {
+      "avg_ns": 199.54,
+      "p50_ns": 194.61,
+      "p99_ns": 221.31
+    },
+    "read/path": {
+      "avg_ns": 48.61,
+      "p50_ns": 48.58,
+      "p99_ns": 56.58
+    },
+    "compare": {
+      "avg_ns": 11.65,
+      "p50_ns": 11.58,
+      "p99_ns": 14.58
+    },
+    "compare/tie": {
+      "avg_ns": 17.25,
+      "p50_ns": 17.19,
+      "p99_ns": 18.96
+    },
+    "compare/same": {
+      "avg_ns": 14.03,
+      "p50_ns": 13.98,
+      "p99_ns": 14.7
+    },
+    "compare/object": {
+      "avg_ns": 2.5,
+      "p50_ns": 2.46,
+      "p99_ns": 2.79
+    },
+    "sort/1000": {
+      "avg_ns": 127962.29,
+      "p50_ns": 127834,
+      "p99_ns": 131333
+    },
+    "sort/1000/object": {
+      "avg_ns": 107934.82,
+      "p50_ns": 107834,
+      "p99_ns": 109542
+    },
+    "dataview/make": {
+      "avg_ns": 58.21,
+      "p50_ns": 57.86,
+      "p99_ns": 72.48
+    },
+    "dataview/read": {
+      "avg_ns": 2.57,
+      "p50_ns": 2.53,
+      "p99_ns": 2.63
+    },
+    "dataview/read/cold": {
+      "avg_ns": 53.93,
+      "p50_ns": 53.65,
+      "p99_ns": 65.1
+    },
+    "memory_bytes": {
+      "view_only": 88,
+      "view_and_links": 1272,
+      "own_buffer": 368,
+      "dataview": 136,
+      "plain_object": 88
+    },
+    "ratio_compare_binary_vs_object": 4.66,
+    "ratio_read_manual_vs_dataview": 1.79,
+    "budget": {
+      "spec": "бюджеты зафиксированы в bench/unit.mjs до первого замера",
+      "passed": true,
+      "make/inline": {
+        "limit_ns": 400,
+        "measured_ns": 343.94,
+        "passed": true
+      },
+      "parse/sand": {
+        "limit_ns": 80,
+        "measured_ns": 56.09,
+        "passed": true
+      },
+      "read/time": {
+        "limit_ns": 10,
+        "measured_ns": 4.59,
+        "passed": true
+      },
+      "read/peer/cached": {
+        "limit_ns": 15,
+        "measured_ns": 4.69,
+        "passed": true
+      },
+      "read/value/cached": {
+        "limit_ns": 15,
+        "measured_ns": 7.55,
+        "passed": true
+      },
+      "compare": {
+        "limit_ns": 40,
+        "measured_ns": 11.65,
+        "passed": true
+      },
+      "sort/1000": {
+        "limit_ns": 400000,
+        "measured_ns": 127962.29,
+        "passed": true
+      },
+      "memory/view": {
+        "limit_bytes": 200,
+        "measured_bytes": 88,
+        "passed": true
+      }
+    }
+  },
+  "unit_reference_ns": {
+    "native/sand/inline": {
+      "avg_ns": 729.05,
+      "p50_ns": 725.98,
+      "p99_ns": 750.3
+    },
+    "native/sand/big": {
+      "avg_ns": 749.59,
+      "p50_ns": 746.11,
+      "p99_ns": 775.49
+    },
+    "native/gift": {
+      "avg_ns": 296.77,
+      "p50_ns": 295.03,
+      "p99_ns": 320.15
+    },
+    "native/seal/5": {
+      "avg_ns": 472.33,
+      "p50_ns": 469.25,
+      "p99_ns": 515.36
+    },
+    "native/pass/ed25519": {
+      "avg_ns": 226.41,
+      "p50_ns": 225.06,
+      "p99_ns": 248.69
+    },
+    "reference/sand/inline": {
+      "avg_ns": 4251.6,
+      "p50_ns": 4248.5,
+      "p99_ns": 4298.68
+    },
+    "reference/sand/big": {
+      "avg_ns": 2526.84,
+      "p50_ns": 2518.24,
+      "p99_ns": 2613.57
+    },
+    "reference/gift": {
+      "avg_ns": 2549.43,
+      "p50_ns": 2547.96,
+      "p99_ns": 2577.13
+    },
+    "reference/seal/5": {
+      "avg_ns": 7719.73,
+      "p50_ns": 7715.08,
+      "p99_ns": 7733.31
+    },
+    "reference/pass/ed25519": {
+      "avg_ns": 2458.49,
+      "p50_ns": 2452.38,
+      "p99_ns": 2486.25
+    },
+    "compare/native": {
+      "avg_ns": 12.49,
+      "p50_ns": 12.38,
+      "p99_ns": 16.1
+    },
+    "compare/memcmp": {
+      "avg_ns": 9.34,
+      "p50_ns": 9.3,
+      "p99_ns": 9.84
+    },
+    "compare/oracle": {
+      "avg_ns": 12.36,
+      "p50_ns": 12.16,
+      "p99_ns": 20.6
+    },
+    "bytes": {
+      "sand/inline": 72,
+      "sand/big": 48,
+      "gift": 48,
+      "seal/5": 144,
+      "pass/ed25519": 48
+    },
+    "ratio_reference_vs_native": {
+      "sand/inline": 5.83,
+      "sand/big": 3.37,
+      "gift": 8.59,
+      "seal/5": 16.34,
+      "pass/ed25519": 10.86
+    },
+    "memcmp_speedup_vs_native_compare": 1.34,
+    "sweep_run_ns": 4848.39,
+    "sweep_total_ms": 290.9,
+    "budget": {
+      "spec": "бюджеты зафиксированы в bench/unit-reference.mjs до первого замера",
+      "passed": true,
+      "reference/slowdown": {
+        "limit_ratio": 60,
+        "measured_ratio": 16.34,
+        "worst_case": "seal/5",
+        "passed": true
+      },
+      "reference/sweep": {
+        "limit_ms": 5000,
+        "measured_ms": 290.9,
+        "runs": 60000,
+        "passed": true
+      }
+    },
+    "read_observation": {
+      "note_ns": 5000,
+      "measured_ns": 7719.73,
+      "worst_case": "seal/5"
+    },
+    "note": "Прибор написан прямолинейно намеренно: DataView на каждое чтение (как обещает §2), копия на каждое поле, отдельный проход по каждому нулевому байту. Разрыв — цена отказа от DataView в бою, а не дефект прибора. memcmp 14 байт меряется как цена ОБЕЩАНИЯ §2: оно быстрее, но даёт другой порядок (см. unit-diff.prop.test.ts)."
+  },
+  "pack_ns": {
+    "encode/100": {
+      "avg_ns": 2281.69,
+      "p50_ns": 2119.88,
+      "p99_ns": 2660.56
+    },
+    "encode/1000": {
+      "avg_ns": 22762.84,
+      "p50_ns": 22619.15,
+      "p99_ns": 22880.22
+    },
+    "encode/10000": {
+      "avg_ns": 215751.5,
+      "p50_ns": 211000,
+      "p99_ns": 347417
+    },
+    "decode/100": {
+      "avg_ns": 10272.68,
+      "p50_ns": 10258.07,
+      "p99_ns": 10290.21
+    },
+    "decode/1000": {
+      "avg_ns": 95705.45,
+      "p50_ns": 94833,
+      "p99_ns": 104000
+    },
+    "decode/10000": {
+      "avg_ns": 953090.94,
+      "p50_ns": 943000,
+      "p99_ns": 1249584
+    },
+    "decode/100/arena": {
+      "avg_ns": 15946.98,
+      "p50_ns": 15957.12,
+      "p99_ns": 16073.74
+    },
+    "decode/1000/arena": {
+      "avg_ns": 145009.76,
+      "p50_ns": 144459,
+      "p99_ns": 156500
+    },
+    "decode/10000/arena": {
+      "avg_ns": 1507779.02,
+      "p50_ns": 1446667,
+      "p99_ns": 3922750
+    },
+    "decode/10000/holed": {
+      "avg_ns": 733807.22,
+      "p50_ns": 730500,
+      "p99_ns": 1004708
+    },
+    "decode/faces/1000": {
+      "avg_ns": 95454.75,
+      "p50_ns": 93583,
+      "p99_ns": 134333
+    },
+    "encode/faces/1000": {
+      "avg_ns": 29378.62,
+      "p50_ns": 28667,
+      "p99_ns": 45333
+    },
+    "decode/10000/balls": {
+      "avg_ns": 1347126.06,
+      "p50_ns": 1330791,
+      "p99_ns": 1725375
+    },
+    "encode/10000/balls": {
+      "avg_ns": 634966.45,
+      "p50_ns": 614417,
+      "p99_ns": 951500
+    },
+    "roundtrip/10000": {
+      "avg_ns": 1184265.12,
+      "p50_ns": 1178875,
+      "p99_ns": 1353083
+    },
+    "memory_bytes": {
+      "per_unit_bytes": 197,
+      "pack_bytes": 640024
+    },
+    "ns_per_unit_decode_10000": 95.31,
+    "budget": {
+      "spec": "packDecode 10 000 юнитов ≤ 20 мс (DoD S2); остальные бюджеты зафиксированы в bench/pack.mjs до первого замера",
+      "passed": true,
+      "decode/10000": {
+        "limit_ns": 20000000,
+        "measured_ns": 953090.94,
+        "passed": true
+      },
+      "encode/10000": {
+        "limit_ns": 20000000,
+        "measured_ns": 215751.5,
+        "passed": true
+      },
+      "decode/10000/arena": {
+        "limit_ns": 30000000,
+        "measured_ns": 1507779.02,
+        "passed": true
+      },
+      "decode/100": {
+        "limit_ns": 200000,
+        "measured_ns": 10272.68,
+        "passed": true
+      },
+      "memory/unit": {
+        "limit_bytes": 200,
+        "measured_bytes": 197,
+        "passed": true
+      }
+    }
+  },
+  "cross_runtime_ns": {
+    "spec": "один набор в двух движках: гейт S2 в обоих и расхождение ≤ 2× (PRINCIPLES.md, правило 2)",
+    "node": "v24.19.0",
+    "chromium": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.7922.34 Safari/537.36",
+    "fixture": {
+      "node": "7745b8b5",
+      "chromium": "7745b8b5",
+      "same": true
+    },
+    "cases": {
+      "vary/encode/dict": {
+        "note": "кодирование значения — бюджет S2 ≤ 1 мкс",
+        "node_ns": 952.89,
+        "chromium_ns": 840,
+        "ratio": 0.88,
+        "same_bytes": true,
+        "check": "bf00a5e0",
+        "within_ratio": true
+      },
+      "vary/decode/dict": {
+        "note": "разбор того же значения",
+        "node_ns": 1128.98,
+        "chromium_ns": 890,
+        "ratio": 0.79,
+        "same_bytes": true,
+        "check": "bf00a5e0",
+        "within_ratio": true
+      },
+      "vary/encode/emoji": {
+        "note": "строка из суррогатных пар — тот самый UTF-8, где движки и расходятся",
+        "node_ns": 612.23,
+        "chromium_ns": 745,
+        "ratio": 1.22,
+        "same_bytes": true,
+        "check": "240d0916",
+        "within_ratio": true
+      },
+      "pack/decode/10000": {
+        "note": "гейт S2 — разбор пачки на 10 000 юнитов ≤ 20 мс",
+        "node_ns": 1025750,
+        "chromium_ns": 960000,
+        "ratio": 0.94,
+        "same_bytes": true,
+        "check": "7745b8b5",
+        "within_ratio": true
+      },
+      "pack/encode/10000": {
+        "note": "обратная сторона провода",
+        "node_ns": 486541.65,
+        "chromium_ns": 219999.99,
+        "ratio": 0.45,
+        "same_bytes": true,
+        "check": "7745b8b5",
+        "within_ratio": true
+      },
+      "link/parse": {
+        "note": "разбор текста ссылки: свой base64url в обе стороны",
+        "node_ns": 16174.66,
+        "chromium_ns": 14460,
+        "ratio": 0.89,
+        "same_bytes": true,
+        "check": "256c4e15",
+        "within_ratio": true
+      },
+      "link/hash": {
+        "note": "WebCrypto — единственное место, где считает не наш код",
+        "node_ns": 11272.06,
+        "chromium_ns": 1750,
+        "ratio": 0.16,
+        "same_bytes": true,
+        "check": "cf2dec9c",
+        "within_ratio": true
+      }
+    },
+    "budget": {
+      "passed": true,
+      "ratio_limit": 2,
+      "worst_ratio": {
+        "case": "vary/encode/emoji",
+        "ratio": 1.22,
+        "passed": true
+      },
+      "pack/decode/10000/node": {
+        "limit_ns": 20000000,
+        "measured_ns": 1025750,
+        "passed": true
+      },
+      "pack/decode/10000/chromium": {
+        "limit_ns": 20000000,
+        "measured_ns": 960000,
+        "passed": true
+      },
+      "vary/encode/dict/node": {
+        "limit_ns": 1000,
+        "measured_ns": 952.89,
+        "passed": true
+      },
+      "vary/encode/dict/chromium": {
+        "limit_ns": 1000,
+        "measured_ns": 840,
+        "passed": true
+      }
+    }
+  },
+  "size_bytes": {
+    "spec": "минифицированный + gzip; budget из PRINCIPLES.md. Судит РЕАЛИСТИЧНЫЙ импорт: barrel целиком потребитель не платит никогда",
+    "passed": false,
+    "index": {
+      "minified_bytes": 84823,
+      "gzip_bytes": 27824,
+      "limit_bytes": 20480,
+      "passed": false
+    },
+    "realImport": {
+      "minified_bytes": 80948,
+      "gzip_bytes": 26549,
+      "limit_bytes": 20480,
+      "passed": false
+    }
+  },
+  "land_s4": {
+    "build/10000": {
+      "avg_ns": 3393513.64,
+      "p50_ns": 3317292,
+      "p99_ns": 4948917
+    },
+    "floor/encode+memcpy": {
+      "avg_ns": 70709.98,
+      "p50_ns": 69916,
+      "p99_ns": 74333
+    },
+    "order/1000": {
+      "avg_ns": 19757.9,
+      "p50_ns": 18917,
+      "p99_ns": 29750
+    },
+    "order/1000-fan": {
+      "avg_ns": 55958,
+      "p50_ns": 53667,
+      "p99_ns": 65250
+    },
+    "apply/fresh-1000": {
+      "avg_ns": 240665.06,
+      "p50_ns": 233250,
+      "p99_ns": 292667
+    },
+    "apply/repeat-1000": {
+      "avg_ns": 222757.5,
+      "p50_ns": 222500,
+      "p99_ns": 245625
+    },
+    "wire/adopt-10000": {
+      "avg_ns": 2198264.18,
+      "p50_ns": 2154917,
+      "p99_ns": 3981917
+    },
+    "wire/apply-10000": {
+      "avg_ns": 3315157.39,
+      "p50_ns": 3262125,
+      "p99_ns": 4358000
+    },
+    "floor/packDecode-10000": {
+      "avg_ns": 982377.71,
+      "p50_ns": 972625,
+      "p99_ns": 1282959
+    },
+    "read/warm": {
+      "avg_ns": 9.37,
+      "p50_ns": 9.33,
+      "p99_ns": 9.59
+    },
+    "floor/map-get-smi": {
+      "avg_ns": 2.31,
+      "p50_ns": 2.27,
+      "p99_ns": 2.36
+    },
+    "invalidate/one-of-10000": {
+      "avg_ns": 217.36
+    },
+    "invalidate/recomputed": 1,
+    "memory/per-unit": 188.18,
+    "floor/arena-bytes": 65.54,
+    "memory/per-unit-read": 884.1,
+    "wire/units-10000": {
+      "avg_ns": 896382.72,
+      "p50_ns": 884125,
+      "p99_ns": 1187083
+    },
+    "wire/roundtrip-10000": {
+      "avg_ns": 1102109.75,
+      "p50_ns": 1102375,
+      "p99_ns": 1259375
+    },
+    "budgets": {
+      "build/10000": {
+        "limit": 4000000,
+        "measured": 3393513.64,
+        "passed": true,
+        "why": "локальная запись ≤ 400 нс/юнит: прототип на `Link` платил 799, из них ~330 — сами ссылки, а здесь байты пишутся прямо в арену"
+      },
+      "order/1000": {
+        "limit": 30000,
+        "measured": 19757.9,
+        "passed": true,
+        "why": "21.8 мкс — группировка на Int32Array (ADR-016); + обход плотного списка детей и материализация видов"
+      },
+      "apply/fresh-1000": {
+        "limit": 400000,
+        "measured": 240665.06,
+        "passed": true,
+        "why": "306 мкс у «ленивого» с тем же трёхуровневым индексом плюс копия байт"
+      },
+      "read/warm": {
+        "limit": 72,
+        "measured": 9.37,
+        "passed": true,
+        "why": "дано техзаданием S4; у прототипов 22.2 и 68.6 нс — разброс из-за карты версий против плотного массива"
+      },
+      "invalidate/one-of-10000": {
+        "limit": 1500,
+        "measured": 217.36,
+        "passed": true,
+        "why": "579 нс у «ленивого», 1.65 мкс у «бинарного»; берём нижнюю границу с запасом на трёхуровневый индекс"
+      },
+      "wire/adopt-10000": {
+        "limit": 4000000,
+        "measured": 2198264.18,
+        "passed": true,
+        "why": "2.87 мс у «ленивого» (чужой буфер главой арены) + плотная нумерация трёх id на юнит"
+      },
+      "wire/units-10000": {
+        "limit": 1500000,
+        "measured": 896382.72,
+        "passed": true,
+        "why": "путь ВЫДАЧИ, которого гейт раньше не касался вовсе. Пол: `SandUnit` на юнит — 56.8 нс разбора (замер S2) × 10 000 ≈ 570 мкс, плюс обход трёхуровневого индекса. Число зафиксировано ДО первого запуска"
+      },
+      "wire/roundtrip-10000": {
+        "limit": 2500000,
+        "measured": 1102109.75,
+        "passed": true,
+        "why": "то, что делает реплика-транзит: `units()` + `packEncode`. Пол — сумма двух: ~570 мкс на виды и 220 мкс на кодирование пачки (замер S2)"
+      },
+      "memory/per-unit": {
+        "limit": 190,
+        "measured": 188.18,
+        "passed": true,
+        "why": "166 Б опорных (ленд с уровнем пиров, никто не читал) + 8 на обратную таблицу «номер → id» + 12 на плотный список детей и метку головы + запас"
+      },
+      "invalidate/recomputed": {
+        "limit": 1,
+        "measured": 1,
+        "passed": true
+      }
+    }
+  },
+  "model_s4": {
+    "field/warm": {
+      "limit_ns": 500,
+      "why": "docs/05 §8.5: тёплое чтение поля ≤ 500 нс при цели ≤ 50. Путь — стрелка канала → cell.value(head) → Map.get по ЧИСЛУ → Fiber.read (проверка битфилда и возврат кэша). Запас ×10 к цели взят сознательно: ячейка на модель платит Map.get там, где «канал = собственный файбер» платил бы 1–3 нс (docs/05 §7.1), и размен признан в тексте, а не спрятан",
+      "measured": 15.89,
+      "passed": true,
+      "floor_ns": 11.76,
+      "over_floor": 1.35
+    },
+    "field/warm-heap": {
+      "limit_b": 0,
+      "why": "правило 5 горячего пути: тёплое чтение не должно создавать ни замыкания, ни массива аргументов, ни промежуточного объекта. Проверяется heap-delta, а не на глаз. Ноль — потому что при валидном кэше аллоцировать нечего вовсе",
+      "measured": 1.75,
+      "passed": false
+    },
+    "field/cold": {
+      "limit_ns": 3000,
+      "why": "docs/05 §8.5: первое чтение поля ≤ 3 мкс. Внутри — два создания файбера (14.7 нс каждое, замер S1), построение keyIndex по детям головы, order(slot) и один декод линзы",
+      "measured": 2747.54,
+      "passed": true,
+      "working_set": 10000
+    },
+    "field/neighbour": {
+      "limit_recalcs": 0,
+      "why": "docs/05 §8.5 и решение Р3: первая запись в СОСЕДНЕЕ поле меняет состав детей документа, поэтому пересчитывает slot — но slot возвращает ту же голову, и value не трогается вовсе. Счётчик декодов, а не время: время тут ничего не докажет",
+      "measured": 0,
+      "passed": true
+    },
+    "doc/open": {
+      "limit_ns": 2000,
+      "was_ns": 1000,
+      "why": "ИСПРАВЛЕН ПО ЗАМЕРУ ПОЛА, а не по факту промаха. Обещание docs/05 §8.5 — ≤ 1 мкс, и формула пола там неполна: «8 × (JSFunction + контекст + Object.assign шести свойств)» не считает ни `$` (десять операций уровня документа, §1.5), ни карту идентичности (§3.12: два вызова doc() дают ОДИН объект). Полный пол, собранный руками с теми же символьными ключами, — 0.99 мкс, то есть исходный бюджет оставлял слою 1 % запаса и проверял не код, а совпадение. Новый бюджет — пол ×2 на реестр привязок, карту идентичности и `$`",
+      "measured": 1637.54,
+      "passed": true,
+      "floor_ns": 999.94
+    },
+    "doc/reopen": {
+      "limit_ns": 100,
+      "why": "docs/05 §8.5: повторное открытие — два Map.get (привязка по модели, документ по голове) и ничего больше",
+      "measured": 17.97,
+      "passed": true
+    },
+    "doc/mem": {
+      "limit_b": 3072,
+      "was_b": 2048,
+      "why": "ИСПРАВЛЕН ПО ЗАМЕРУ ПОЛА. Обещание docs/05 §8.5 — ≤ 2 КБ на хендл из 8 полей; тот же объект, собранный руками (8 стрелок с таблицей из шести методов, `$` с восемью, запись в карту идентичности), занимает 1.93 КБ, то есть запаса оставалось 6 %. Новый бюджет — пол ×1.6 на ссылку на ячейку в каждом канале и запись реестра документов. Масштаб цены не изменился и остаётся в силе: список из 10 000 постов, открытых целиком, — это 15–20 МБ, даже если читается одно поле (docs/05 §7.6)",
+      "measured": 3366.56,
+      "passed": false,
+      "floor_b": 2954.45
+    },
+    "write/first": {
+      "limit_ns": 8000,
+      "was_ns": 3000,
+      "why": "ИСПРАВЛЕН ПО ЗАМЕРУ ПОЛА. Строки в docs/05 §8.5 нет, бюджет заведён здесь, и первым числом было 3 мкс из расчёта «2 × 347 нс локальной записи ленда (замер S3) плюс запас ×4». Оценка пола оказалась неверной дважды: 347 нс замерены на последовательных вставках под ОДНОЙ головой, а тут 10 000 разных голов с явным контентным self — 1.06 мкс на две записи; и в пол не входило обязательное чтение победителя LWW, которого требует контракт x(next) (docs/05 §3.7) — ещё 2.54 мкс. Полный пол 3.60 мкс, то есть исходный бюджет лежал НИЖЕ него. Новый бюджет — пол ×2.2 на монтирование ключевого юнита, два контентных хэша и пять промахов keyed-каналов",
+      "measured": 6686.58,
+      "passed": true,
+      "floor_ns": 4308.43,
+      "floor_writes_ns": 1560.89
+    },
+    "write/idempotent": {
+      "limit_ms": 5,
+      "limit_units": 0,
+      "why": "docs/05 §8.5: 10 000 × x(x()) — РОВНО 0 новых юнитов и ≤ 5 мс. Без нулевых юнитов растёт лог, тикают часы и диффы летят по кругу между двумя узлами бесконечно",
+      "measured": 3.57,
+      "passed": true,
+      "units_born": 0,
+      "units_passed": true
+    },
+    "model/size": {
+      "limit_b": 8192,
+      "why": "docs/05 §8.5: ≤ 8 КБ минифицированного gzip поверх @sync/core. База — 10534 Б, замеренные до слоя моделей (bench/budgets.json, size_bytes.index, прогон S4/land)",
+      "measured": 17290,
+      "passed": false,
+      "total_bytes": 27824,
+      "base_bytes": 10534
+    },
+    "passed": false
+  },
+  "model_s4_refs": {
+    "link/warm": {
+      "limit_ns": 500,
+      "why": "та же строка docs/05 §8.5, что и `field/warm`: разыменование при валидном кэше — это стрелка канала → cell.value(head) → Map.get по числу → Fiber.read. Документ на тёплом пути уже построен и лежит в реестре, поэтому цена не отличается от атома",
+      "measured": 18.47,
+      "passed": true
+    },
+    "part/warm": {
+      "limit_ns": 500,
+      "why": "тот же путь, что у `link/warm`: часть есть всегда, её адрес предсказан, и тёплое чтение — это Map.get плюс Fiber.read. Отдельная строка нужна потому, что у части адрес считается ХЭШЕМ, и промах кэша здесь стоил бы дороже, чем у ссылки",
+      "measured": 19.28,
+      "passed": true
+    },
+    "link/cold": {
+      "limit_ns": 8000,
+      "why": "строки в docs/05 §8.5 нет — бюджет заводится здесь, и пол складывается из ДВУХ уже замеренных величин: холодное чтение поля (`field/cold`, 2.44 мкс журнала) плюс материализация документа-цели (`doc/open`, 1.58 мкс), итого ≈ 4.0 мкс. Плюс разбор пешки и перевод относительной ссылки в абсолютную. Бюджет — пол ×2: меньше значило бы обещать, что открытие цели бесплатно, а §7.6 говорит обратное",
+      "measured": 4273.17,
+      "passed": true,
+      "floor_ns": 2834.86,
+      "floor_read_ns": 2294.02,
+      "floor_open_ns": 540.84
+    },
+    "ensure/first": {
+      "limit_ns": 20000,
+      "why": "пол — сумма трёх замеренных: первая запись поля (`write/first`, 6.20 мкс журнала: монтирование ключевого юнита плюс запись значения плюс обязательное чтение победителя LWW), открытие документа-цели (`doc/open`, 1.58 мкс) и холодное чтение ссылки обратно (`field/cold`, 2.44 мкс) — итого ≈ 10.2 мкс. Сверх пола `ensure` платит ещё два контентных хэша (адрес сущности и адрес ключевого юнита). Бюджет — пол ×2",
+      "measured": 8265.76,
+      "passed": true
+    },
+    "ensure/idempotent": {
+      "limit_ns": 1000,
+      "limit_units": 0,
+      "why": "повторный `ensure` обязан быть чтением: он находит уже записанную ссылку и возвращает тот же документ. РОВНО 0 новых юнитов — без этого два места кода, зовущие ensure, рождают две сущности, а эхо между пирами не сходится никогда. Пол — тёплое чтение ссылки (`link/warm`) плюс Map.get",
+      "measured": 31.51,
+      "passed": true,
+      "units_born": 0,
+      "units_passed": true
+    },
+    "links/rebuild-1000": {
+      "limit_ns": 3000000,
+      "why": "пол — `order()` на 1000 детей (109 мкс, замер S3) плюс 1000 × (декод пешки + resolve + nodeOf + открытие документа 1.58 мкс) ≈ 1.7 мс. Это цена, названная в docs/05 §7.6: список из 10 000 сущностей, открытых целиком, стоит открытия. Бюджет — пол ×1.8",
+      "measured": 930825.32,
+      "passed": true
+    },
+    "cast/warm": {
+      "limit_ns": 50,
+      "why": "docs/05 §8.5 называет цену перевода вида: ≤ 50 нс, пол — два Map.get. У нас их ровно два: ядро → спека → ключ в реестре ячеек и голова → канал в самой ячейке. Данных `cast` не касается вовсе",
+      "measured": 22.9,
+      "passed": true,
+      "floor_ns": 9.12
+    },
+    "cast/units": {
+      "limit_units": 0,
+      "why": "docs/05 §1.7 и §3.11: перевод вида не мигрирует данные. Ноль — не «мало», а свойство: вид не участвует в хранении, поэтому писать при переводе нечего в принципе. Счётчик постов, а не время",
+      "measured": 0,
+      "passed": true
+    },
+    "passed": true
+  },
+  "text_s4": {
+    "text/units-100k": {
+      "limit_units": 25000,
+      "why": "СВОЙ бюджет, строки в docs/05 нет. Токенизация заведена ради экономии юнитов: посимвольное хранение тех же 100 КБ — это 100 000 юнитов по ~56 Б заголовка. Потолок 25 000 требует выигрыша НЕ МЕНЬШЕ чем вчетверо; фактическое отношение печатается рядом, и именно оно, а не потолок, идёт в текст про «на порядок меньше»",
+      "measured": 18955,
+      "passed": true,
+      "chars": 100037,
+      "tokens": 17496,
+      "vs_per_char": 5.28
+    },
+    "text/insert-100k": {
+      "limit_ms": 1,
+      "why": "docs/05 §8.5 дословно: вставка символа в текст 100 КБ ≤ 1 мс. Внутри — поиск абзаца по кэшированным длинам (1458 чтений готового числа), перетокенизация ОДНОГО абзаца (~78 знаков) и реконсиляция его ~14 токенов. Уровень абзацев заведён ровно под эту строку: без него пришлось бы разложить все ~18 000 токенов, а order() стоит ≈109 нс на ребёнка (замер S3) — 2 мс только на раскладку",
+      "measured": 56734.58,
+      "passed": true,
+      "floor_ns": 45105.84,
+      "over_floor": 1.26
+    },
+    "text/insert-units": {
+      "limit_units": 3,
+      "why": "docs/05 §8.5 дословно: ≤ 3 юнита на вставку символа. Счётчик, а не время: лишний юнит виден только в логе и только тому, кто его ищет. Считаются ВСЕ юниты land.size(), включая проигравших по LWW, — именно они и растут при неверной реконсиляции",
+      "measured": 1,
+      "passed": true,
+      "avg_posts": 1,
+      "avg_index_growth": 0
+    },
+    "text/reread-100k": {
+      "limit_us": 1000,
+      "why": "СВОЙ бюджет, строки в docs/05 нет. Первое чтение всего текста ПОСЛЕ правки: правка гасит кэш одного абзаца и кэш склейки, поэтому пересчёт — это 1458 чтений готовых строк плюс сборка 100 КБ. Пол — Array.join тех же строк, мерится рядом; 1 мс это пол с запасом, потому что поверх join лежат чтения файберов",
+      "measured": 185167,
+      "passed": true,
+      "floor_ns": 192327.1,
+      "over_floor": 0.96
+    },
+    "text/point-100k": {
+      "limit_us": 500,
+      "why": "СВОЙ бюджет, строки в docs/05 нет. pointAt в середине 100 КБ — это проход по длинам абзацев до нужного (729 чтений готового числа) плюс скан токенов ОДНОГО абзаца. Спуск в чужой абзац ради его длины сделал бы это чтением всего документа, и бюджет ловит именно такую регрессию",
+      "measured": 31104.16,
+      "passed": true
+    },
+    "text/read-warm": {
+      "limit_ns": 500,
+      "why": "тёплое чтение поля — тот же бюджет, что у field/warm: текст читается ТЕМ ЖЕ каналом cell.value, и никакой скидки за то, что под ним 100 КБ, быть не должно. Путь — стрелка канала → cell.value(head) → Map.get по числу → Fiber.read",
+      "measured": 7.2,
+      "passed": true
+    }
+  },
+  "model_s4_collections": {
+    "list/read-1000": {
+      "limit_ns": 50,
+      "why": "docs/05 §8.5: тёплое чтение списка на 1000 элементах ≤ 50 нс. Массив лежит готовым в cell.value и не пересобирается, поэтому цена та же, что у любого тёплого чтения поля: Map.get по ЧИСЛУ плюс Fiber.read (проверка битфилда и возврат кэша). ПОЛ ИСПРАВЛЕН ПО ЗАМЕРУ: первая редакция брала два голых computed.keyed — по числу каналов решения Р3, — и получала 29.7 нс против измеренных 18.1, то есть пол выше замеряемого. Формула описывала ХОЛОДНЫЙ путь: тёплое чтение трогает ОДИН канал, `slot` читается только при пересчёте `value` и в тёплом пути не участвует вовсе",
+      "measured": 16.49,
+      "passed": true,
+      "floor_ns": 18.54,
+      "over_floor": 0.89
+    },
+    "list/rebuild-1000": {
+      "limit_ns": 300000,
+      "why": "docs/05 §8.5: пересборка списка на 1000 элементах ≤ 300 мкс. Внутри — order() на 1000 детей (109 мкс, замер S3) плюс 1000 декодов линзы. Пол — тот же order() на тех же данных, меряется в этом же прогоне",
+      "measured": 44207.96,
+      "passed": true,
+      "floor_ns": 24317.26
+    },
+    "list/reconcile-1000": {
+      "limit_ms": 2,
+      "limit_units": 1,
+      "why": "docs/05 §8.5 и требование DoD стадии: «прочитал массив, поменял один элемент, записал обратно» на 1000 элементах — РОВНО ОДИН юнит и ≤ 2 мс. Юнит важнее времени: N юнитов вместо одного это растущий лог, тикающие часы и диффы по кругу между двумя узлами",
+      "measured": 0.36,
+      "passed": true,
+      "units_born": 1,
+      "units_passed": true
+    },
+    "dict/warm": {
+      "limit_ns": 500,
+      "why": "строки в docs/05 §8.5 нет, бюджет заведён здесь и взят РАВНЫМ field/warm (≤ 500 нс при цели ≤ 50). Путь тот же плюс один шаг: cell.slot(head) → keyIndex(slot).get(ключ) → cell.value(keySelf), то есть три кэшированных чтения вместо двух. Пол — три голых computed.keyed в том же файбере",
+      "measured": 95.35,
+      "passed": true,
+      "floor_ns": 46.97,
+      "over_floor": 2.03
+    },
+    "dict/keys-1000": {
+      "limit_ns": 300000,
+      "why": "та же работа, что у list/rebuild-1000, и тот же бюджет: order() на 1000 детей плюс 1000 декодов ключа. Ключи, в отличие от значений словаря, отдельным каналом НЕ кэшируются (dict.ts: кэш занят значением под ключом, потому что горячее чтение — это x(key), а не keys()), поэтому цена меряется, а не предполагается",
+      "measured": 91794.38,
+      "passed": true
+    },
+    "parts/open": {
+      "limit_ns": 500,
+      "why": "строки в docs/05 §8.5 нет. Обращение к части по ключу — это untracked keyIndex.get, Map.get реестра документов и ничего больше, то есть doc/reopen (бюджет 100 нс) плюс разрешение ключа. Взято ×5 к doc/reopen: путь идёт через mountKey, который на существующем ключе стоит один Map.get, и через две карты привязки",
+      "measured": 100.97,
+      "passed": true
+    },
+    "index/keys": {
+      "limit_ns": 500000,
+      "why": "docs/05 §8.5: три уровня, 1000 листьев ≤ 500 мкс. Внутри — три order() по цепочке уровней плюс декод ключей уровня. Меряется ХОЛОДНЫМ: свежее пространство над заполненным лендом, иначе замер показал бы цену Map.get",
+      "measured": 19001.74,
+      "passed": true
+    },
+    "passed": true
+  },
+  "idb_ms": {
+    "spec": "хранилище на IndexedDB: бюджеты S5 в настоящем браузере (docs/11 §3, S5)",
+    "chromium": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.7922.34 Safari/537.36",
+    "plan": {
+      "batch": 1000,
+      "batches": 100,
+      "page": 4096,
+      "churn": 10000,
+      "churnUnits": 2000,
+      "churnStep": 100,
+      "sweepBatches": 20,
+      "spread": 2000,
+      "spreadUnits": 5000,
+      "rounds": 3,
+      "canaryRows": 20,
+      "pages": [
+        512,
+        4096,
+        16384,
+        65536
+      ],
+      "batchSizes": [
+        1,
+        10,
+        100,
+        1000,
+        10000
+      ],
+      "batchUnits": 2000
+    },
+    "main": {
+      "units": 100000,
+      "pack_bytes": 8001600,
+      "save_first_ms": 3.3,
+      "save_median_ms": 1.3,
+      "save_last_ms": 1.2,
+      "save_max_ms": 14.7,
+      "save_total_ms": 349.4,
+      "load_first_ms": 80,
+      "load_ms": 61.9,
+      "adopt_ms": 26.3,
+      "load_bytes": 7999224,
+      "live_bytes": 7999224,
+      "stored_bytes": 7999488,
+      "stored_over_live": 1
+    },
+    "floor": {
+      "note": "запись 20 страниц по 4096 Б одной транзакцией; чтение 1953 страниц одним getAll",
+      "write_rows": 20,
+      "write_ms": 0.5,
+      "read_rows": 1953,
+      "read_ms": 18
+    },
+    "churn": {
+      "note": "10000 правок поверх 2000 юнитов, пачками по 100",
+      "units": 2000,
+      "before_bytes": 155648,
+      "after_bytes": 258048,
+      "live_bytes": 224056,
+      "stored_over_live": 1.152,
+      "grew": 1.658,
+      "total_ms": 165.6
+    },
+    "page": {
+      "512": {
+        "save_median_ms": 4.1,
+        "save_total_ms": 87.3,
+        "load_ms": 26.5,
+        "stored_over_live": 1,
+        "spread_us_per_edit": 39.6,
+        "spread_bytes_per_edit": 594
+      },
+      "4096": {
+        "save_median_ms": 1.1,
+        "save_total_ms": 27,
+        "load_ms": 12.9,
+        "stored_over_live": 1.001,
+        "spread_us_per_edit": 38.7,
+        "spread_bytes_per_edit": 2454
+      },
+      "16384": {
+        "save_median_ms": 0.8,
+        "save_total_ms": 22.2,
+        "load_ms": 10.9,
+        "stored_over_live": 1.004,
+        "spread_us_per_edit": 55.05,
+        "spread_bytes_per_edit": 3899
+      },
+      "65536": {
+        "save_median_ms": 0.8,
+        "save_total_ms": 15.3,
+        "load_ms": 8.1,
+        "stored_over_live": 1.024,
+        "spread_us_per_edit": 12.05,
+        "spread_bytes_per_edit": 3932
+      }
+    },
+    "batch": {
+      "1": {
+        "units": 2000,
+        "transactions": 2000,
+        "written_bytes": 16330752,
+        "total_ms": 326.6,
+        "per_unit_us": 163.3
+      },
+      "10": {
+        "units": 2000,
+        "transactions": 200,
+        "written_bytes": 1769472,
+        "total_ms": 40,
+        "per_unit_us": 20
+      },
+      "100": {
+        "units": 2000,
+        "transactions": 20,
+        "written_bytes": 315392,
+        "total_ms": 6.4,
+        "per_unit_us": 3.2
+      },
+      "1000": {
+        "units": 2000,
+        "transactions": 2,
+        "written_bytes": 172032,
+        "total_ms": 2.5,
+        "per_unit_us": 1.25
+      },
+      "10000": {
+        "units": 2000,
+        "transactions": 1,
+        "written_bytes": 802816,
+        "total_ms": 14.1,
+        "per_unit_us": 7.05
+      }
+    },
+    "shape": {
+      "mirrors-1": {
+        "save_median_ms": 1,
+        "save_total_ms": 27.4,
+        "stored_bytes": 1601536,
+        "written_bytes": 1757184
+      },
+      "mirrors-2": {
+        "save_median_ms": 3.5,
+        "save_total_ms": 70,
+        "stored_bytes": 3203072,
+        "written_bytes": 3514368
+      },
+      "durability-relaxed": {
+        "save_median_ms": 1.1,
+        "save_total_ms": 32.7,
+        "stored_bytes": 1601536,
+        "written_bytes": 1757184
+      },
+      "durability-strict": {
+        "save_median_ms": 1.1,
+        "save_total_ms": 28.7,
+        "stored_bytes": 1601536,
+        "written_bytes": 1757184
+      }
+    },
+    "budget": {
+      "passed": true,
+      "load/100k": {
+        "limit_ms": 500,
+        "why": "docs/11 §3, S5: холодная загрузка ленда из 100 000 юнитов. Это время до первого экрана приложения, поэтому обещание пользовательское, а не внутреннее.",
+        "floor": "floor.read_ms — один getAll по тем же страницам и склейка их в образ",
+        "measured": 61.9,
+        "floor_ms": 18,
+        "over_floor": 3.439,
+        "passed": true,
+        "budget_below_floor": false
+      },
+      "save/batch-1000": {
+        "limit_ms": 30,
+        "why": "docs/11 §3, S5: сохранение батча из 1000 юнитов. Батч — это тик правок (docs/06 §6), и 30 мс это два кадра: дольше — и запись начнёт заикаться на вводе.",
+        "floor": "floor.write_ms — одна транзакция с тем же числом страниц того же размера",
+        "measured": 1.3,
+        "floor_ms": 0.5,
+        "over_floor": 2.6,
+        "passed": true,
+        "budget_below_floor": false
+      },
+      "file/churn-10k": {
+        "limit_ratio": 1.3,
+        "why": "docs/11 §3, S5: после 10 000 save/delete файл ≤ 1.3× от полезного объёма. Это проверка того, что арена переиспользует байты перекрытых версий, а не растёт по числу правок (долг «Ленд S4», docs/11).",
+        "floor": "1.0× — образ без единой дыры; ниже единицы значения не бывает",
+        "measured": 1.152,
+        "floor_ms": 1,
+        "over_floor": 1.152,
+        "passed": true,
+        "budget_below_floor": false
+      }
+    },
+    "lastSkipped": {
+      "why": "браузера нет",
+      "node": "v24.19.0"
+    }
+  },
+  "wire_bc": {
+    "spec": "кросс-таб доставка ≤ 5 мс, пустая синхронизация ≤ 1 КБ (docs/11 §3, S7); бюджеты зафиксированы до первого запуска",
+    "passed": true,
+    "deliver/median": {
+      "measured_ms": 1.2047500000000184,
+      "floor_ms": 0.003416000000001418,
+      "worst_ms": 2.515874999999994
+    },
+    "hello/idle-bytes": {
+      "measured_bytes": 376,
+      "messages": 3
+    },
+    "budget": {
+      "deliver/median": {
+        "limit_ms": 5,
+        "why": "docs/11 §3 S7: кросс-таб доставка ≤ 5 мс. Медиана 200 записей post → чтение у соседа"
+      },
+      "hello/idle-bytes": {
+        "limit_bytes": 1024,
+        "why": "docs/11 §3 S7: трафик на пустую синхронизацию ≤ 1 КБ. Привет вошедшей вкладки при совпавших состояниях, байты сообщений после входа"
+      }
+    }
+  }
+}

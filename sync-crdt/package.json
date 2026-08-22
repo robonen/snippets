@@ -1,0 +1,19 @@
+{
+  "name": "sync-crdt",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "test:watch": "pnpm -r test:watch",
+    "test:browser": "pnpm -r test:browser",
+    "typecheck": "pnpm -r typecheck",
+    "bench": "pnpm -r bench"
+  },
+  "devDependencies": {
+    "@types/node": "^24.12.4",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.7"
+  }
+}

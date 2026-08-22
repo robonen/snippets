@@ -1,0 +1,18 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "types": ["node"],
+    // Фикстуры грузятся импортом, а не `readFileSync`: те же векторы прогоняются
+    // в Chromium, где `node:fs` нет (см. src/binary/__tests__/golden.ts).
+    "resolveJsonModule": true
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.json",
+    "bench/entry.ts",
+    "tsdown.config.ts",
+    "vitest.config.ts",
+    "vitest.browser.config.ts"
+  ]
+}

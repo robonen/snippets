@@ -1,2 +1,8 @@
 .DS_Store
 .claude
+
+# reference-only clones
+/baza
+/mol
+/research-docs
+/rapira-banner

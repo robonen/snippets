@@ -1,17 +1,22 @@
 # Ккал — локальный дневник питания
 
 Считаете калории — приложение делает это быстрым: запись за 2–3 касания,
-остаток на день всегда перед глазами, все данные только в вашем браузере
-(IndexedDB, без бэкенда и аккаунтов).
+остаток на день всегда перед глазами, все данные в вашем браузере (IndexedDB,
+без аккаунтов). Синхронизация между устройствами — опциональная, через
+встроенный сервер-ретранслятор (тот же деплой, включается токеном).
 
 ## Стек
 
-- **Vue 3.6.0-rc.2, Vapor mode** — без virtual DOM; компоненты написаны на TSX
+- **Vue 3.6.0-rc.5, Vapor mode** — без virtual DOM; компоненты написаны на TSX
   через **vue-jsx-vapor** (компилятор на Rust/Oxc), `createVaporApp` в `main.ts`.
-- **vue-sync-engine** (`../vue-sync-engine/lib`, подключён как `file:`-зависимость) —
-  нормализованный entity-кэш: запросы, мутации с optimistic-патчами,
-  персистентность в IndexedDB.
-- **Tailwind CSS 4** как Vite-плагин, дизайн-токены в `src/app.css` (`@theme`).
+- **@sync/core + @sync/vue** (`../sync-crdt/packages/*`, подключены как
+  `link:`-зависимости) — local-first CRDT-ядро: данные лежат в ленде (бинарные
+  юниты, LWW), модели — схемы с каналами-полями, персистентность в IndexedDB
+  через `openVault`, живая синхронизация вкладок через `BroadcastChannel`.
+- **Tailwind CSS 4** как Vite-плагин, дизайн-токены в `src/app/app.css` (`@theme`).
+- **Nitro v3 (beta)** как Vite-плагин — сервер синхронизации живёт в этом же
+  приложении (`server/`): HTTP-обмен и WebSocket на одном протоколе ядра,
+  деплой одним билдом (`NITRO_PRESET=vercel`); подробности — `docs/server-sync.md`.
 - **@robonen/stdlib** (`clamp`, `groupBy`), **@robonen/vue** (`useCloseWatcher` —
   закрытие шторок по Esc и жесту «назад» на Android, с фолбэком на keydown),
   **@robonen/platform** (`focus`), **@robonen/tsconfig**, **@robonen/eslint**.
@@ -22,34 +27,52 @@
 
 ```bash
 pnpm install
-pnpm dev        # vite
-pnpm test       # vitest, доменные расчёты
+pnpm dev        # vite: SPA и /sync/:land на одном порту
+pnpm test       # vitest, доменные расчёты (свой vitest.config.ts, без nitro)
 pnpm typecheck  # tsc --noEmit
 pnpm lint       # eslint (@robonen/eslint, eslint 10)
-pnpm build      # tsc + vite build
+pnpm build      # vite build (клиент + сервер) + проверка прекеша PWA
 ```
 
-> vue-sync-engine должен быть собран: `cd ../vue-sync-engine && pnpm --filter vue-sync-engine build`.
+> Пакеты @sync должны быть собраны: `cd ../sync-crdt && pnpm -r build`.
 
 ## Как устроен local-first слой
 
-Бэкенда нет, источник истины — IndexedDB (`kcal`):
+Бэкенда нет, источник истины — ленд в IndexedDB (`kcal-sync`):
 
-- `defineEntity({ storage: idbStore(...) })` — каждая сущность в своём object store;
-  `EntityDef.storage` используется и как прямой доступ к idb.
-- **Запросы** читают из этих же сторов (`readAll` + фильтр), нормализуют сущности
-  в Mirror и возвращают списки id. Снапшоты запросов персистятся через
-  `indexedDBAdapter` — после перезагрузки данные всплывают мгновенно.
-- **Мутации** пишут в idb внутри `fetch` (запись await-ится до `invalidate`,
-  поэтому рефетч всегда видит свежие данные), `optimistic` даёт мгновенный UI,
-  `invalidate` по тегам (`entries`, `foods`, `weights`, `profile`) обновляет
-  списки и статистику.
+- `src/db/models.ts` — схемы (`model('food', { name: atom(t.string), … })`),
+  корень `kcal` держит каталоги `parts(t.string, …)` и единственный профиль.
+  Снимки (`readFood` и родня) переводят документы в плоские доменные типы —
+  расчёты и экраны работают с обычными объектами.
+- `src/db/space.ts` — сборка: пир устройства (localStorage), сеанс вкладки
+  (`randomSession()`), `openVault` (гидрация + автосохранение батчами),
+  `syncTabs` (живой обмен между вкладками), посев каталога при первом запуске.
+- `src/db/composables.ts` — чтения (`useFoods`, `useEntries`, `useProfile`)
+  через мост `@sync/vue` и записи (`useActions`) прямыми вызовами каналов в
+  транзакции `space.edit`. Мутаций, инвалидации и рефетчей нет: запись сразу
+  локальная и настоящая, реактивность идёт от самого ленда.
 - Записи дневника хранят **снапшот** имени и нутриентов — правка или удаление
   продукта не переписывает историю.
 
-Структура: `src/domain` (типы, расчёты Миффлина—Сан Жеора, даты — без Vue),
-`src/data` (дефы движка, сид-каталог ~60 продуктов, бэкап), `src/screens` +
-`src/components` (TSX Vapor), `src/ui` (состояние навигации, иконки).
+Структура — слоями со строгим направлением зависимостей
+`app → screens → features → db → entities → shared`, вбок и вверх не смотрит никто:
+
+- `src/app` — вход и сборка: `main.ts`, `App.tsx`, дизайн-токены (`app.css`).
+  Навигация (вкладка, день дневника, открытые шторки) — состояние каркаса:
+  живёт в `App`, экраны получают её пропсами и вверх не импортируют;
+- `src/screens` — папка на экран (TSX Vapor); приватные части лежат рядом со
+  своим экраном: кольцо и полосы БЖУ — в `diary/`, справка — в `profile/`;
+- `src/features` — сквозные фичи с UI или своей логикой: `barcode/` (сканер +
+  клиент Open Food Facts), `backup.ts` (файл экспорта/импорта, включая формат v1);
+- `src/db` — local-first БД одним слоем: схемы и снимки (`models.ts`), сборка
+  пространства (`space.ts`), Vue-чтения/действия (`composables.ts`), клиент
+  серверной синхронизации (`server.ts`), сид-каталог ~60 продуктов (`seed.ts`);
+- `src/entities` — чистые доменные сущности без Vue: `nutrition` (КБЖУ и его
+  арифметика), `food` (продукт, порции), `entry` (запись дневника, приёмы пищи),
+  `profile` (профиль, вес, Миффлин—Сан Жеор, цели);
+- `src/shared` — переиспользуемое без доменного смысла: `ui/` (иконки lucide),
+  `lib/` (даты, форматирование чисел, округления, жест шторки);
+- `server/` — роуты nitro: HTTP-обмен и WebSocket поверх `exchange` из ядра.
 
 ## Что уже умеет
 
@@ -72,10 +95,13 @@ pnpm build      # tsc + vite build
 
 ## Дорожная карта
 
-- **Кросс-таб синхронизация** — перевести движок в режим SharedWorker
-  (`bootstrapWorker` + `createSharedWorkerClientTransport`), дефы уже
-  собираются плагином в `virtual:sync-engine-registry`.
-- **PWA** — manifest + service worker, чтобы поставить на домашний экран.
+- **Один писатель в IndexedDB** — сейчас каждая вкладка сохраняет сама
+  (состояния сходятся по каналу, но писатели соревнуются); выбор писателя через
+  Web Locks / SharedWorker придёт из `wire-sw` ядра.
+- **Redis pub/sub между инстансами** — сервер синхронизации уже работает
+  (HTTP + WebSocket в `server/`, включается `SYNC_TOKEN`/`VITE_SYNC_TOKEN`), но
+  WebSocket-вещание пока в пределах одного инстанса; между инстансами Vercel
+  дельту добирают приветы по расписанию — см. [docs/server-sync.md](docs/server-sync.md).
 - Порции-пресеты у продукта («стакан», «ложка»), копирование вчерашнего дня,
   конструктор рецептов (сумма ингредиентов ÷ готовый вес = свой продукт
   «на 100 г») — главный недостающий кусок для домашней готовки.

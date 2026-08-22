@@ -1,0 +1,57 @@
+{
+  "format": "vary/1",
+  "note": "Эталонные байты кодека Vary. Выведены руками из раскладки в шапке src/binary/vary.ts, а не сняты с реализации. Меняются только вместе с версией формата (docs/03-binary-format.md §6): правка любой строки здесь ломает данные у пользователей и сеть между версиями.",
+  "kinds": "null · bool · int · float · special · big · str · strx (повтор) · bin (hex) · binx (повтор) · date (мс эпохи) · arr · map (массив пар — порядок задан намеренно неотсортированным)",
+  "vectors": [
+    { "name": "null", "node": { "k": "null" }, "hex": "00" },
+    { "name": "bool/false", "node": { "k": "bool", "v": false }, "hex": "01" },
+    { "name": "bool/true", "node": { "k": "bool", "v": true }, "hex": "02" },
+
+    { "name": "int/0", "node": { "k": "int", "v": 0 }, "hex": "20" },
+    { "name": "int/1", "node": { "k": "int", "v": 1 }, "hex": "21" },
+    { "name": "int/30-край короткой формы", "node": { "k": "int", "v": 30 }, "hex": "3e" },
+    { "name": "int/31-первый расширенный", "node": { "k": "int", "v": 31 }, "hex": "3f00" },
+    { "name": "int/32", "node": { "k": "int", "v": 32 }, "hex": "3f01" },
+    { "name": "int/255", "node": { "k": "int", "v": 255 }, "hex": "3fe001" },
+    { "name": "int/-1", "node": { "k": "int", "v": -1 }, "hex": "40" },
+    { "name": "int/-31", "node": { "k": "int", "v": -31 }, "hex": "5e" },
+    { "name": "int/-32", "node": { "k": "int", "v": -32 }, "hex": "5f00" },
+    { "name": "int/MAX_SAFE_INTEGER", "node": { "k": "special", "v": "maxSafe" }, "hex": "3fe0ffffffffffff0f" },
+    { "name": "int/MIN_SAFE_INTEGER", "node": { "k": "special", "v": "minSafe" }, "hex": "5fdfffffffffffff0f" },
+    { "name": "int/-0 пишется как 0", "node": { "k": "special", "v": "negZero" }, "hex": "20" },
+
+    { "name": "float/1.5", "node": { "k": "float", "v": 1.5 }, "hex": "033ff8000000000000" },
+    { "name": "float/0.1", "node": { "k": "float", "v": 0.1 }, "hex": "033fb999999999999a" },
+    { "name": "float/NaN", "node": { "k": "special", "v": "nan" }, "hex": "037ff8000000000000" },
+    { "name": "float/+Infinity", "node": { "k": "special", "v": "inf" }, "hex": "037ff0000000000000" },
+    { "name": "float/-Infinity", "node": { "k": "special", "v": "ninf" }, "hex": "03fff0000000000000" },
+    { "name": "float/MIN_VALUE", "node": { "k": "special", "v": "minValue" }, "hex": "030000000000000001" },
+
+    { "name": "str/пустая", "node": { "k": "str", "v": "" }, "hex": "80" },
+    { "name": "str/a", "node": { "k": "str", "v": "a" }, "hex": "8161" },
+    { "name": "str/кириллица", "node": { "k": "str", "v": "привет" }, "hex": "8cd0bfd180d0b8d0b2d0b5d182" },
+    { "name": "str/астральный", "node": { "k": "str", "v": "😀" }, "hex": "84f09f9880" },
+    { "name": "str/31-первая расширенная длина", "node": { "k": "strx", "v": "x", "n": 31 }, "hex": "9f0078787878787878787878787878787878787878787878787878787878787878" },
+
+    { "name": "bin/пустой", "node": { "k": "bin", "v": "" }, "hex": "60" },
+    { "name": "bin/010203", "node": { "k": "bin", "v": "010203" }, "hex": "63010203" },
+    { "name": "bin/31-первая расширенная длина", "node": { "k": "binx", "v": "00", "n": 31 }, "hex": "7f0000000000000000000000000000000000000000000000000000000000000000" },
+
+    { "name": "arr/пустой", "node": { "k": "arr", "v": [] }, "hex": "a0" },
+    { "name": "arr/смешанный", "node": { "k": "arr", "v": [{ "k": "int", "v": 1 }, { "k": "str", "v": "a" }, { "k": "null" }] }, "hex": "a321816100" },
+
+    { "name": "map/пустой", "node": { "k": "map", "v": [] }, "hex": "c0" },
+    { "name": "map/ключи сортируются", "node": { "k": "map", "v": [["b", { "k": "int", "v": 1 }], ["a", { "k": "int", "v": 2 }]] }, "hex": "c2816122816221" },
+    { "name": "map/вложенность", "node": { "k": "map", "v": [["a", { "k": "arr", "v": [{ "k": "int", "v": 1 }, { "k": "map", "v": [["b", { "k": "null" }]] }] }]] }, "hex": "c18161a221c1816200" },
+
+    { "name": "date/эпоха", "node": { "k": "date", "v": 0 }, "hex": "e000" },
+    { "name": "date/+1с", "node": { "k": "date", "v": 1000 }, "hex": "e0e807" },
+    { "name": "date/-1мс", "node": { "k": "date", "v": -1 }, "hex": "e101" },
+
+    { "name": "big/0", "node": { "k": "big", "v": "0" }, "hex": "e200" },
+    { "name": "big/1", "node": { "k": "big", "v": "1" }, "hex": "e20101" },
+    { "name": "big/-1", "node": { "k": "big", "v": "-1" }, "hex": "e30101" },
+    { "name": "big/256", "node": { "k": "big", "v": "256" }, "hex": "e2020100" },
+    { "name": "big/2^62", "node": { "k": "big", "v": "4611686018427387904" }, "hex": "e2084000000000000000" }
+  ]
+}

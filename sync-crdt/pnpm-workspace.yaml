@@ -1,0 +1,25 @@
+packages:
+  - packages/*
+
+# pnpm 11 игнорирует поле "pnpm" в package.json — настройки живут только здесь
+allowBuilds:
+  - esbuild
+  # Postinstall playwright докачивает бинарь Chromium. Без него браузерный прогон
+  # (`pnpm --filter @sync/core test:browser`) не стартует вовсе.
+  - playwright
+
+catalog:
+  typescript: ~6.0.3
+  vitest: ^4.1.7
+  '@vitest/browser': ^4.1.7
+  '@vitest/browser-playwright': ^4.1.7
+  playwright: ^1.62.1
+  '@types/node': ^24.12.4
+  tsdown: ^0.22.1
+  fast-check: ^4.1.1
+  # Подделка IndexedDB для node'ового прогона. Только ускоритель: гейт стадии
+  # S5 — тот же файл в Chromium против НАСТОЯЩЕЙ базы (`test:browser`).
+  fake-indexeddb: ^6.2.5
+  mitata: ^1.0.34
+  alien-signals: 3.2.1
+  vue: ^3.5.35

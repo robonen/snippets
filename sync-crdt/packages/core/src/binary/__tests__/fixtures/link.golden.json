@@ -1,0 +1,68 @@
+{
+  "note": "Эталонные пары «байты ↔ текст» формата Link (docs/03 §1). Меняются только вместе с версией формата. Пересобраны при переходе на стандартный base64url с разделителем «.» — см. ADR-014.",
+  "alphabet": "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_",
+  "separator": ".",
+  "oracle": "Node Buffer.toString(\"base64url\") без замен; секции через «.»",
+  "vectors": [
+    {
+      "note": "пустая ссылка",
+      "hex": "",
+      "str": ""
+    },
+    {
+      "note": "лорд",
+      "hex": "0102030405060708",
+      "str": "AQIDBAUGBwg"
+    },
+    {
+      "note": "лорд из одних единиц",
+      "hex": "ffffffffffffffff",
+      "str": "__________8"
+    },
+    {
+      "note": "лорд с ведущими нулями",
+      "hex": "0000000000000001",
+      "str": "AAAAAAAAAAE"
+    },
+    {
+      "note": "ленд",
+      "hex": "01020304050607081112131415161718",
+      "str": "AQIDBAUGBwg.ERITFBUWFxg"
+    },
+    {
+      "note": "ленд без лорда — одна area",
+      "hex": "00000000000000001112131415161718",
+      "str": ".ERITFBUWFxg"
+    },
+    {
+      "note": "пешка",
+      "hex": "01020304050607081112131415161718212223242526",
+      "str": "AQIDBAUGBwg.ERITFBUWFxg.ISIjJCUm"
+    },
+    {
+      "note": "пешка в домашнем ленде — area нулевая",
+      "hex": "01020304050607080000000000000000212223242526",
+      "str": "AQIDBAUGBwg..ISIjJCUm"
+    },
+    {
+      "note": "относительная пешка",
+      "hex": "00000000000000000000000000000000212223242526",
+      "str": "..ISIjJCUm"
+    },
+    {
+      "note": "пешка из одних единиц",
+      "hex": "ffffffffffffffffffffffffffffffffffffffffffff",
+      "str": "__________8.__________8.________"
+    },
+    {
+      "note": "покрытие алфавита с начала",
+      "hex": "00108310518720928b30d38f41149351559761969b71",
+      "str": "ABCDEFGHIJI.izDTj0EUk1E.VZdhlptx"
+    },
+    {
+      "note": "покрытие алфавита с хвоста",
+      "hex": "8e49669e8a6aaecb6ebf0c72cf4d76df8e7aefcf7efc",
+      "str": "jklmnopqrss.br8Mcs9Ndt8.jnrvz378"
+    }
+  ]
+}

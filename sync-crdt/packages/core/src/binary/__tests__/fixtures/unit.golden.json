@@ -1,0 +1,113 @@
+{
+  "note": "Эталонные байты юнитов (docs/03 §2). Фиксируются ДО работы на реальных данных и меняются только вместе с версией формата (ADR-005). Раскладка: kind(0,1) meta(1,1) time(2,4 BE) tick(6,2 BE) peer(8,8); дальше — часть, своя у каждого вида.",
+  "layout": {
+    "common": { "kind": 0, "meta": 1, "time": 2, "tick": 6, "peer": 8, "body": 16 },
+    "sand": { "self": 16, "head": 22, "lead": 28, "size": 34, "shot": 36, "payload": 48 },
+    "gift": { "mate": 16, "rank": 24, "code": 32 },
+    "seal": { "hashes": 16, "sign": "длина − 64" },
+    "pass": { "key": 16 }
+  },
+  "vectors": [
+    {
+      "note": "sand, значение внутри: tag=vals, vary('hi') = 82 68 69, meta = 0b10_000011 = 0x83; байты 34…48 у inline-санда пустуют (см. отчёт S2)",
+      "kind": "sand",
+      "hex": "0183010203040506a0a1a2a3a4a5a6a70102030405060b0c0d0e0f1011121314151600000000000000000000000000008268690000000000",
+      "path": "sand:..CwwNDg8Q/oKGio6Slpqc/..AQIDBAUG",
+      "fields": {
+        "time": 16909060,
+        "tick": 1286,
+        "peer": "a0a1a2a3a4a5a6a7",
+        "self": "010203040506",
+        "head": "0b0c0d0e0f10",
+        "lead": "111213141516",
+        "tag": "vals",
+        "size": 3,
+        "big": false,
+        "dead": false,
+        "value": "hi"
+      }
+    },
+    {
+      "note": "надгробие: vary(null) = 00, значит meta = 0b00_000001 = 0x01, head и lead нулевые — корень ленда и начало списка",
+      "kind": "sand",
+      "hex": "0101000000010000a0a1a2a3a4a5a6a701020304050600000000000000000000000000000000000000000000000000000000000000000000",
+      "path": "sand:/oKGio6Slpqc/..AQIDBAUG",
+      "fields": {
+        "time": 1,
+        "tick": 0,
+        "peer": "a0a1a2a3a4a5a6a7",
+        "self": "010203040506",
+        "head": "000000000000",
+        "lead": "000000000000",
+        "tag": "term",
+        "size": 1,
+        "big": false,
+        "dead": true,
+        "value": null
+      }
+    },
+    {
+      "note": "sand с выносным значением: meta = 0b11_111111 = 0xff (tag=keys, inlineSize=63 — маркер), sizeBig = 0x012c = 300, дальше 12 байт shot",
+      "kind": "sand",
+      "hex": "01ff010203040007a0a1a2a3a4a5a6a70102030405060b0c0d0e0f10111213141516012c0102030405060708090a0b0c",
+      "path": "sand:..CwwNDg8Q/oKGio6Slpqc/..AQIDBAUG",
+      "fields": {
+        "time": 16909060,
+        "tick": 7,
+        "peer": "a0a1a2a3a4a5a6a7",
+        "self": "010203040506",
+        "head": "0b0c0d0e0f10",
+        "lead": "111213141516",
+        "tag": "keys",
+        "size": 300,
+        "big": true,
+        "dead": false,
+        "shot": "0102030405060708090a0b0c"
+      }
+    },
+    {
+      "note": "gift: rank = tier(0b0011 post) << 4 | rate(8 fast) = 0x38; байты 25…32 зарезервированы",
+      "kind": "gift",
+      "hex": "0200010203040001a0a1a2a3a4a5a6a7b0b1b2b3b4b5b6b7380000000000000000112233445566778899aabbccddeeff",
+      "path": "gift:sLGys7S1trc",
+      "fields": {
+        "time": 16909060,
+        "tick": 1,
+        "peer": "a0a1a2a3a4a5a6a7",
+        "mate": "b0b1b2b3b4b5b6b7",
+        "tier": 3,
+        "rate": 8,
+        "code": "00112233445566778899aabbccddeeff",
+        "coded": true
+      }
+    },
+    {
+      "note": "seal: meta = wide(0b1000_0000) | count(2) = 0x82; два хэша по 12 Б с офсета 16, подпись — последние 64 Б",
+      "kind": "seal",
+      "hex": "0382010203040002a0a1a2a3a4a5a6a70102030405060708090a0b0c101112131415161718191a1b5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a",
+      "path": "seal:oKGio6Slpqc/16909060.2",
+      "fields": {
+        "time": 16909060,
+        "tick": 2,
+        "peer": "a0a1a2a3a4a5a6a7",
+        "count": 2,
+        "wide": true,
+        "hashes": ["0102030405060708090a0b0c", "101112131415161718191a1b"],
+        "sign": "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a"
+      }
+    },
+    {
+      "note": "pass: meta = 0 (Ed25519), сырой ключ 32 Б с офсета 16",
+      "kind": "pass",
+      "hex": "0400010203040003a0a1a2a3a4a5a6a7c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0",
+      "path": "pass:oKGio6Slpqc",
+      "fields": {
+        "time": 16909060,
+        "tick": 3,
+        "peer": "a0a1a2a3a4a5a6a7",
+        "algo": "ed25519",
+        "key": "c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0"
+      }
+    }
+  ]
+}

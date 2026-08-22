@@ -1,0 +1,40 @@
+{
+  "name": "@sync/vue",
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Vue bindings for @sync/fiber.",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "types": "./dist/index.d.ts",
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsdown",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "bench": "pnpm build && node bench/run.mjs"
+  },
+  "peerDependencies": {
+    "vue": "^3.5.0"
+  },
+  "dependencies": {
+    "@sync/fiber": "workspace:*",
+    "@sync/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "mitata": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "vue": "catalog:"
+  }
+}
