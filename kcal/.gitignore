@@ -6,3 +6,6 @@ dist
 .vercel
 server/.data
 node_modules/.nitro
+
+# секреты локальной разработки (SYNC_TOKEN и т.п.)
+.env.local
