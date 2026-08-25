@@ -200,13 +200,13 @@ function putHead(bin: Uint8Array, at: number, link: Link, field: string): void {
   if (src.length === 0) return
 
   if (src.length !== 22) {
-    throw new UnitError(`${field}: ожидалась пешка (22 Б) или пустая ссылка, а в ней ${src.length} Б`, `поле ${field}`)
+    throw new UnitError(`${field}: expected a pawn (22 B) or an empty link, got ${src.length} B`, `field ${field}`)
   }
   for (let i = 0; i < 16; i++) {
     if (src[i] !== 0) {
       throw new UnitError(
-        `${field}: ссылка абсолютная, а юнит хранит только локальный id — позовите relate(land)`,
-        `поле ${field}`,
+        `${field}: the link is absolute, but the unit stores only a local id — call relate(land)`,
+        `field ${field}`,
       )
     }
   }
@@ -221,20 +221,20 @@ function putPeer(bin: Uint8Array, at: number, link: Link, field: string, holed: 
   const src = link.bin
   if (src.length === 0) {
     if (holed) return
-    throw new UnitError(`${field}: пустая ссылка, а у юнита обязан быть автор`, `поле ${field}`)
+    throw new UnitError(`${field}: empty link, but a unit must have an author`, `field ${field}`)
   }
   if (src.length < PEER_BYTES) {
-    throw new UnitError(`${field}: ожидался лорд (8 Б), а в ссылке ${src.length} Б`, `поле ${field}`)
+    throw new UnitError(`${field}: expected a lord (8 B), but the link is ${src.length} B`, `field ${field}`)
   }
   for (let i = 0; i < PEER_BYTES; i++) bin[at + i] = src[i] as number
 }
 
 function putStamp(bin: Uint8Array, kind: number, stamp: UnitStamp, holedPeer: boolean): void {
   if (!Number.isInteger(stamp.time) || stamp.time < 0 || stamp.time > TIME_MAX) {
-    throw new UnitError(`time = ${stamp.time}: ожидалось целое 0…${TIME_MAX}`, 'поле time')
+    throw new UnitError(`time = ${stamp.time}: expected an integer 0…${TIME_MAX}`, 'field time')
   }
   if (!Number.isInteger(stamp.tick) || stamp.tick < 0 || stamp.tick > TICK_MAX) {
-    throw new UnitError(`tick = ${stamp.tick}: ожидалось целое 0…${TICK_MAX}`, 'поле tick')
+    throw new UnitError(`tick = ${stamp.tick}: expected an integer 0…${TICK_MAX}`, 'field tick')
   }
   bin[UNIT_AT.kind] = kind
   writeU32(bin, UNIT_AT.time, stamp.time)
@@ -251,10 +251,10 @@ function checked(bin: Uint8Array, kind: number): void {
   const want = unitLength(bin)
   const got = bin[UNIT_AT.kind] as number
   if (got !== kind) {
-    throw new UnitError(`ожидался ${unitKindName(kind)}, а в байте 0 — ${unitKindName(got)}`, `юнит ${bin.length} Б`)
+    throw new UnitError(`expected ${unitKindName(kind)}, but byte 0 holds ${unitKindName(got)}`, `unit ${bin.length} B`)
   }
   if (bin.length !== want) {
-    throw new UnitError(`${unitKindName(kind)}: ожидалось ${want} Б, пришло ${bin.length}`, `юнит ${bin.length} Б`)
+    throw new UnitError(`${unitKindName(kind)}: expected ${want} B, got ${bin.length}`, `unit ${bin.length} B`)
   }
 }
 
@@ -547,7 +547,7 @@ export class SandUnit extends Unit {
       // в ball вместо inline, и хэши двух одинаковых сандов разошлись бы.
       if (size <= INLINE_MAX) {
         throw new UnitError(
-          `выносное значение объявлено в ${size} Б — такое обязано лежать внутри юнита`,
+          `external value declared as ${size} B — a value that size must live inside the unit`,
           `sand[${SAND_AT.size}]`,
         )
       }
@@ -566,8 +566,8 @@ export class SandUnit extends Unit {
     const payload = varyEncode(fields.value)
     if (payload.length > INLINE_MAX) {
       throw new UnitError(
-        `значение занимает ${payload.length} Б, а inline влезает ${INLINE_MAX} — нужен makeBig/makeAuto`,
-        'поле value',
+        `value takes ${payload.length} B, but inline fits ${INLINE_MAX} — use makeBig/makeAuto`,
+        'field value',
       )
     }
 
@@ -585,10 +585,10 @@ export class SandUnit extends Unit {
   /** Санд с выносным значением: длина и 12-байтовый хэш `ball` приходят готовыми. */
   static makeBig(fields: SandBigFields): SandUnit {
     if (!Number.isInteger(fields.size) || fields.size <= INLINE_MAX || fields.size > BALL_MAX) {
-      throw new UnitError(`size = ${fields.size}: у выносного значения ${INLINE_MAX + 1}…${BALL_MAX} Б`, 'поле size')
+      throw new UnitError(`size = ${fields.size}: an external value is ${INLINE_MAX + 1}…${BALL_MAX} B`, 'field size')
     }
     if (fields.shot.length !== SHOT_BYTES) {
-      throw new UnitError(`shot — ${SHOT_BYTES} Б, пришло ${fields.shot.length}`, 'поле shot')
+      throw new UnitError(`shot is ${SHOT_BYTES} B, got ${fields.shot.length}`, 'field shot')
     }
 
     const bin = new Uint8Array(SandUnit.lengthOfBig())
@@ -619,7 +619,7 @@ export class SandUnit extends Unit {
     const payload = varyEncode(fields.value)
     if (payload.length <= INLINE_MAX) return { unit: SandUnit.make(fields), ball: null }
     if (payload.length > BALL_MAX) {
-      throw new UnitError(`значение занимает ${payload.length} Б, потолок ball — ${BALL_MAX}`, 'поле value')
+      throw new UnitError(`value takes ${payload.length} B, the ball cap is ${BALL_MAX}`, 'field value')
     }
 
     const shot = new Uint8Array(SHOT_BYTES)
@@ -679,7 +679,7 @@ export class SandUnit extends Unit {
    * @throws {UnitError} у санда со значением внутри — хэша там нет.
    */
   shot(): Uint8Array {
-    if (!this.big()) throw new UnitError('у санда со значением внутри shot отсутствует', 'поле shot')
+    if (!this.big()) throw new UnitError('a sand with an inline value has no shot', 'field shot')
     return this.bin.slice(SAND_AT.shot, SAND_AT.shot + SHOT_BYTES)
   }
 
@@ -689,7 +689,7 @@ export class SandUnit extends Unit {
    * @throws {UnitError} у санда с выносным значением — байты лежат в `ball`.
    */
   bytes(): Uint8Array {
-    if (this.big()) throw new UnitError('значение вынесено в ball — читайте его по shot()', 'поле value')
+    if (this.big()) throw new UnitError('the value is external in ball — read it via shot()', 'field value')
     const size = this.size()
     if (size === 0) return NO_BYTES
     return this.bin.slice(SAND_AT.payload, SAND_AT.payload + size)
@@ -701,7 +701,7 @@ export class SandUnit extends Unit {
    * @throws {UnitError} у санда с выносным значением.
    */
   value(): Vary {
-    if (this.big()) throw new UnitError('значение вынесено в ball — разбирайте его varyDecode(ball)', 'поле value')
+    if (this.big()) throw new UnitError('the value is external in ball — decode it with varyDecode(ball)', 'field value')
     return this.varyAt(SAND_AT.payload, this.size())
   }
 
@@ -748,14 +748,14 @@ export class GiftUnit extends Unit {
 
   static make(fields: GiftFields): GiftUnit {
     if (!Number.isInteger(fields.tier) || fields.tier < 0 || fields.tier > 0b1111) {
-      throw new UnitError(`tier = ${fields.tier}: ожидалось 0…15`, 'поле tier')
+      throw new UnitError(`tier = ${fields.tier}: expected 0…15`, 'field tier')
     }
     if (!Number.isInteger(fields.rate) || fields.rate < 0 || fields.rate > 0b1111) {
-      throw new UnitError(`rate = ${fields.rate}: ожидалось 0…15`, 'поле rate')
+      throw new UnitError(`rate = ${fields.rate}: expected 0…15`, 'field rate')
     }
     const code = fields.code
     if (code !== undefined && code.length !== CODE_BYTES) {
-      throw new UnitError(`code — ${CODE_BYTES} Б, пришло ${code.length}`, 'поле code')
+      throw new UnitError(`code is ${CODE_BYTES} B, got ${code.length}`, 'field code')
     }
 
     const bin = new Uint8Array(GIFT_BYTES)
@@ -836,9 +836,9 @@ export class SealUnit extends Unit {
 
   static make(fields: SealFields): SealUnit {
     const count = fields.hashes.length
-    if (count > 0b1111) throw new UnitError(`хэшей ${count}, а в meta влезает 15`, 'поле hashes')
+    if (count > 0b1111) throw new UnitError(`${count} hashes, but meta fits 15`, 'field hashes')
     if (fields.sign.length !== SIGN_BYTES) {
-      throw new UnitError(`sign — ${SIGN_BYTES} Б, пришло ${fields.sign.length}`, 'поле sign')
+      throw new UnitError(`sign is ${SIGN_BYTES} B, got ${fields.sign.length}`, 'field sign')
     }
 
     const bin = new Uint8Array(SealUnit.lengthOf(count))
@@ -848,7 +848,7 @@ export class SealUnit extends Unit {
     for (let i = 0; i < count; i++) {
       const shot = fields.hashes[i] as Uint8Array
       if (shot.length !== SHOT_BYTES) {
-        throw new UnitError(`хэш #${i} — ${shot.length} Б, ожидалось ${SHOT_BYTES}`, `поле hashes[${i}]`)
+        throw new UnitError(`hash #${i} is ${shot.length} B, expected ${SHOT_BYTES}`, `field hashes[${i}]`)
       }
       bin.set(shot, SEAL_AT.hashes + i * SHOT_BYTES)
     }
@@ -873,7 +873,7 @@ export class SealUnit extends Unit {
   /** Хэш #`index` (12 Б, копия). */
   hashAt(index: number): Uint8Array {
     if (index < 0 || index >= this.count()) {
-      throw new UnitError(`хэш #${index}, а их ${this.count()}`, 'поле hashes')
+      throw new UnitError(`hash #${index} requested, but there are ${this.count()}`, 'field hashes')
     }
     const at = SEAL_AT.hashes + index * SHOT_BYTES
     return this.bin.slice(at, at + SHOT_BYTES)
@@ -956,11 +956,11 @@ export class PassUnit extends Unit {
 
   static make(fields: PassFields): PassUnit {
     const code = ALGO_NAME.indexOf(fields.algo)
-    if (code < 0) throw new UnitError(`алгоритм «${fields.algo}» неизвестен`, 'поле algo')
+    if (code < 0) throw new UnitError(`algorithm "${fields.algo}" is unknown`, 'field algo')
 
     const want = ALGO_KEY[code] as number
     if (fields.key.length !== want) {
-      throw new UnitError(`ключ ${fields.algo} — ${want} Б, пришло ${fields.key.length}`, 'поле key')
+      throw new UnitError(`${fields.algo} key is ${want} B, got ${fields.key.length}`, 'field key')
     }
 
     const bin = new Uint8Array(PassUnit.lengthOf(fields.algo))
@@ -1039,7 +1039,7 @@ export function unitLength(bin: Uint8Array): number {
 export function unitLengthAt(bin: Uint8Array, at: number): number {
   const rest = bin.length - at
   if (rest < UNIT_AT.body) {
-    throw new UnitError(`заголовок юнита — ${UNIT_AT.body} Б, а доступно ${rest}`, `юнит ${rest} Б`)
+    throw new UnitError(`unit header is ${UNIT_AT.body} B, but only ${rest} available`, `unit ${rest} B`)
   }
 
   const kind = bin[at + UNIT_AT.kind] as number
@@ -1053,11 +1053,11 @@ export function unitLengthAt(bin: Uint8Array, at: number): number {
   if (kind === KIND_SEAL) return SealUnit.lengthOf(meta & 0b1111)
   if (kind === KIND_PASS) {
     const size = ALGO_KEY[meta]
-    if (size === undefined) throw new UnitError(`алгоритм №${meta} неизвестен`, `юнит ${rest} Б`)
+    if (size === undefined) throw new UnitError(`algorithm #${meta} is unknown`, `unit ${rest} B`)
     return align8(PASS_AT.key + size)
   }
 
-  throw new UnitError(`вид №${kind} неизвестен`, `юнит ${rest} Б`)
+  throw new UnitError(`kind #${kind} is unknown`, `unit ${rest} B`)
 }
 
 /**
@@ -1136,7 +1136,7 @@ export function unitKeyAt(bin: Uint8Array, at: number): string {
     return `${out}/${readU32(bin, at + UNIT_AT.time)}.${readU16(bin, at + UNIT_AT.tick)}/${mix}`
   }
 
-  throw new UnitError(`вид №${kind} неизвестен`, `юнит по офсету ${at}`)
+  throw new UnitError(`kind #${kind} is unknown`, `unit at offset ${at}`)
 }
 
 /**
@@ -1156,7 +1156,7 @@ export function unitKeyAt(bin: Uint8Array, at: number): string {
  */
 export function parseUnit(bin: Uint8Array): AnyUnit {
   if (bin.length < UNIT_AT.body) {
-    throw new UnitError(`заголовок юнита — ${UNIT_AT.body} Б, а доступно ${bin.length}`, `юнит ${bin.length} Б`)
+    throw new UnitError(`unit header is ${UNIT_AT.body} B, but only ${bin.length} available`, `unit ${bin.length} B`)
   }
 
   const kind = bin[UNIT_AT.kind] as number
@@ -1165,7 +1165,7 @@ export function parseUnit(bin: Uint8Array): AnyUnit {
   if (kind === KIND_SEAL) return SealUnit.wrap(bin)
   if (kind === KIND_PASS) return PassUnit.wrap(bin)
 
-  throw new UnitError(`вид №${kind} неизвестен`, `юнит ${bin.length} Б`)
+  throw new UnitError(`kind #${kind} is unknown`, `unit ${bin.length} B`)
 }
 
 /** Имя вида по коду из байта 0 — для сообщений об ошибке и дампов. */

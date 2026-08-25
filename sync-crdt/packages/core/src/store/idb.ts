@@ -247,15 +247,15 @@ class IdbDisk {
 
     if (factory === undefined || ranges === undefined) {
       throw new StoreError(
-        'IndexedDB не найден: в Node его нет вовсе, и подавать его надо явно — idbStore({ factory, ranges })',
+        'IndexedDB not found: Node has none at all, and it must be supplied explicitly — idbStore({ factory, ranges })',
         'idbStore',
       )
     }
     if (!Number.isInteger(page) || page < 8 || page % 8 !== 0) {
-      throw new StoreError(`страница ${page} Б: нужно целое, кратное 8 (все секции формата кратны 8)`, 'idbStore')
+      throw new StoreError(`page ${page} B: an integer multiple of 8 is required (all format sections are multiples of 8)`, 'idbStore')
     }
     if (sides !== 1 && sides !== 2) {
-      throw new StoreError(`зеркал ${sides}: осмысленны 1 (транзакция уже атомарна) и 2`, 'idbStore')
+      throw new StoreError(`${sides} mirrors: only 1 (the transaction is already atomic) and 2 make sense`, 'idbStore')
     }
 
     this.#name = options.name ?? 'sync-crdt'
@@ -308,7 +308,7 @@ class IdbDisk {
     } catch (cause) {
       // Образ в памяти ушёл вперёд неизвестно насколько — доверять ему нельзя.
       this.#lands.delete(state.key)
-      throw new StoreError('пачка не влилась в образ', `ленд ${land.str}`, cause)
+      throw new StoreError('pack failed to merge into the image', `land ${land.str}`, cause)
     }
     await this.#commit(state)
   }
@@ -512,8 +512,8 @@ class IdbDisk {
     } catch (cause) {
       this.#lands.delete(state.key)
       throw new StoreError(
-        'транзакция не прошла — образ забыт и будет поднят из базы заново',
-        `ленд ${state.key}, зеркало ${side}`,
+        'transaction failed — the image is forgotten and will be reloaded from the database',
+        `land ${state.key}, mirror ${side}`,
         cause,
       )
     }
@@ -545,7 +545,7 @@ function nothing(): void {
 /** Удалить базу целиком — для тестов и для «начать с нуля». */
 export async function idbWipe(name: string, factory?: IdbFactory): Promise<void> {
   const found = factory ?? ambientIdb().factory
-  if (found === undefined) throw new StoreError('IndexedDB не найден', 'idbWipe')
+  if (found === undefined) throw new StoreError('IndexedDB not found', 'idbWipe')
   await ask(found.deleteDatabase(name))
 }
 

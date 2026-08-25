@@ -67,8 +67,8 @@ function tamper(land: Land, field: string, value: Vary, peer = 0x99, when = 2000
   deliver(land, other)
 }
 
-describe('чтение и запись атома', () => {
-  test('непрочитанное поле отдаёт blank своего типа, а не undefined и не null', () => {
+describe('atom reads and writes', () => {
+  test('an unread field returns the blank of its type, not undefined and not null', () => {
     const { space } = stand()
     const note = space.root(Note)
 
@@ -78,7 +78,7 @@ describe('чтение и запись атома', () => {
     expect(note.tag()).toBe(null)
   })
 
-  test('записанное читается обратно', () => {
+  test('what was written reads back', () => {
     const { space } = stand()
     const note = space.root(Note)
 
@@ -91,7 +91,7 @@ describe('чтение и запись атома', () => {
     expect(note.status()).toBe('live')
   })
 
-  test('все линзы t.* переживают round-trip через байты ленда', () => {
+  test('all t.* lenses survive a round-trip through land bytes', () => {
     const { space } = stand()
     const doc = space.root(Strict)
     const when = new Date('2026-08-16T10:00:00.000Z')
@@ -125,14 +125,14 @@ describe('чтение и запись атома', () => {
     expect(doc.home()?.str).toBe(home.str)
   })
 
-  test('x(next) возвращает победителя LWW, а не то, что записали', () => {
+  test('x(next) returns the LWW winner, not what was written', () => {
     const { space } = stand()
     const note = space.root(Note)
     expect(note.title('первый')).toBe('первый')
     expect(note.title.set('второй')).toBe('второй')
   })
 
-  test('raw() отдаёт значение до разбора', () => {
+  test('raw() returns the value before parsing', () => {
     const { space } = stand()
     const note = space.root(Note)
     expect(note.title.raw()).toBe(null)
@@ -140,7 +140,7 @@ describe('чтение и запись атома', () => {
     expect(note.title.raw()).toBe('сырое')
   })
 
-  test('запись сохраняет self, значит поддерево переживает смену значения', () => {
+  test('a write keeps self, so the subtree survives a value change', () => {
     const { land, space } = stand()
     const note = space.root(Note)
 
@@ -152,7 +152,7 @@ describe('чтение и запись атома', () => {
     expect(land.nodes(slot)[0]).toBe(before)
   })
 
-  test('clear() ставит надгробие, и поле возвращается к blank', () => {
+  test('clear() places a tombstone and the field returns to blank', () => {
     const { space } = stand()
     const note = space.root(Note)
 
@@ -161,7 +161,7 @@ describe('чтение и запись атома', () => {
     expect(note.title()).toBe('')
   })
 
-  test('clear() над пустым полем не пишет ни одного юнита', () => {
+  test('clear() on an empty field writes not a single unit', () => {
     const { land, space } = stand()
     const note = space.root(Note)
 
@@ -171,8 +171,8 @@ describe('чтение и запись атома', () => {
   })
 })
 
-describe('идемпотентность — без неё эхо между пирами бесконечно', () => {
-  test('x(x()) не рождает юнитов', () => {
+describe('idempotence — without it the echo between peers is endless', () => {
+  test('x(x()) births no units', () => {
     const { land, space } = stand()
     const note = space.root(Note)
     note.title('раз')
@@ -182,7 +182,7 @@ describe('идемпотентность — без неё эхо между п�
     expect(land.size()).toBe(before)
   })
 
-  test('x(v); x(v) — ровно один юнит на значение', () => {
+  test('x(v); x(v) — exactly one unit per value', () => {
     const { land, space } = stand()
     const note = space.root(Note)
 
@@ -193,7 +193,7 @@ describe('идемпотентность — без неё эхо между п�
     expect(land.size() - before).toBe(once)
   })
 
-  test('отказ линзы не оставляет за собой пустой ключевой юнит', () => {
+  test('a lens refusal does not leave an empty key unit behind', () => {
     const { land, space } = stand()
     const doc = space.root(Strict)
 
@@ -208,8 +208,8 @@ describe('идемпотентность — без неё эхо между п�
   })
 })
 
-describe('порядок ключей — часть контракта, а не побочный эффект якоря', () => {
-  test('ключи ложатся в порядке первой записи, не в обратном', () => {
+describe('key order is part of the contract, not a side effect of the anchor', () => {
+  test('keys land in first-write order, not reversed', () => {
     const { land, space } = stand()
     const note = space.root(Note)
 
@@ -223,8 +223,8 @@ describe('порядок ключей — часть контракта, а не
   })
 })
 
-describe('адреса ключей — контентные и от позиции не зависят', () => {
-  test('два пира, записавшие одно поле, сходятся в ОДИН ключевой юнит', () => {
+describe('key addresses are content-based and do not depend on position', () => {
+  test('two peers writing one field converge to ONE key unit', () => {
     const clock = fixedClock(1000)
     const salt = new Uint8Array([9, 9])
     const one = new Land(peerOf(0x11), clock)
@@ -248,7 +248,7 @@ describe('адреса ключей — контентные и от позиц�
     expect(a.title()).toBe(b.title())
   })
 
-  test('соль ленда меняет адрес ключа, не меняя наблюдаемого поведения', () => {
+  test('the land salt changes the key address without changing observable behavior', () => {
     const salted = stand(0x11, new Uint8Array([7]))
     const plain = stand(0x11, new Uint8Array(0))
 
@@ -262,8 +262,8 @@ describe('адреса ключей — контентные и от позиц�
   })
 })
 
-describe('чтение НИКОГДА не бросает', () => {
-  test('мусор от узла другой версии даёт blank и ровно один Issue', () => {
+describe('reads NEVER throw', () => {
+  test('garbage from a node of another version yields blank and exactly one Issue', () => {
     const { land, space, issues } = stand()
     const note = space.root(Note)
     note.views(1)
@@ -281,7 +281,7 @@ describe('чтение НИКОГДА не бросает', () => {
     expect(issues[0]?.peer).not.toBe(null)
   })
 
-  test('issue() объясняет blank вторым проходом', () => {
+  test('issue() explains the blank on a second pass', () => {
     const { land, space } = stand()
     const note = space.root(Note)
     note.views(1)
@@ -292,7 +292,7 @@ describe('чтение НИКОГДА не бросает', () => {
     expect(note.title.issue()).toBe(null)
   })
 
-  test('неизвестный член перечисления не становится валидным значением', () => {
+  test('an unknown enum member does not become a valid value', () => {
     const { land, space, issues } = stand()
     const note = space.root(Note)
     note.status('live')
@@ -304,7 +304,7 @@ describe('чтение НИКОГДА не бросает', () => {
     expect(issues.map(issue => issue.kind)).toEqual(['decode'])
   })
 
-  test('check() не пишет и не бросает', () => {
+  test('check() neither writes nor throws', () => {
     const { land, space } = stand()
     const doc = space.root(Strict)
 
@@ -314,7 +314,7 @@ describe('чтение НИКОГДА не бросает', () => {
     expect(land.size()).toBe(before)
   })
 
-  test('подписка onIssue получает то же, что и приёмник', () => {
+  test('the onIssue subscription receives the same as the receiver', () => {
     const { land, space, issues } = stand()
     const heard: Issue[] = []
     const off = space.onIssue(issue => heard.push(issue))
@@ -329,25 +329,25 @@ describe('чтение НИКОГДА не бросает', () => {
   })
 })
 
-describe('идентичность и кэш', () => {
-  test('два вызова doc() дают ОДИН объект', () => {
+describe('identity and cache', () => {
+  test('two doc() calls yield ONE object', () => {
     const { land, space } = stand()
     const at = headAt(land, 4242)
     expect(space.doc(Note, at)).toBe(space.doc(Note, at))
     expect(space.root(Note)).toBe(space.root(Note))
   })
 
-  test('документ открывается и по имени модели, и по объекту', () => {
+  test('a document opens both by model name and by object', () => {
     const { space } = stand()
     expect(space.root('note')).toBe(space.root(Note))
   })
 
-  test('канал одного поля — тот же объект при повторном открытии', () => {
+  test('the channel of one field is the same object on reopening', () => {
     const { space } = stand()
     expect(space.root(Note).title).toBe(space.root(Note).title)
   })
 
-  test('документы разных голов независимы', () => {
+  test('documents of different heads are independent', () => {
     const { land, space } = stand()
     const one = space.doc(Note, headAt(land, 100))
     const two = space.doc(Note, headAt(land, 200))
@@ -359,7 +359,7 @@ describe('идентичность и кэш', () => {
     expect(two.title()).toBe('второй')
   })
 
-  test('все документы одной модели имеют один набор ключей в одном порядке', () => {
+  test('all documents of one model have one key set in one order', () => {
     const { land, space } = stand()
     const one = space.doc(Note, headAt(land, 300))
     const two = space.doc(Note, headAt(land, 400))
@@ -368,8 +368,8 @@ describe('идентичность и кэш', () => {
   })
 })
 
-describe('гранулярность — решение Р3 в действии', () => {
-  test('первая запись в СОСЕДНЕЕ поле не пересчитывает значение прочитанного', () => {
+describe('granularity — decision R3 in action', () => {
+  test('the first write to a NEIGHBORING field does not recompute the read one', () => {
     const { space } = stand()
     const note = space.root(Note)
 
@@ -393,7 +393,7 @@ describe('гранулярность — решение Р3 в действии'
     stop()
   })
 
-  test('чтение поля подписано на приход чужого юнита', () => {
+  test('a field read subscribes to the arrival of a foreign unit', () => {
     const { land, space } = stand()
     const note = space.root(Note)
 
@@ -412,8 +412,8 @@ describe('гранулярность — решение Р3 в действии'
   })
 })
 
-describe('производные поля', () => {
-  test('читаются как обычные и пересчитываются вместе с источником', () => {
+describe('derived fields', () => {
+  test('read like ordinary fields and recompute with their source', () => {
     const { space } = stand()
     const note = space.root(Note)
 
@@ -424,7 +424,7 @@ describe('производные поля', () => {
     expect(note.loud()).toBe('ТИШЕ')
   })
 
-  test('производное поле читает ТОТ ЖЕ документ, что и прикладной код', () => {
+  test('a derived field reads THE SAME document as application code', () => {
     const { space } = stand()
     const note = space.root(Note)
 
@@ -444,8 +444,8 @@ describe('производные поля', () => {
   })
 })
 
-describe('$ — операции документа', () => {
-  test('exists() отличает «пусто» от «не создавали»', () => {
+describe('$ — document operations', () => {
+  test('exists() tells «empty» from «never created»', () => {
     const { space } = stand()
     const note = space.root(Note)
 
@@ -454,7 +454,7 @@ describe('$ — операции документа', () => {
     expect(note.$.exists()).toBe(true)
   })
 
-  test('link() даёт абсолютный адрес пешки, и по нему открывается тот же документ', () => {
+  test('link() yields the absolute pawn address, and it opens the same document', () => {
     const { land, space } = stand()
     const note = space.doc(Note, headAt(land, 777))
     const link = note.$.link()
@@ -463,7 +463,7 @@ describe('$ — операции документа', () => {
     expect(space.doc(Note, link)).toBe(note)
   })
 
-  test('extras() показывает ключи, которых нет в схеме', () => {
+  test('extras() shows keys absent from the schema', () => {
     const { land, space } = stand()
     const note = space.root(Note)
     note.title('своё')
@@ -476,7 +476,7 @@ describe('$ — операции документа', () => {
     expect(note.title()).toBe('своё')
   })
 
-  test('meta-слот не протекает ни в extras, ни в поля', () => {
+  test('the meta slot leaks neither into extras nor into fields', () => {
     const { land, space } = stand()
     const note = space.root(Note)
     note.title('своё')
@@ -490,7 +490,7 @@ describe('$ — операции документа', () => {
     expect(note.title()).toBe('своё')
   })
 
-  test('authors() и changedAt() обходят поддерево', () => {
+  test('authors() and changedAt() traverse the subtree', () => {
     const { land, space } = stand()
     const note = space.root(Note)
     note.title('своё')
@@ -504,7 +504,7 @@ describe('$ — операции документа', () => {
     expect(space.doc(Note, headAt(land, 31337)).$.changedAt()).toBe(null)
   })
 
-  test('drop() кладёт надгробие на каждый ключ', () => {
+  test('drop() places a tombstone on every key', () => {
     const { space } = stand()
     const note = space.root(Note)
 
@@ -517,14 +517,14 @@ describe('$ — операции документа', () => {
     expect(note.views()).toBe(0)
   })
 
-  test('canWrite() честен про S6: прав ленд пока не разбирает', () => {
+  test('canWrite() is honest about S6: the land does not parse rights yet', () => {
     const { space } = stand()
     expect(space.root(Note).$.canWrite()).toBe(true)
   })
 })
 
-describe('by(peer) — кто что писал', () => {
-  test('видна версия того пира, что дожила до текущего состояния', () => {
+describe('by(peer) — who wrote what', () => {
+  test('the version of the peer that survived into the current state is visible', () => {
     const { land, space } = stand()
     const mine = peerOf(0x11)
     const theirs = peerOf(0x22)
@@ -542,8 +542,8 @@ describe('by(peer) — кто что писал', () => {
   })
 })
 
-describe('транзакция', () => {
-  test('edit() отдаёт результат и будит подписчиков один раз', () => {
+describe('transaction', () => {
+  test('edit() returns the result and wakes subscribers once', () => {
     const { space } = stand()
     const note = space.root(Note)
 
@@ -567,14 +567,14 @@ describe('транзакция', () => {
   })
 })
 
-describe('цена решений названа вслух', () => {
-  test('отвязанный метод ломается ГОВОРЯЩЕ — это Р4', () => {
+describe('the price of decisions is named out loud', () => {
+  test('a detached method fails EXPRESSIVELY — that is R4', () => {
     const { space } = stand()
     const { set } = space.root(Note).title
-    expect(() => set('x')).toThrow(/отвязывает/)
+    expect(() => set('x')).toThrow(/detaches/)
   })
 
-  test('пустая клетка таблицы видов падает с названием вида', () => {
+  test('an empty cell of the kind table fails with the kind name', () => {
     // ТЕСТ ПЕРЕПИСАН, а не удалён. Предметом был `post.tags` — единственный на
     // тот момент несобранный вид; сейчас все девять клеток заполнены (atom,
     // list, dict, text, parts, index, link, links, part), и прежний ассерт
@@ -589,12 +589,12 @@ describe('цена решений названа вслух', () => {
     expect(() => nowhere(coreOf(stand().space), undefined as never, ROOT)).toThrow(/нет-такого-вида/)
   })
 
-  test('соседний ленд некому открыть без createSpace({open})', () => {
+  test('no one can open a neighboring land without createSpace({open})', () => {
     const { space } = stand()
-    expect(() => space.of(Link.hole)).toThrow(/некому открыть/)
+    expect(() => space.of(Link.hole)).toThrow(/no one can open/)
   })
 
-  test('ленд наружу открыт той же ручкой, что получит следующий слой', () => {
+  test('the outward land opens with the same handle the next layer will get', () => {
     const { land, space } = stand()
     expect(coreOf(space).land).toBe(land)
   })

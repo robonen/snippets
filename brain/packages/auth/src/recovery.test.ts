@@ -8,20 +8,20 @@ import {
   quizIndexes,
 } from './recovery';
 
-test('словарь — ровно 256 слов без повторов', () => {
+test('Dictionary is exactly 256 words without duplicates', () => {
   // Степень двойки: каждое слово несёт целые 8 бит, и выборка из случайного
   // байта равномерна без отбраковки.
   expect(WORDS).toHaveLength(256);
   expect(new Set(WORDS).size).toBe(256);
 });
 
-test('в словаре нет «ё» и нет латиницы', () => {
+test('Dictionary has no «ё» and no Latin letters', () => {
   // «ё» пользователь напишет как «е» — и не попадёт в словарь.
   expect(WORDS.filter(word => word.includes('ё'))).toEqual([]);
   expect(WORDS.filter(word => /[a-z]/u.test(word))).toEqual([]);
 });
 
-test('никакие два слова не различаются одной буквой', () => {
+test('No two words differ by a single letter', () => {
   // Обещание из комментария к словарю: описка в одной букве не должна
   // превращать слово в другое слово того же словаря.
   const clashes: string[] = [];
@@ -33,31 +33,31 @@ test('никакие два слова не различаются одной б
   expect(clashes).toEqual([]);
 });
 
-test('фраза — двенадцать слов из словаря', () => {
+test('Phrase is twelve words from the dictionary', () => {
   const phrase = createPhrase();
   expect(phrase).toHaveLength(PHRASE_LENGTH);
   expect(phrase.every(word => WORDS.includes(word))).toBeTruthy();
   expect(isKnownPhrase(phrase)).toBeTruthy();
 });
 
-test('две фразы подряд не совпадают', () => {
+test('Two consecutive phrases do not match', () => {
   // 96 бит энтропии: совпадение означало бы, что источник случайности сломан.
   expect(createPhrase().join(' ')).not.toBe(createPhrase().join(' '));
 });
 
-test('нормализация прощает регистр, лишние пробелы и «ё»', () => {
+test('Normalization forgives case, extra spaces, and «ё»', () => {
   expect(normalizePhrase('  Астра   БЕРЕГ  вилка ')).toBe('астра берег вилка');
   expect(normalizePhrase(['Ёлка', 'астра'])).toBe('елка астра');
 });
 
-test('чужая или неполная фраза распознаётся до дорогого KDF', () => {
+test('A foreign or incomplete phrase is detected before the expensive KDF', () => {
   const phrase = createPhrase();
   expect(isKnownPhrase(phrase.slice(0, 11))).toBeFalsy();
   expect(isKnownPhrase([...phrase.slice(0, 11), 'абракадабра'])).toBeFalsy();
   expect(isKnownPhrase(phrase.join('  ').toUpperCase())).toBeTruthy();
 });
 
-test('проверочные индексы различны и лежат в границах фразы', () => {
+test('Check indices are distinct and within phrase bounds', () => {
   for (let run = 0; run < 50; run++) {
     const indexes = quizIndexes(2);
     expect(indexes).toHaveLength(2);
@@ -66,7 +66,7 @@ test('проверочные индексы различны и лежат в г
   }
 });
 
-test('запрос большего числа индексов, чем слов, не зацикливается', () => {
+test('Requesting more indices than there are words does not loop forever', () => {
   expect(quizIndexes(99, 4)).toEqual([0, 1, 2, 3]);
 });
 

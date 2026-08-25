@@ -29,7 +29,7 @@ import { flush } from './graph'
  * около ×1, порог ×3. Тест меряет ОТНОШЕНИЕ двух прогонов в одном процессе,
  * поэтому не зависит ни от машины, ни от её загрузки в абсолютных числах.
  */
-describe('регрессия: computed.keyed подметает амортизированно', () => {
+describe('Regression: computed.keyed sweeps amortized', () => {
   const SMALL = 2_000
   const LARGE = 50_000
 
@@ -44,14 +44,14 @@ describe('регрессия: computed.keyed подметает амортизи
     return Number(process.hrtime.bigint() - start) / count
   }
 
-  test('цена промаха не растёт с числом живых ключей', () => {
+  test('Miss cost does not grow with the number of live keys', () => {
     const small = perMiss(SMALL)
     const large = perMiss(LARGE)
 
     expect(large / small).toBeLessThan(3)
   })
 
-  test('уборка всё ещё происходит: сирота исчезает при росте карты', () => {
+  test('Sweeping still happens: an orphan disappears as the map grows', () => {
     const channel = computed.keyed((key: number) => key + 1)
     const stop = watchEffect(() => {
       channel(0)

@@ -44,7 +44,7 @@ function packOf(land: Land, id: Link): Uint8Array {
 }
 
 describe(makeSecure, () => {
-  it('санды доезжают до второго устройства подписанными через слепой сервер', async () => {
+  it('sands reach the second device signed, through a blind server', async () => {
     const a = await device();
     // Оба устройства делят один ключ шифрования (в brain — общая связка).
     const b = { signer: (await device()).signer, ring: a.ring };
@@ -69,7 +69,7 @@ describe(makeSecure, () => {
     expect(two.order(LAND_ROOT).map(v => v.value)).toEqual(['привет', 'мир']);
   });
 
-  it('вброс сервера без печати отвергается', async () => {
+  it('server injection without a seal is rejected', async () => {
     const a = await device();
     const roster = ownerRoster([a.signer.peer]);
     const secureA = makeSecure(a.ring, a.signer, () => roster, KEYS.str);
@@ -94,7 +94,7 @@ describe(makeSecure, () => {
     expect(two.order(LAND_ROOT).map(v => v.value)).toEqual(['честная']);
   });
 
-  it('ленд keys едет корнем доверия: не шифруется и не подписывается', async () => {
+  it('keys land travels as the root of trust: neither encrypted nor signed', async () => {
     const a = await device();
     const roster = ownerRoster([a.signer.peer]);
     const secure = makeSecure(a.ring, a.signer, () => roster, KEYS.str);
@@ -113,7 +113,7 @@ describe(makeSecure, () => {
     expect(back.order(LAND_ROOT).map(v => v.value)).toEqual(['публичный ключ устройства']);
   });
 
-  it('фейсы сходятся: после эха печатей сервер не шлёт их снова', async () => {
+  it('faces converge: after the seal echo the server does not send them again', async () => {
     const a = await device();
     const roster = ownerRoster([a.signer.peer]);
     const secure = makeSecure(a.ring, a.signer, () => roster, KEYS.str);

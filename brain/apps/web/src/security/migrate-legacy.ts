@@ -91,7 +91,7 @@ export async function migrateLegacy(options: MigrateOptions): Promise<Keyring> {
   const secrets: SecretRing = {
     secretOf: (land) => {
       const key = ring.secretOf(land.str);
-      if (key === null) throw new Error(`секрет ленда «${land.str}» не заведён — переезд собран неверно`);
+      if (key === null) throw new Error(`no secret registered for land "${land.str}" — migration assembled incorrectly`);
       return key;
     },
   };
@@ -140,7 +140,7 @@ async function readChunks(): Promise<Map<string, Uint8Array[]>> {
         found.push({ key: at.key, value: new Uint8Array(at.value as ArrayBuffer | Uint8Array as Uint8Array) });
         at.continue();
       };
-      cursor.onerror = (): void => fail(cursor.error ?? new Error('сундук не читается'));
+      cursor.onerror = (): void => fail(cursor.error ?? new Error('legacy chest is unreadable'));
     });
 
     // Ключ старого сундука — [ленд, номер]; курсор уже идёт по порядку ключей.

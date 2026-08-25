@@ -90,7 +90,7 @@ export async function identityOf(algo: ExchangeAlgo, pair: SubtleKeyPair): Promi
     cipher: { name: string, length: number },
   ): Promise<SubtleKey> {
     if (otherAlgo !== algo) {
-      throw new CryptoError(`кривые не совпали: у нас ${algo}, у собеседника ${otherAlgo}`, 'обмен ключами')
+      throw new CryptoError(`curves do not match: ours is ${algo}, theirs is ${otherAlgo}`, 'key exchange')
     }
 
     const other = await crypto.subtle.importKey(
@@ -143,7 +143,7 @@ function counterOf(bind: Uint8Array): Uint8Array {
  */
 export async function wrapSecret(mutual: SubtleKey, secret: Uint8Array, bind: Uint8Array): Promise<Uint8Array> {
   if (secret.length !== SECRET_BYTES) {
-    throw new CryptoError(`секрет ленда — ${SECRET_BYTES} Б, пришло ${secret.length}`, 'gift.code')
+    throw new CryptoError(`land secret is ${SECRET_BYTES} B, got ${secret.length}`, 'gift.code')
   }
   const code = await crypto.subtle.encrypt(
     { name: 'AES-CTR', counter: counterOf(bind), length: 32 },
@@ -156,7 +156,7 @@ export async function wrapSecret(mutual: SubtleKey, secret: Uint8Array, bind: Ui
 /** Снять обёртку {@link wrapSecret}: CTR симметричен, связка обязана совпасть. */
 export async function unwrapSecret(mutual: SubtleKey, code: Uint8Array, bind: Uint8Array): Promise<Uint8Array> {
   if (code.length !== SECRET_BYTES) {
-    throw new CryptoError(`gift.code — ${SECRET_BYTES} Б, пришло ${code.length}`, 'gift.code')
+    throw new CryptoError(`gift.code is ${SECRET_BYTES} B, got ${code.length}`, 'gift.code')
   }
   const secret = await crypto.subtle.decrypt(
     { name: 'AES-CTR', counter: counterOf(bind), length: 32 },

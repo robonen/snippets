@@ -19,8 +19,8 @@ function memoryStore(): RingStore {
 
 const META = { kind: 'passphrase' as const, label: 'фраза', salt: createSalt() };
 
-describe('связка ключей', () => {
-  test('секрет заводится один раз и переживает цикл «завернуть → открыть»', async () => {
+describe('Keyring', () => {
+  test('Secret is created once and survives the wrap → unwrap cycle', async () => {
     const store = memoryStore();
     const ring = await createKeyring(store);
     const first = await ring.ensure('notes');
@@ -37,7 +37,7 @@ describe('связка ключей', () => {
     expect(reopened.rawOf('notes')).toEqual(raw);
   });
 
-  test('новый ленд после обёртки: старая обёртка открывает и его', async () => {
+  test('New land after wrapping: the old wrap opens it too', async () => {
     const store = memoryStore();
     const ring = await createKeyring(store);
     const kek = randomBytes(32);
@@ -51,7 +51,7 @@ describe('связка ключей', () => {
     expect(new Set(reopened.lands())).toEqual(new Set(['notes', 'kcal']));
   });
 
-  test('чужой KEK не открывает', async () => {
+  test('A foreign KEK does not open', async () => {
     const store = memoryStore();
     const ring = await createKeyring(store);
     await ring.ensure('notes');
@@ -59,7 +59,7 @@ describe('связка ключей', () => {
     await expect(unlockKeyring(wrap, randomBytes(32), store)).rejects.toThrow();
   });
 
-  test('adopt принимает чужие секреты и спорит при расхождении', async () => {
+  test('adopt accepts foreign secrets and disputes on divergence', async () => {
     const store = memoryStore();
     const ring = await createKeyring(store);
     await ring.ensure('notes');
@@ -75,10 +75,10 @@ describe('связка ключей', () => {
 
     // Совпадающий секрет — не конфликт; другой секрет того же ленда — конфликт.
     await ring.adopt(new Map([['notes', mine]]));
-    await expect(ring.adopt(new Map([['notes', randomBytes(16)]]))).rejects.toThrow(/расходится/);
+    await expect(ring.adopt(new Map([['notes', randomBytes(16)]]))).rejects.toThrow(/diverges/);
   });
 
-  test('rotate перевыпускает секреты, замок затирает', async () => {
+  test('rotate reissues secrets, the lock wipes them', async () => {
     const store = memoryStore();
     const ring = await createKeyring(store);
     await ring.ensure('notes');
@@ -89,7 +89,7 @@ describe('связка ключей', () => {
     ring.lock();
     expect(ring.secretOf('notes')).toBeNull();
     expect(() => ring.exportSecrets()).not.toThrow(); // пустая связка — не бросок
-    await expect(ring.wrapFor(randomBytes(32), META)).rejects.toThrow(/заперта/);
+    await expect(ring.wrapFor(randomBytes(32), META)).rejects.toThrow(/locked/);
 
     dropKeyring(store);
     expect(store.getItem('brain.keys.ring')).toBeNull();

@@ -34,7 +34,7 @@ function at(peer: string): Sand {
   return { self: 's', head: ROOT, lead: ROOT, peer, time: 1, tick: 0, value: 1 }
 }
 
-test('текст ссылки и байты дают ПРОТИВОПОЛОЖНЫЙ порядок пиров', () => {
+test('link text and bytes yield the OPPOSITE peer order', () => {
   const low = Link.peer(PEER_LOW)
   const high = Link.peer(PEER_HIGH)
 
@@ -52,7 +52,7 @@ test('текст ссылки и байты дают ПРОТИВОПОЛОЖН�
   expect(Math.sign(compare(at(low.str), at(high.str)))).toBe(+1)
 })
 
-test('hex сохраняет порядок байт на всём диапазоне', () => {
+test('hex preserves byte order across the whole range', () => {
   // Кодировка годится в арбитры ровно тогда, когда сравнение её строк совпадает
   // с сравнением байт. Для hex это проверяется исчерпывающе по одному байту.
   for (let a = 0; a < 256; a++) {
@@ -66,7 +66,7 @@ test('hex сохраняет порядок байт на всём диапаз�
   }
 })
 
-test('base64url не сохраняет порядок байт — и это видно на одном байте', () => {
+test('base64url does not preserve byte order — visible on a single byte', () => {
   // Зеркало предыдущего теста: ищем первую пару, на которой кодировка врёт.
   // Если её не окажется, значит алфавит сменили — и ADR-015 надо пересмотреть.
   const broken: [number, number][] = []

@@ -254,8 +254,8 @@ function build(recipe: Recipe): AnyUnit {
 
 // ── 1. Поля: боевая сборка против независимого чтения ────────────────────────
 
-describe('независимое чтение юнита', () => {
-  it(`поля совпадают на ${RUNS} собранных юнитах`, { timeout: 600_000 }, () => {
+describe('independent unit reading', () => {
+  it(`fields match on ${RUNS} built units`, { timeout: 600_000 }, () => {
     fc.assert(
       fc.property(recipeArb, (recipe) => {
         const unit = build(recipe)
@@ -275,7 +275,7 @@ describe('независимое чтение юнита', () => {
         expect(hex(ref.peer)).toBe(hex(peerBytes(unit.peer())))
 
         if (recipe.kind === 'sand') {
-          if (ref.kind !== 'sand' || !(unit instanceof SandUnit)) throw new Error('вид разошёлся')
+          if (ref.kind !== 'sand' || !(unit instanceof SandUnit)) throw new Error('kind diverged')
           expect(hex(ref.self)).toBe(hex(recipe.self))
           expect(hex(ref.head)).toBe(hex(recipe.head))
           expect(hex(ref.lead)).toBe(hex(recipe.lead))
@@ -306,7 +306,7 @@ describe('независимое чтение юнита', () => {
         }
 
         if (recipe.kind === 'gift') {
-          if (ref.kind !== 'gift' || !(unit instanceof GiftUnit)) throw new Error('вид разошёлся')
+          if (ref.kind !== 'gift' || !(unit instanceof GiftUnit)) throw new Error('kind diverged')
           expect(hex(ref.mate)).toBe(hex(recipe.mate))
           expect(hex(ref.mate)).toBe(hex(peerBytes(unit.mate())))
           expect(ref.tier).toBe(recipe.tier)
@@ -318,7 +318,7 @@ describe('независимое чтение юнита', () => {
         }
 
         if (recipe.kind === 'seal') {
-          if (ref.kind !== 'seal' || !(unit instanceof SealUnit)) throw new Error('вид разошёлся')
+          if (ref.kind !== 'seal' || !(unit instanceof SealUnit)) throw new Error('kind diverged')
           expect(ref.count).toBe(recipe.hashes.length)
           expect(ref.count).toBe(unit.count())
           expect(ref.wide).toBe(recipe.wide)
@@ -330,7 +330,7 @@ describe('независимое чтение юнита', () => {
         }
 
         if (recipe.kind === 'pass') {
-          if (ref.kind !== 'pass' || !(unit instanceof PassUnit)) throw new Error('вид разошёлся')
+          if (ref.kind !== 'pass' || !(unit instanceof PassUnit)) throw new Error('kind diverged')
           expect(ref.algo).toBe(recipe.algo)
           expect(ref.algo).toBe(unit.algo())
           expect(hex(ref.key)).toBe(hex(recipe.key))
@@ -341,7 +341,7 @@ describe('независимое чтение юнита', () => {
     )
   })
 
-  it('прибор читает и то, что вернул диспетчер, и то, что вернула фабрика', () => {
+  it('the instrument reads both what the dispatcher returned and what the factory returned', () => {
     fc.assert(
       fc.property(recipeArb, (recipe) => {
         const unit = build(recipe)
@@ -355,7 +355,7 @@ describe('независимое чтение юнита', () => {
     )
   })
 
-  it('обрезанные байты прибор отвергает, а не дочитывает', () => {
+  it('the instrument rejects truncated bytes instead of reading past them', () => {
     fc.assert(
       fc.property(recipeArb, (recipe) => {
         const bin = build(recipe).bin
@@ -404,8 +404,8 @@ function stamped(stamp: Stamp): SandUnit {
   })
 }
 
-describe('порядок сверяется независимым оракулом', () => {
-  it(`Unit.compare совпадает с оракулом по полям на ${RUNS} парах`, { timeout: 600_000 }, () => {
+describe('order is checked by an independent oracle', () => {
+  it(`Unit.compare matches the field-based oracle on ${RUNS} pairs`, { timeout: 600_000 }, () => {
     fc.assert(
       fc.property(tightStamp, tightStamp, (left, right) => {
         const a = stamped(left)
@@ -418,7 +418,7 @@ describe('порядок сверяется независимым оракул�
     )
   })
 
-  it('порядок строгий и антисимметричный', () => {
+  it('order is strict and antisymmetric', () => {
     fc.assert(
       fc.property(tightStamp, tightStamp, (left, right) => {
         const a = stamped(left)
@@ -438,7 +438,7 @@ describe('порядок сверяется независимым оракул�
    * измерено и закреплено: если кто-то заменит `Unit.compare` на memcmp,
    * покраснеет весь раздел выше, а этот перестанет находить контрпримеры.
    */
-  it(`memcmp 14 байт расходится с LWW — на ${RUNS} парах доля расхождений считается`, { timeout: 600_000 }, () => {
+  it(`14-byte memcmp diverges from LWW — the divergence share is measured on ${RUNS} pairs`, { timeout: 600_000 }, () => {
     let seen = 0
     let apart = 0
 
@@ -458,18 +458,18 @@ describe('порядок сверяется независимым оракул�
     console.log(`  §2 memcmp: расходится на ${apart} парах из ${seen} (${((apart / seen) * 100).toFixed(1)} %)`)
   })
 
-  describe('минимальные контрпримеры к обещанию §2', () => {
+  describe('minimal counterexamples to the §2 promise', () => {
     const peer1 = new Uint8Array([0, 0, 0, 0, 0, 0, 0, 1])
     const peer2 = new Uint8Array([0, 0, 0, 0, 0, 0, 0, 2])
 
-    it('1. time: memcmp даёт возрастание, LWW требует убывания', () => {
+    it('1. time: memcmp gives ascending, LWW requires descending', () => {
       const a = stamped({ peer: peer1, time: 1, tick: 0 })
       const b = stamped({ peer: peer1, time: 2, tick: 0 })
       expect(sign(Unit.compare(a, b))).toBe(+1)
       expect(sign(memcmpCompare(a.bin, b.bin))).toBe(-1)
     })
 
-    it('2. приоритет: tick лежит раньше peer, а решать обязан peer', () => {
+    it('2. priority: tick lies before peer, but peer must decide', () => {
       const a = stamped({ peer: peer1, time: 7, tick: 1 })
       const b = stamped({ peer: peer2, time: 7, tick: 0 })
       // LWW: время равно → решает peer, а peer1 < peer2.
@@ -478,14 +478,14 @@ describe('порядок сверяется независимым оракул�
       expect(sign(memcmpCompare(a.bin, b.bin))).toBe(+1)
     })
 
-    it('3. tick: memcmp даёт возрастание, LWW требует убывания', () => {
+    it('3. tick: memcmp gives ascending, LWW requires descending', () => {
       const a = stamped({ peer: peer1, time: 7, tick: 1 })
       const b = stamped({ peer: peer1, time: 7, tick: 2 })
       expect(sign(Unit.compare(a, b))).toBe(+1)
       expect(sign(memcmpCompare(a.bin, b.bin))).toBe(-1)
     })
 
-    it('и «memcmp наоборот» тоже не спасает: направления смешаны', () => {
+    it('and "reversed memcmp" does not help either: directions are mixed', () => {
       // Разворот знака чинит пункты 1 и 3, но ломает единственный, который
       // memcmp угадывал, — арбитраж по peer.
       const a = stamped({ peer: peer1, time: 7, tick: 0 })
@@ -512,8 +512,8 @@ function asSand(ref: RefUnit, peerText: string): Sand {
   }
 }
 
-describe('порядок бинарного юнита против src/land/lww.ts', () => {
-  it(`совпадает на ${RUNS} парах, когда peer представлен hex'ом`, { timeout: 600_000 }, () => {
+describe('binary unit order against src/land/lww.ts', () => {
+  it(`matches on ${RUNS} pairs when peer is represented as hex`, { timeout: 600_000 }, () => {
     fc.assert(
       fc.property(tightStamp, tightStamp, (left, right) => {
         const a = stamped(left)
@@ -534,7 +534,7 @@ describe('порядок бинарного юнита против src/land/lww
    * base64url НЕ сохраняет порядок байт. Цифры занимают коды 52…61, а '-' и '_'
    * — 62 и 63, но в ASCII '-' (45) меньше любой цифры (48…57).
    */
-  it('с peer в виде base64url порядок РАСХОДИТСЯ — контрпример', () => {
+  it('with peer as base64url the order DIVERGES — a counterexample', () => {
     const low = new Uint8Array([0xf4, 1, 2, 3, 4, 5, 6, 7])
     const high = new Uint8Array([0xf8, 1, 2, 3, 4, 5, 6, 7])
 
@@ -554,7 +554,7 @@ describe('порядок бинарного юнита против src/land/lww
     expect(sign(lwwCompare(asSand(readUnit(a.bin), textLow), asSand(readUnit(b.bin), textHigh)))).toBe(+1)
   })
 
-  it('а hex того же контрпримера порядок сохраняет', () => {
+  it('while hex of the same counterexample preserves the order', () => {
     const low = new Uint8Array([0xf4, 1, 2, 3, 4, 5, 6, 7])
     const high = new Uint8Array([0xf8, 1, 2, 3, 4, 5, 6, 7])
     const a = stamped({ peer: low, time: 7, tick: 0 })
@@ -583,8 +583,8 @@ const golden = JSON.parse(
   readFileSync(new URL('./fixtures/unit.golden.json', import.meta.url), 'utf8'),
 ) as Golden
 
-describe('golden-векторы через независимое чтение', () => {
-  it('фикстура объявляет ту же раскладку, что прочитал прибор', () => {
+describe('golden vectors through independent reading', () => {
+  it('the fixture declares the same layout the instrument read', () => {
     // Раскладка в фикстуре — третья запись тех же чисел. Если она разъедется с
     // таблицей §2, вектора ниже перестанут разбираться прибором.
     expect(golden.layout.common).toEqual({ kind: 0, meta: 1, time: 2, tick: 6, peer: 8, body: 16 })
@@ -657,19 +657,19 @@ function sample(): Uint8Array {
   }).bin.slice()
 }
 
-describe('прибор отвергает то, чего фабрика никогда не напишет', () => {
-  it('чужой байт вида', () => {
+describe('the instrument rejects what the factory would never write', () => {
+  it('foreign kind byte', () => {
     const bin = sample()
     bin[0] = 9
     expect(() => readUnit(bin)).toThrow(UnitMismatch)
   })
 
-  it('длина не по раскладке', () => {
+  it('length off the layout', () => {
     const bin = sample()
     expect(() => readUnit(bin.subarray(0, bin.length - 8))).toThrow(UnitMismatch)
   })
 
-  it('выносное значение, объявленное короче inline-потолка', () => {
+  it('external value declared shorter than the inline cap', () => {
     const bin = sample()
     bin[1] = 0x3f // inlineSize = 63 — маркер выносного
     const big = new Uint8Array(48)
@@ -679,7 +679,7 @@ describe('прибор отвергает то, чего фабрика нико
     expect(() => readUnit(big)).toThrow(UnitMismatch)
   })
 
-  it('неизвестный алгоритм паспорта', () => {
+  it('unknown pass algorithm', () => {
     const bin = PassUnit.make({
       peer: Link.peer(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8])),
       time: 1,
@@ -698,20 +698,20 @@ describe('прибор отвергает то, чего фабрика нико
  * адресуется хэшем от точных байт (`Seal`, дедупликация хранилища), поэтому
  * прибор такие байты отвергает — а боевой разбор принимает и читает те же поля.
  */
-describe('НАХОДКА: боевой разбор принимает неканоничные байты', () => {
+describe('FINDING: production parsing accepts non-canonical bytes', () => {
   const cases: Array<[string, () => Uint8Array]> = [
-    ['inline-санд: мусор в неиспользуемых sizeBig/shot (14 байт, 34…48)', () => {
+    ['inline sand: garbage in unused sizeBig/shot (14 bytes, 34…48)', () => {
       const bin = sample()
       bin[34] = 0xff
       bin[40] = 0x01
       return bin
     }],
-    ['inline-санд: мусор в хвосте выравнивания', () => {
+    ['inline sand: garbage in the alignment tail', () => {
       const bin = sample()
       bin[bin.length - 1] = 0xff
       return bin
     }],
-    ['gift: байт meta не задействован ни одним полем', () => {
+    ['gift: the meta byte is used by no field', () => {
       const bin = GiftUnit.make({
         peer: Link.peer(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8])),
         time: 1,
@@ -723,7 +723,7 @@ describe('НАХОДКА: боевой разбор принимает нека�
       bin[1] = 0xff
       return bin
     }],
-    ['gift: дыра выравнивания между rank и code', () => {
+    ['gift: alignment gap between rank and code', () => {
       const bin = GiftUnit.make({
         peer: Link.peer(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8])),
         time: 1,
@@ -735,7 +735,7 @@ describe('НАХОДКА: боевой разбор принимает нека�
       bin[25] = 0xff
       return bin
     }],
-    ['seal: биты 4…6 meta не заняты ни count, ни wide', () => {
+    ['seal: meta bits 4…6 are used by neither count nor wide', () => {
       const bin = SealUnit.make({
         peer: Link.peer(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8])),
         time: 1,
@@ -768,7 +768,7 @@ describe('НАХОДКА: боевой разбор принимает нека�
    * принимает: длина 48 Б сходится с раскладкой. Отказ приходит позже и от
    * ЧУЖОГО слоя — `VaryError` из кодека значений, а не `UnitError` с ворот.
    */
-  it('санд с нулевой нагрузкой проходит ворота, а падает потом и в кодеке vary', () => {
+  it('a sand with zero payload passes the gate but fails later in the vary codec', () => {
     const bin = sample()
     bin[1] = 0
     const short = bin.slice(0, 48)
@@ -781,10 +781,10 @@ describe('НАХОДКА: боевой разбор принимает нека�
     expect(unit.dead()).toBe(false)
     expect(unit.bytes().length).toBe(0)
     // Ворота промолчали — жалуется кодек значений, и уже не UnitError.
-    expect(() => unit.value()).toThrow(/нужно ещё 1 Б/)
+    expect(() => unit.value()).toThrow(/need 1 more B/)
   })
 
-  it('одно значение, два представления, два разных хэша', async () => {
+  it('one value, two representations, two different hashes', async () => {
     const clean = sample()
     const dirty = clean.slice()
     dirty[34] = 0xff

@@ -26,7 +26,7 @@ function valuesOf(land: Land): unknown[] {
   return land.order(ROOT).map((view) => view.value)
 }
 
-test('устройство наполняет пустой сервер через привет и встречную дельту', () => {
+test('a device fills an empty server through hello and a counter-delta', () => {
   const remote = serverLand()
   const local = device(0x10)
   const first = local.post(ROOT, ROOT, 'запись')
@@ -43,7 +43,7 @@ test('устройство наполняет пустой сервер чере
   expect(valuesOf(remote)).toEqual(['запись', 'ещё одна'])
 })
 
-test('второе устройство получает всё одним приветом', () => {
+test('a second device receives everything with a single hello', () => {
   const remote = serverLand()
   const one = device(0x000010)
   const first = one.post(ROOT, ROOT, 'с первого устройства')
@@ -63,7 +63,7 @@ test('второе устройство получает всё одним пр�
   expect(valuesOf(one)).toEqual(['с первого устройства', 'со второго'])
 })
 
-test('повторный привет при равных состояниях ничего не меняет', () => {
+test('a repeated hello with equal states changes nothing', () => {
   const remote = serverLand()
   const local = device(0x10)
   local.post(ROOT, ROOT, 'x')
@@ -77,7 +77,7 @@ test('повторный привет при равных состояниях �
   expect(echo.taken).toBe(0)
 })
 
-test('чужой ленд в пачке игнорируется', () => {
+test('a foreign land in the pack is ignored', () => {
   const OTHER = Link.land(Link.peer(new Uint8Array(8).fill(0x99)), new Uint8Array(8))
   const remote = serverLand()
   const local = device(0x10)

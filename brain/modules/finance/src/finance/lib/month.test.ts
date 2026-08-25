@@ -13,31 +13,31 @@ import {
 } from './month';
 
 describe(monthOf, () => {
-  it('месяц дня — первые семь символов канонической даты', () => {
+  it('month of a day — the first seven characters of the canonical date', () => {
     expect(monthOf('2026-08-24')).toBe('2026-08');
     expect(currentMonth('2026-01-01')).toBe('2026-01');
   });
 });
 
 describe(shiftMonth, () => {
-  it('листание через границу года не роняет год', () => {
+  it('paging across the year boundary does not break the year', () => {
     expect(shiftMonth('2026-12', 1)).toBe('2027-01');
     expect(shiftMonth('2026-01', -1)).toBe('2025-12');
     expect(shiftMonth('2026-08', 0)).toBe('2026-08');
   });
 
-  it('шаг на несколько месяцев считается как один переход', () => {
+  it('a step of several months counts as one transition', () => {
     expect(shiftMonth('2026-08', 6)).toBe('2027-02');
     expect(shiftMonth('2026-03', -14)).toBe('2025-01');
   });
 });
 
 describe(monthTitle, () => {
-  it('месяц в именительном падеже: «август», а не «августа»', () => {
+  it('month in the nominative case: "август", not "августа"', () => {
     expect(monthTitle('2026-08')).toBe('август 2026');
   });
 
-  it('короткая подпись — для двенадцати столбиков в ряд', () => {
+  it('short label — for twelve bars in a row', () => {
     // Точка сокращения снимается: в ряду из двенадцати подписей она только
     // съедает место.
     expect(monthShort('2026-08')).toBe('авг');
@@ -46,7 +46,7 @@ describe(monthTitle, () => {
 });
 
 describe(daysInMonth, () => {
-  it('длина месяца известна вплоть до високосного февраля', () => {
+  it('month length is known down to leap February', () => {
     expect(daysInMonth('2026-01')).toBe(31);
     expect(daysInMonth('2026-04')).toBe(30);
     expect(daysInMonth('2026-02')).toBe(28);
@@ -58,14 +58,14 @@ describe(daysInMonth, () => {
 });
 
 describe(yearOf, () => {
-  it('год месяца и год дня — первые четыре символа', () => {
+  it('year of a month and year of a day — the first four characters', () => {
     expect(yearOf('2026-08')).toBe('2026');
     expect(currentYear('2026-01-01')).toBe('2026');
   });
 });
 
 describe(monthsOfYear, () => {
-  it('двенадцать месяцев по порядку, с ведущим нулём', () => {
+  it('twelve months in order, zero-padded', () => {
     const months = monthsOfYear('2026');
     expect(months).toHaveLength(12);
     expect(months[0]).toBe('2026-01');
@@ -75,7 +75,7 @@ describe(monthsOfYear, () => {
 });
 
 describe(shiftYear, () => {
-  it('листание годов не роняет форму строки', () => {
+  it('paging years does not break the string format', () => {
     expect(shiftYear('2026', 1)).toBe('2027');
     expect(shiftYear('2026', -1)).toBe('2025');
     expect(shiftYear('2026', 0)).toBe('2026');

@@ -24,27 +24,27 @@ const THREE: Step[] = [
   step({ id: 'c', title: 'Третий', order: 3 }),
 ];
 
-describe('прогресс чек-листа', () => {
-  it('пустой список — не «всё сделано»', () => {
+describe('checklist progress', () => {
+  it('empty list is not "all done"', () => {
     expect(progressOf([])).toEqual({ done: 0, total: 0, ratio: 0, complete: false });
     expect(progressOf(undefined)).toEqual({ done: 0, total: 0, ratio: 0, complete: false });
   });
 
-  it('считает отметки, а не заголовки', () => {
+  it('counts marks, not titles', () => {
     expect(progressOf(THREE)).toEqual({ done: 1, total: 3, ratio: 1 / 3, complete: false });
   });
 
-  it('все отметки — список закрыт', () => {
+  it('all marks — the list is closed', () => {
     const all = THREE.map(item => ({ ...item, doneAt: 1 }));
     expect(progressOf(all)).toEqual({ done: 3, total: 3, ratio: 1, complete: true });
   });
 
-  it('ни одной отметки — ноль, но список есть', () => {
+  it('no marks — zero, but the list exists', () => {
     const none = THREE.map(({ doneAt: _doneAt, ...rest }) => rest);
     expect(progressOf(none)).toEqual({ done: 0, total: 3, ratio: 0, complete: false });
   });
 
-  it('свойство: доля всегда в 0…1 и равна done/total', () => {
+  it('property: the share is always within 0…1 and equals done/total', () => {
     for (let done = 0; done <= 5; done++) {
       const steps = Array.from({ length: 5 }, (_unused, at) => step({
         id: `s${at}`,
@@ -60,49 +60,49 @@ describe('прогресс чек-листа', () => {
   });
 });
 
-describe('порядок пунктов', () => {
-  it('по ручному порядку, а не по отметкам', () => {
+describe('item order', () => {
+  it('by manual order, not by marks', () => {
     const shuffled = [THREE[2], THREE[0], THREE[1]].filter((item): item is Step => item !== undefined);
     expect(sortSteps(shuffled).map(item => item.id)).toEqual(['a', 'b', 'c']);
   });
 
-  it('порядок полный: одинаковый `order` разводится идентификатором', () => {
+  it('the order is total: equal `order` is split by identifier', () => {
     const same = [step({ id: 'z', order: 1 }), step({ id: 'a', order: 1 })];
     expect(sortSteps(same).map(item => item.id)).toEqual(['a', 'z']);
     expect(sortSteps([...same].reverse()).map(item => item.id)).toEqual(['a', 'z']);
   });
 
-  it('исходный массив не портится', () => {
+  it('source array is not damaged', () => {
     const source = [...THREE].reverse();
     const copy = [...source];
     sortSteps(source);
     expect(source).toEqual(copy);
   });
 
-  it('новый пункт встаёт в конец', () => {
+  it('new item goes to the end', () => {
     expect(nextStepOrder([])).toBe(1);
     expect(nextStepOrder(THREE)).toBe(4);
   });
 });
 
-describe('правка чек-листа', () => {
-  it('пункт из пустой строки не создаётся', () => {
+describe('checklist editing', () => {
+  it('item is not created from an empty string', () => {
     expect(createStep('   ', { id: 'x', at: 1, order: 1 })).toBeNull();
     expect(createStep('  Купить  ', { id: 'x', at: 1, order: 1 })?.title).toBe('Купить');
   });
 
-  it('добавление ставит в конец и не трогает исходный массив', () => {
+  it('adding puts at the end and does not touch the source array', () => {
     const next = addStep(THREE, 'Четвёртый', { id: 'd', at: 1 });
     expect(next).toHaveLength(4);
     expect(next[3]).toEqual({ id: 'd', title: 'Четвёртый', order: 4 });
     expect(THREE).toHaveLength(3);
   });
 
-  it('добавление пустой строки список не меняет', () => {
+  it('adding an empty string does not change the list', () => {
     expect(addStep(THREE, '   ', { id: 'd', at: 1 })).toEqual(THREE);
   });
 
-  it('отметка ставится и снимается, соседи не трогаются', () => {
+  it('mark is set and cleared, siblings untouched', () => {
     const marked = setStepDone(THREE, 'a', true, 1_700_500);
     expect(marked[0]?.doneAt).toBe(1_700_500);
     expect(marked[1]).toEqual(THREE[1]);
@@ -112,24 +112,24 @@ describe('правка чек-листа', () => {
     expect(isStepDone(cleared[0] ?? step())).toBeFalsy();
   });
 
-  it('неизвестный идентификатор список не меняет', () => {
+  it('unknown identifier does not change the list', () => {
     expect(setStepDone(THREE, 'нет-такого', true, 1)).toEqual(THREE);
     expect(renameStep(THREE, 'нет-такого', 'Другое')).toEqual(THREE);
     expect(removeStep(THREE, 'нет-такого')).toEqual(THREE);
   });
 
-  it('переименование в пустоту — опечатка, а не переименование', () => {
+  it('renaming to emptiness is a typo, not a rename', () => {
     expect(renameStep(THREE, 'a', '   ')).toEqual(THREE);
     expect(renameStep(THREE, 'a', '  Новый  ')[0]?.title).toBe('Новый');
   });
 
-  it('удаление убирает ровно один пункт', () => {
+  it('deletion removes exactly one item', () => {
     expect(removeStep(THREE, 'b').map(item => item.id)).toEqual(['a', 'c']);
   });
 });
 
-describe('перенос чек-листа в следующее вхождение повтора', () => {
-  it('отметки снимаются, заголовки и порядок остаются', () => {
+describe('carrying the checklist into the next repeat occurrence', () => {
+  it('marks are cleared, titles and order remain', () => {
     const next = resetSteps(THREE, ['x', 'y', 'z']);
     expect(next).toEqual([
       { id: 'x', title: 'Первый', order: 1 },
@@ -138,35 +138,35 @@ describe('перенос чек-листа в следующее вхожден�
     ]);
   });
 
-  it('порядок нормализуется: дыры в нумерации не переезжают', () => {
+  it('order is normalized: numbering gaps do not carry over', () => {
     const gapped = [step({ id: 'a', order: 10 }), step({ id: 'b', order: 40 })];
     expect(resetSteps(gapped, ['x', 'y']).map(item => item.order)).toEqual([1, 2]);
   });
 
-  it('без ключей пункты сохраняют свои — вызывающий обязан их выдать', () => {
+  it('without keys items keep their own — the caller must provide them', () => {
     expect(resetSteps(THREE, []).map(item => item.id)).toEqual(['a', 'b', 'c']);
   });
 });
 
-describe('сравнение списков', () => {
-  it('отсутствие и пустой список — одно и то же', () => {
+describe('list comparison', () => {
+  it('absence and an empty list are the same', () => {
     expect(sameSteps(undefined, [])).toBeTruthy();
     expect(sameSteps([], undefined)).toBeTruthy();
     expect(sameSteps(undefined, undefined)).toBeTruthy();
   });
 
-  it('порядок в массиве не важен — важны сами пункты', () => {
+  it('array order does not matter — the items themselves do', () => {
     expect(sameSteps(THREE, [...THREE].reverse())).toBeTruthy();
   });
 
-  it('любая правка видна', () => {
+  it('any edit is visible', () => {
     expect(sameSteps(THREE, renameStep(THREE, 'a', 'Другой'))).toBeFalsy();
     expect(sameSteps(THREE, setStepDone(THREE, 'a', true, 1))).toBeFalsy();
     expect(sameSteps(THREE, removeStep(THREE, 'a'))).toBeFalsy();
     expect(sameSteps(THREE, addStep(THREE, 'Ещё', { id: 'd', at: 1 }))).toBeFalsy();
   });
 
-  it('разные идентификаторы при равных заголовках — разные списки', () => {
+  it('different identifiers with equal titles are different lists', () => {
     expect(sameSteps(THREE, resetSteps(THREE, ['x', 'y', 'z']))).toBeFalsy();
   });
 });

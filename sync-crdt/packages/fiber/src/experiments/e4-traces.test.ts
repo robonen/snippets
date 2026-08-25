@@ -18,10 +18,10 @@ function suspendOf(read: () => unknown): Promise<unknown> {
     if (isSuspend(error)) return error
     throw error
   }
-  throw new Error('ожидалась приостановка')
+  throw new Error('expected a suspension')
 }
 
-test('по умолчанию стек не подменяется', () => {
+test('Stack is not replaced by default', () => {
   const gate = new Promise<string>(() => {})
   const load = (): Promise<string> => gate
   const view = computed(function viewPlain() {
@@ -32,7 +32,7 @@ test('по умолчанию стек не подменяется', () => {
   expect((suspend as { stack?: string }).stack).toBeUndefined()
 })
 
-test('включённые трейсы подменяют стек и называют файбер', () => {
+test('Enabled traces replace the stack and name the fiber', () => {
   setSuspendTraces(true)
 
   const gate = new Promise<string>(() => {})
@@ -50,7 +50,7 @@ test('включённые трейсы подменяют стек и назы�
   expect(stack).toContain('viewTraced')
 })
 
-test('переключение не ломает уже созданные обёртки', async () => {
+test('Toggling does not break already created wrappers', async () => {
   setSuspendTraces(true)
 
   let release!: (value: string) => void

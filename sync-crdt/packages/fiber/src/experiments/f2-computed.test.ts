@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest'
 import { watchEffect, flush, computed,  peek, ref, sync } from '../index'
 
-test('computed: считает лениво и кэширует', () => {
+test('computed: computes lazily and caches', () => {
   const source = ref(2)
   let runs = 0
 
@@ -23,16 +23,16 @@ test('computed: считает лениво и кэширует', () => {
   expect(runs).toBe(2)
 })
 
-test('computed: только для чтения — запись отвергается', () => {
+test('computed: read-only — a write is rejected', () => {
   const value = computed(function value() {
     return 1
   })
 
   // @ts-expect-error канал только для чтения: сеттера у него нет
-  expect(() => value(2)).toThrow(/только для чтения/)
+  expect(() => value(2)).toThrow(/read-only/)
 })
 
-test('computed: записываемый вариант — пара get/set, как computed во Vue', () => {
+test('computed: writable variant — a get/set pair, like computed in Vue', () => {
   const celsius = ref(0)
   const fahrenheit = computed({
     get: () => celsius() * 1.8 + 32,
@@ -49,7 +49,7 @@ test('computed: записываемый вариант — пара get/set, к
   expect(fahrenheit()).toBe(122)
 })
 
-test('computed: set() позволяет записать сам undefined', () => {
+test('computed: set() can store undefined itself', () => {
   const stored = ref<string | undefined>('исходное')
   const proxy = computed({
     // Внутри сеттера тоже нужна явная форма: `stored(next)` при `next === undefined`
@@ -68,7 +68,7 @@ test('computed: set() позволяет записать сам undefined', () 
   expect(stored.node.value).toBeUndefined()
 })
 
-test('computed: peek читает без подписки и без пересчёта', () => {
+test('computed: peek reads without subscribing or recomputing', () => {
   const source = ref(1)
   let runs = 0
   const view = computed(() => {
@@ -84,7 +84,7 @@ test('computed: peek читает без подписки и без пересч
   expect(runs).toBe(1)
 })
 
-test('computed: композиция без классов и прототипов', () => {
+test('computed: composition without classes or prototypes', () => {
   // Ради этого API всё и переделано: узел данных — это функция-фабрика,
   // возвращающая набор каналов. Ни `this`, ни наследования, ни патчинга прототипов.
   function createCounter(start: number) {
@@ -108,7 +108,7 @@ test('computed: композиция без классов и прототипо
   expect(second.double()).toBe(20)
 })
 
-test('computed.keyed: свой кэш на каждый ключ', () => {
+test('computed.keyed: a separate cache per key', () => {
   const source = ref(1)
   const runs: number[] = []
 
@@ -128,7 +128,7 @@ test('computed.keyed: свой кэш на каждый ключ', () => {
   expect(runs).toEqual([1, 2, 1])
 })
 
-test('computed.keyed: записываемый вариант', () => {
+test('computed.keyed: writable variant', () => {
   const store = new Map<string, number>()
   const backing = ref(0)
 
@@ -149,7 +149,7 @@ test('computed.keyed: записываемый вариант', () => {
   expect(cell('b')).toBe(0)
 })
 
-test('computed.keyed: forget и clear убирают ключи', () => {
+test('computed.keyed: forget and clear remove keys', () => {
   let runs = 0
   const item = computed.keyed((id: number) => {
     runs++
@@ -170,7 +170,7 @@ test('computed.keyed: forget и clear убирают ключи', () => {
   expect(item.size).toBe(0)
 })
 
-test('computed.keyed: осиротевшие ключи вычищаются по ходу обращений', () => {
+test('computed.keyed: orphaned keys are swept as accesses happen', () => {
   const on = ref(true)
   const item = computed.keyed((id: number) => id * 2)
 
@@ -192,7 +192,7 @@ test('computed.keyed: осиротевшие ключи вычищаются п�
   stop()
 })
 
-test('computed: приостановка работает через канал так же, как через файбер', async () => {
+test('computed: suspension works through a channel the same as through a fiber', async () => {
   let release!: (value: string) => void
   const gate = new Promise<string>((resolve) => {
     release = resolve

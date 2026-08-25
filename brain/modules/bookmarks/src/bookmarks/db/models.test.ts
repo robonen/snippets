@@ -20,15 +20,15 @@ const LINK: Bookmark = {
   readAt: 1_700_200,
 };
 
-describe('модели закладок на @sync/core', () => {
-  it('закладка переживает круг документ → снимок, включая опциональные поля', () => {
+describe('bookmark models on @sync/core', () => {
+  it('bookmark survives the document → snapshot round-trip, including optional fields', () => {
     const root = spaceOf().root(BookmarksModel);
     writeLink(root.links(LINK.id), LINK);
 
     expect(readLink(LINK.id, root.links(LINK.id))).toEqual(LINK);
   });
 
-  it('незаполненные опциональные поля отсутствуют, а не равны null', () => {
+  it('unset optional fields are absent, not null', () => {
     const root = spaceOf().root(BookmarksModel);
     const bare: Bookmark = {
       id: 'l2',
@@ -46,7 +46,7 @@ describe('модели закладок на @sync/core', () => {
     expect(Object.hasOwn(back, 'readAt')).toBeFalsy();
   });
 
-  it('теги переписываются реконсиляцией: порядок и состав совпадают со снимком', () => {
+  it('tags are rewritten by reconciliation: order and contents match the snapshot', () => {
     const root = spaceOf().root(BookmarksModel);
     writeLink(root.links(LINK.id), LINK);
     writeLink(root.links(LINK.id), { ...LINK, tags: ['crdt', 'rust'] });
@@ -54,7 +54,7 @@ describe('модели закладок на @sync/core', () => {
     expect(readLink(LINK.id, root.links(LINK.id)).tags).toEqual(['crdt', 'rust']);
   });
 
-  it('ключи каталога видны и удаляются', () => {
+  it('catalog keys are visible and deletable', () => {
     const root = spaceOf().root(BookmarksModel);
     writeLink(root.links('a'), { ...LINK, id: 'a' });
     writeLink(root.links('b'), { ...LINK, id: 'b', title: 'Вторая' });
@@ -64,7 +64,7 @@ describe('модели закладок на @sync/core', () => {
     expect([...root.links.keys()]).toEqual(['b']);
   });
 
-  it('две вкладки сходятся: запись из одной видна в другой', () => {
+  it('two tabs converge: a record from one is visible in the other', () => {
     const clock = fixedClock(1_700_000);
     const peer = Link.peer(new Uint8Array(8).fill(0x62));
     const tabA = new Land(peer, clock, { session: 0x000100 });

@@ -86,7 +86,7 @@ export async function register(options: PasskeyOptions): Promise<RegisteredPassk
     },
   }) as PublicKeyCredential | null;
 
-  if (credential === null) throw new Error('создание ключа отменено');
+  if (credential === null) throw new Error('key creation cancelled');
 
   return {
     credentialId: new Uint8Array(credential.rawId),
@@ -125,7 +125,7 @@ export async function authenticate(
     },
   }) as PublicKeyCredential | null;
 
-  if (credential === null) throw new Error('вход отменён');
+  if (credential === null) throw new Error('sign-in cancelled');
 
   const first = credential.getClientExtensionResults().prf?.results?.first;
   return {

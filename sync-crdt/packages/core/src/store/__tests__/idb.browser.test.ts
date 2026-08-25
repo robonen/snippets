@@ -18,7 +18,7 @@ import { idbSuite } from './idb-suite'
 
 const ambient = ambientIdb()
 if (ambient.factory === undefined || ambient.ranges === undefined) {
-  throw new Error('браузерный прогон без IndexedDB: гейт S5 не может быть исполнен на этой странице')
+  throw new Error('browser run without IndexedDB: the S5 gate cannot be executed on this page')
 }
 
 idbSuite({ what: 'Chromium', factory: ambient.factory, ranges: ambient.ranges })

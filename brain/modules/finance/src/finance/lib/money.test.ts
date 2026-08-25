@@ -5,30 +5,30 @@ import { formatAmount, formatMoney, formatMoneyInput, parseAmount, toKopecks, to
 const NBSP = '\u00A0';
 
 describe(formatMoney, () => {
-  it('копейки печатаются рублями с разрядами и знаком валюты', () => {
+  it('kopecks print as rubles with digit groups and a currency sign', () => {
     expect(formatMoney(125_050)).toBe(`1${NBSP}250,50${NBSP}₽`);
     expect(formatMoney(25_000)).toBe(`250,00${NBSP}₽`);
     expect(formatMoney(0)).toBe(`0,00${NBSP}₽`);
   });
 
-  it('копейки не теряются и не съезжают', () => {
+  it('kopecks are not lost and do not shift', () => {
     expect(formatAmount(5)).toBe('0,05');
     expect(formatAmount(50)).toBe('0,50');
     expect(formatAmount(99)).toBe('0,99');
     expect(formatAmount(100)).toBe('1,00');
   });
 
-  it('разряды бьются по три с конца', () => {
+  it('digits group in threes from the end', () => {
     expect(formatAmount(100_000)).toBe(`1${NBSP}000,00`);
     expect(formatAmount(100_000_000)).toBe(`1${NBSP}000${NBSP}000,00`);
     expect(formatAmount(99_999)).toBe('999,99');
   });
 
-  it('минус остаётся перед числом, а не перед разрядом', () => {
+  it('minus stays before the number, not before a digit group', () => {
     expect(formatAmount(-125_050)).toBe(`-1${NBSP}250,50`);
   });
 
-  it('сумма целых копеек складывается точно — ради этого они и целые', () => {
+  it('whole kopecks sum exactly — that is why they are whole', () => {
     // Те же 10,10 + 20,20 в рублях дали бы 30,299999999999997.
     const kopecks = [1010, 2020, 3030].reduce((sum, item) => sum + item, 0);
     expect(formatMoney(kopecks)).toBe(`60,60${NBSP}₽`);
@@ -36,13 +36,13 @@ describe(formatMoney, () => {
 });
 
 describe(formatMoneyInput, () => {
-  it('значение для поля ввода — без группировки и без хвоста «,00»', () => {
+  it('input-field value — without grouping and without the ",00" tail', () => {
     expect(formatMoneyInput(125_050)).toBe('1250,50');
     expect(formatMoneyInput(25_000)).toBe('250');
     expect(formatMoneyInput(5)).toBe('0,05');
   });
 
-  it('напечатанное поле разбирается обратно в те же копейки', () => {
+  it('printed field parses back into the same kopecks', () => {
     for (const kopecks of [0, 5, 50, 99, 25_000, 125_050, 100_000_000]) {
       expect(parseAmount(formatMoneyInput(kopecks))).toBe(kopecks);
     }
@@ -50,7 +50,7 @@ describe(formatMoneyInput, () => {
 });
 
 describe(toKopecks, () => {
-  it('рубли числом переводятся в целые копейки без хвостов double', () => {
+  it('rubles as a number convert to whole kopecks without double tails', () => {
     // 1250.5 * 100 в double — это 125050.00000000001, и без округления запись
     // упёрлась бы в целочисленный канал.
     expect(toKopecks(1250.5)).toBe(125_050);
@@ -59,17 +59,17 @@ describe(toKopecks, () => {
     expect(toKopecks(0)).toBe(0);
   });
 
-  it('копейки переживают круг туда-обратно', () => {
+  it('kopecks survive the round-trip', () => {
     for (const kopecks of [0, 5, 50, 99, 25_000, 125_050, 100_000_000]) {
       expect(toKopecks(toRubles(kopecks))).toBe(kopecks);
     }
   });
 
-  it('пустое поле — это не ноль', () => {
+  it('empty field is not zero', () => {
     expect(toKopecks(null)).toBeNull();
   });
 
-  it('нечисло и сумма за пределом безопасного целого — не деньги', () => {
+  it('non-number and an amount beyond the safe integer are not money', () => {
     expect(toKopecks(Number.NaN)).toBeNull();
     expect(toKopecks(Number.POSITIVE_INFINITY)).toBeNull();
     expect(toKopecks(1e18)).toBeNull();
@@ -77,13 +77,13 @@ describe(toKopecks, () => {
 });
 
 describe(parseAmount, () => {
-  it('строка целиком обязана быть суммой', () => {
+  it('the whole string must be an amount', () => {
     expect(parseAmount('1250,50')).toBe(125_050);
     expect(parseAmount('  250  ')).toBe(25_000);
     expect(parseAmount('0')).toBe(0);
   });
 
-  it('хвост после числа — не сумма: молча потерять «кофе» хуже, чем показать ошибку', () => {
+  it('tail after the number is not an amount: silently losing "кофе" is worse than showing an error', () => {
     expect(parseAmount('250 кофе')).toBeNull();
     expect(parseAmount('250 ₽')).toBeNull();
     expect(parseAmount('')).toBeNull();

@@ -40,15 +40,15 @@ const RULE: Recurring = {
   createdAt: 1_700_050,
 };
 
-describe('модели финансов на @sync/core', () => {
-  it('трата переживает круг документ → снимок, включая опциональные поля', () => {
+describe('finance models on @sync/core', () => {
+  it('expense survives the document → snapshot round-trip, including optional fields', () => {
     const root = spaceOf().root(FinanceModel);
     writeExpense(root.entries(EXPENSE.id), EXPENSE);
 
     expect(readExpense(EXPENSE.id, root.entries(EXPENSE.id))).toEqual(EXPENSE);
   });
 
-  it('незаполненные опциональные поля отсутствуют, а не равны null', () => {
+  it('unset optional fields are absent, not null', () => {
     const root = spaceOf().root(FinanceModel);
     const bare: Expense = { id: 'e2', amount: 25_000, date: '2026-08-24', createdAt: 1_700_200 };
     writeExpense(root.entries(bare.id), bare);
@@ -59,7 +59,7 @@ describe('модели финансов на @sync/core', () => {
     expect(Object.hasOwn(back, 'note')).toBeFalsy();
   });
 
-  it('снятая категория читается как отсутствие, а не как прежнее значение', () => {
+  it('removed category reads as absence, not as the previous value', () => {
     const root = spaceOf().root(FinanceModel);
     writeExpense(root.entries(EXPENSE.id), EXPENSE);
     writeExpense(root.entries(EXPENSE.id), { ...EXPENSE, category: undefined });
@@ -67,7 +67,7 @@ describe('модели финансов на @sync/core', () => {
     expect(readExpense(EXPENSE.id, root.entries(EXPENSE.id)).category).toBeUndefined();
   });
 
-  it('сумма хранится копейками и возвращается ровно той же', () => {
+  it('amount is stored in kopecks and returned exactly the same', () => {
     const root = spaceOf().root(FinanceModel);
     for (const amount of [0, 1, 99, 25_000, 1_200_000_000]) {
       writeExpense(root.entries('e'), { ...EXPENSE, id: 'e', amount });
@@ -75,19 +75,19 @@ describe('модели финансов на @sync/core', () => {
     }
   });
 
-  it('дробная сумма не пишется вовсе: деньги целые, и ошибка вылезает на месте', () => {
+  it('fractional amount is not written at all: money is integral, and the error surfaces on the spot', () => {
     const root = spaceOf().root(FinanceModel);
     expect(() => writeExpense(root.entries('e3'), { ...EXPENSE, id: 'e3', amount: 250.5 })).toThrow();
   });
 
-  it('категория переживает круг документ → снимок, включая лимит', () => {
+  it('category survives the document → snapshot round-trip, including the limit', () => {
     const root = spaceOf().root(FinanceModel);
     writeCategory(root.categories(CATEGORY.id), CATEGORY);
 
     expect(readCategory(CATEGORY.id, root.categories(CATEGORY.id))).toEqual(CATEGORY);
   });
 
-  it('незаданный бюджет читается как отсутствие, а не как ноль', () => {
+  it('unset budget reads as absence, not as zero', () => {
     const root = spaceOf().root(FinanceModel);
     const bare: Category = { id: 'c2', name: 'Развлечения', colorKey: 'rose' };
     writeCategory(root.categories(bare.id), bare);
@@ -97,7 +97,7 @@ describe('модели финансов на @sync/core', () => {
     expect(Object.hasOwn(back, 'limit')).toBeFalsy();
   });
 
-  it('снятый бюджет не оставляет прежнего значения', () => {
+  it('removed budget leaves no previous value', () => {
     const root = spaceOf().root(FinanceModel);
     writeCategory(root.categories(CATEGORY.id), CATEGORY);
     writeCategory(root.categories(CATEGORY.id), { ...CATEGORY, limit: undefined });
@@ -105,14 +105,14 @@ describe('модели финансов на @sync/core', () => {
     expect(readCategory(CATEGORY.id, root.categories(CATEGORY.id)).limit).toBeUndefined();
   });
 
-  it('повторяющаяся трата переживает круг документ → снимок', () => {
+  it('recurring expense survives the document → snapshot round-trip', () => {
     const root = spaceOf().root(FinanceModel);
     writeRule(root.rules(RULE.id), RULE);
 
     expect(readRule(RULE.id, root.rules(RULE.id))).toEqual(RULE);
   });
 
-  it('правило без категории читается без поля, выключенное остаётся выключенным', () => {
+  it('rule without a category reads without the field, a disabled one stays disabled', () => {
     const root = spaceOf().root(FinanceModel);
     const bare: Recurring = {
       id: 'r2',
@@ -129,7 +129,7 @@ describe('модели финансов на @sync/core', () => {
     expect(Object.hasOwn(back, 'category')).toBeFalsy();
   });
 
-  it('ссылка траты на своё правило переживает круг', () => {
+  it('expense link to its rule survives the round-trip', () => {
     const root = spaceOf().root(FinanceModel);
     const auto: Expense = { ...EXPENSE, id: 'e-auto', recurring: 'r1' };
     writeExpense(root.entries(auto.id), auto);
@@ -141,7 +141,7 @@ describe('модели финансов на @sync/core', () => {
     expect(Object.hasOwn(readExpense(EXPENSE.id, root.entries(EXPENSE.id)), 'recurring')).toBeFalsy();
   });
 
-  it('ключи каталогов видны и удаляются по отдельности', () => {
+  it('catalog keys are visible and deletable individually', () => {
     const root = spaceOf().root(FinanceModel);
     writeExpense(root.entries('a'), { ...EXPENSE, id: 'a' });
     writeExpense(root.entries('b'), { ...EXPENSE, id: 'b', note: 'кофе' });
@@ -154,7 +154,7 @@ describe('модели финансов на @sync/core', () => {
     expect([...root.categories.keys()]).toEqual(['c1']);
   });
 
-  it('две вкладки сходятся: запись из одной видна в другой', () => {
+  it('two tabs converge: a record from one is visible in the other', () => {
     const clock = fixedClock(1_700_000);
     const peer = Link.peer(new Uint8Array(8).fill(0x66));
     const tabA = new Land(peer, clock, { session: 0x000100 });

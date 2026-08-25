@@ -229,7 +229,7 @@ export class Land implements Interner {
   constructor(peer: Link, clock: Clock, options?: LandOptions) {
     const bin = peer.bin
     if (bin.length < PEER_BYTES) {
-      throw new UnitError(`peer — ${PEER_BYTES} Б, а в ссылке «${peer.str}» ${bin.length}`, 'поле peer')
+      throw new UnitError(`peer is ${PEER_BYTES} B, but the link «${peer.str}» has ${bin.length}`, 'field peer')
     }
 
     this.#clock = clock
@@ -332,12 +332,12 @@ export class Land implements Interner {
 
     if (ball === undefined) {
       throw new UnitError(
-        `санд несёт выносное значение ${key} (${size} Б), а ball не приложен — ленду негде хранить санд без значения`,
-        'поле value',
+        `sand carries external value ${key} (${size} B), but no ball is attached — the land has nowhere to keep a sand without its value`,
+        'field value',
       )
     }
     if (ball.length !== size) {
-      throw new UnitError(`ball ${key}: юнит объявил ${size} Б, приложено ${ball.length}`, 'поле value')
+      throw new UnitError(`ball ${key}: the unit declared ${size} B, ${ball.length} attached`, 'field value')
     }
 
     const span = SAND_AT.payload + align8(size)
@@ -661,15 +661,15 @@ export class Land implements Interner {
     // чужой юнит и портить пачку из-за него нельзя), а здесь молчать нечестно:
     // локальная запись вернула бы вид на юнит, которого в ленде нет.
     if (self === ROOT || self === head) {
-      throw new UnitError(`self = ${self}: юнит не может быть ни корнем, ни собственным родителем`, 'поле self')
+      throw new UnitError(`self = ${self}: a unit can be neither the root nor its own parent`, 'field self')
     }
 
     const payload = varyEncode(value)
     const big = payload.length > INLINE_MAX
     if (payload.length > BALL_MAX) {
       throw new UnitError(
-        `значение занимает ${payload.length} Б, а потолок выносного — ${BALL_MAX} (два байта sizeBig)`,
-        'поле value',
+        `value takes ${payload.length} B, but the external ceiling is ${BALL_MAX} (two sizeBig bytes)`,
+        'field value',
       )
     }
 
@@ -1071,7 +1071,7 @@ export class Land implements Interner {
     let id = 0
     do {
       if (++guard > SERIAL_BITS) {
-        throw new UnitError(`счётчик id исчерпан: ${SERIAL_BITS} узлов на пира в одном ленде`, 'поле self')
+        throw new UnitError(`id counter exhausted: ${SERIAL_BITS} nodes per peer in one land`, 'field self')
       }
       this.#serial = (this.#serial + 1) & (SERIAL_BITS - 1)
       id = this.#mark * SERIAL_BITS + this.#serial
@@ -1080,7 +1080,7 @@ export class Land implements Interner {
 
     this.#minted += 1
     if (this.#minted >= SERIAL_BITS) {
-      throw new UnitError(`счётчик id исчерпан: ${SERIAL_BITS} узлов на пира в одном ленде`, 'поле self')
+      throw new UnitError(`id counter exhausted: ${SERIAL_BITS} nodes per peer in one land`, 'field self')
     }
     return this.nodeAt(id)
   }

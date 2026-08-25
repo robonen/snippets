@@ -70,7 +70,7 @@ export interface SyncEngine {
 }
 
 export function syncEngine(options: SyncEngineOptions): SyncEngine {
-  const report = options.report ?? ((error: unknown): void => console.error('[brain] синк:', error));
+  const report = options.report ?? ((error: unknown): void => console.error('[brain] sync:', error));
   const byLand = new Map<string, SyncLand>();
   for (const entry of options.lands) byLand.set(entry.id.str, entry);
 

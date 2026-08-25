@@ -72,8 +72,8 @@ function filled(): Space {
   return space;
 }
 
-describe('цикл экспорт → импорт', () => {
-  it('через файл данные переезжают без потерь', () => {
+describe('export → import cycle', () => {
+  it('data moves through a file without losses', () => {
     const file = JSON.stringify(exportBackup(filled()));
 
     const target = spaceOf(0x33);
@@ -91,7 +91,7 @@ describe('цикл экспорт → импорт', () => {
     });
   });
 
-  it('импорт поверх существующих данных сливает по id, а не задваивает', () => {
+  it('import over existing data merges by id instead of duplicating', () => {
     const target = filled();
     const { payload } = parseBackup(JSON.stringify(exportBackup(filled())));
     importBackup(target, payload);
@@ -101,12 +101,12 @@ describe('цикл экспорт → импорт', () => {
     expect(after.entries).toHaveLength(1);
   });
 
-  it('пустой ленд экспортируется без профиля', () => {
+  it('empty land exports without a profile', () => {
     const payload = exportBackup(spaceOf());
     expect(payload).toMatchObject({ app: 'kcal', version: 1, foods: [], entries: [], weights: [], profile: null });
   });
 
-  it('имя файла несёт дату снимка', () => {
+  it('file name carries the snapshot date', () => {
     expect(backupFileName({ ...exportBackup(spaceOf()), exportedAt: '2026-08-24T10:00:00.000Z' }))
       .toBe('kcal-backup-2026-08-24.json');
   });
@@ -115,27 +115,27 @@ describe('цикл экспорт → импорт', () => {
 describe(parseBackup, () => {
   const payload = exportBackup(filled());
 
-  it('чужой файл отвергается', () => {
+  it('foreign file is rejected', () => {
     expect(() => parseBackup(JSON.stringify({ ...payload, app: 'notes' })))
-      .toThrow(/не похож на бэкап/);
-    expect(() => parseBackup(JSON.stringify([1, 2, 3]))).toThrow(/не похож на бэкап/);
+      .toThrow(/does not look like a/);
+    expect(() => parseBackup(JSON.stringify([1, 2, 3]))).toThrow(/does not look like a/);
   });
 
-  it('битый JSON отвергается', () => {
-    expect(() => parseBackup('{ это не json')).toThrow(/не читается/);
+  it('broken JSON is rejected', () => {
+    expect(() => parseBackup('{ это не json')).toThrow(/cannot be read/);
   });
 
-  it('версия формата проверяется', () => {
-    expect(() => parseBackup(JSON.stringify({ ...payload, version: 2 }))).toThrow(/Версия формата 2/);
-    expect(() => parseBackup(JSON.stringify({ ...payload, version: undefined }))).toThrow(/Версия формата/);
+  it('format version is checked', () => {
+    expect(() => parseBackup(JSON.stringify({ ...payload, version: 2 }))).toThrow(/Format version 2/);
+    expect(() => parseBackup(JSON.stringify({ ...payload, version: undefined }))).toThrow(/Format version/);
     expect(parseBackup(JSON.stringify(payload)).payload.version).toBe(BACKUP_VERSION);
   });
 
-  it('подменённые списки — повреждённый файл', () => {
-    expect(() => parseBackup(JSON.stringify({ ...payload, foods: 'всё' }))).toThrow(/повреждён/);
+  it('swapped lists — a corrupted file', () => {
+    expect(() => parseBackup(JSON.stringify({ ...payload, foods: 'всё' }))).toThrow(/corrupted/);
   });
 
-  it('файл старого приложения читается: служебный id профиля игнорируется', () => {
+  it('old app file is readable: the service profile id is ignored', () => {
     const legacy = {
       app: 'kcal',
       version: 1,
@@ -156,7 +156,7 @@ describe(parseBackup, () => {
     expect(Object.hasOwn(restored.profile ?? {}, 'id')).toBeFalsy();
   });
 
-  it('битые записи выбрасываются поштучно, остальной файл доезжает', () => {
+  it('broken records are dropped one by one, the rest of the file arrives', () => {
     const broken = {
       ...payload,
       foods: [...payload.foods, { name: 'Без id' }, 42],
@@ -171,7 +171,7 @@ describe(parseBackup, () => {
     expect(parsed.weights).toHaveLength(1);
   });
 
-  it('мусор в числах не доезжает до ленда', () => {
+  it('garbage in numbers does not reach the land', () => {
     const dirty = {
       ...payload,
       entries: [{ ...ENTRY, kcal: 'много', meal: 'полдник', protein: null }],
@@ -182,8 +182,8 @@ describe(parseBackup, () => {
     expect(exportBackup(target).entries[0]).toMatchObject({ kcal: 0, protein: 0, meal: 'snack' });
   });
 
-  it('импорт мимо разбора всё равно проверяет конверт', () => {
+  it('import bypassing the parser still checks the envelope', () => {
     expect(() => importBackup(spaceOf(), { ...payload, version: 7 as never }))
-      .toThrow(/не похож на бэкап/);
+      .toThrow(/does not look like a/);
   });
 });

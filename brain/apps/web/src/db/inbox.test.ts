@@ -24,7 +24,7 @@ function all(space: Space) {
   return root.inbox.keys().map(id => readInbox(id, root.inbox(id)));
 }
 
-test('захват сохраняет текст и источник', async () => {
+test('capture saves text and source', async () => {
   const space = await metaSpace();
   const actions = inboxActions(space);
 
@@ -38,7 +38,7 @@ test('захват сохраняет текст и источник', async () 
   expect(items[0]!.filedAt).toBeUndefined();
 });
 
-test('пустой захват не создаёт запись', async () => {
+test('empty capture creates no record', async () => {
   const space = await metaSpace();
   const actions = inboxActions(space);
 
@@ -48,7 +48,7 @@ test('пустой захват не создаёт запись', async () => {
   expect(all(space)).toHaveLength(0);
 });
 
-test('ссылка без текста — законный захват', async () => {
+test('link without text is a valid capture', async () => {
   const space = await metaSpace();
   const actions = inboxActions(space);
 
@@ -58,7 +58,7 @@ test('ссылка без текста — законный захват', async
   expect(items[0]!.source).toBe('поделились');
 });
 
-test('разбор помечает модуль и обратим', async () => {
+test('triage marks the module and is reversible', async () => {
   const space = await metaSpace();
   const actions = inboxActions(space);
   const id = actions.capture({ text: 'купить молока' })!;
@@ -74,7 +74,7 @@ test('разбор помечает модуль и обратим', async () =>
   expect(all(space)[0]!.filedAt).toBeUndefined();
 });
 
-test('разбор несуществующей записи молчит, а не падает', async () => {
+test('triaging a missing record stays silent instead of crashing', async () => {
   const space = await metaSpace();
   const actions = inboxActions(space);
 
@@ -84,7 +84,7 @@ test('разбор несуществующей записи молчит, а н
   expect(all(space)).toHaveLength(0);
 });
 
-test('удаление убирает запись', async () => {
+test('deletion removes the record', async () => {
   const space = await metaSpace();
   const actions = inboxActions(space);
   const id = actions.capture({ text: 'временное' })!;

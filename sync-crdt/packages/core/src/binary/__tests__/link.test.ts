@@ -54,8 +54,8 @@ const ZERO8 = new Uint8Array(8)
 
 // ── Round-trip ───────────────────────────────────────────────────────────────
 
-describe('текст ↔ байты', () => {
-  test('байты → текст → байты (10 000 прогонов)', () => {
+describe('text ↔ bytes', () => {
+  test('bytes → text → bytes (10,000 runs)', () => {
     fc.assert(
       fc.property(binArb, raw => {
         const link = Link.from(raw)
@@ -67,7 +67,7 @@ describe('текст ↔ байты', () => {
     )
   })
 
-  test('текст совпадает с внешним base64url (10 000 прогонов)', () => {
+  test('text matches external base64url (10,000 runs)', () => {
     fc.assert(
       fc.property(binArb, raw => {
         const link = Link.from(raw)
@@ -77,7 +77,7 @@ describe('текст ↔ байты', () => {
     )
   })
 
-  test('канонизация: хвостовые нулевые секции не хранятся', () => {
+  test('canonicalization: trailing zero sections are not stored', () => {
     fc.assert(
       fc.property(binArb, raw => {
         const link = Link.from(raw)
@@ -89,7 +89,7 @@ describe('текст ↔ байты', () => {
     )
   })
 
-  test('алфавит без разделителя', () => {
+  test('alphabet does not contain the separator', () => {
     expect(LINK_ALPHABET).toHaveLength(64)
     expect(new Set(LINK_ALPHABET).size).toBe(64)
     // Алфавит стандартный, а разделитель вынесен за его пределы — именно так
@@ -100,18 +100,18 @@ describe('текст ↔ байты', () => {
 
 // ── Уровни ───────────────────────────────────────────────────────────────────
 
-describe('разбор уровней', () => {
+describe('level parsing', () => {
   const lord = Link.peer(PEER)
   const land = Link.land(lord, AREA)
   const pawn = Link.pawn(land, HEAD)
 
-  test('строятся длины 8 / 16 / 22', () => {
+  test('lengths 8 / 16 / 22 are built', () => {
     expect(lord.bin.length).toBe(8)
     expect(land.bin.length).toBe(16)
     expect(pawn.bin.length).toBe(22)
   })
 
-  test('секции читаются на своих местах', () => {
+  test('sections read at their places', () => {
     expect(hex(pawn.peer().bin)).toBe('0102030405060708')
     expect(hex(pawn.area().bin)).toBe('00000000000000001112131415161718')
     expect(hex(pawn.head().bin)).toBe('00000000000000000000000000000000212223242526')
@@ -119,7 +119,7 @@ describe('разбор уровней', () => {
     expect(hex(pawn.lord().bin)).toBe('0102030405060708')
   })
 
-  test('текст секций: нулевые опущены', () => {
+  test('section text: zero sections omitted', () => {
     expect(lord.str).toBe('AQIDBAUGBwg')
     expect(land.str).toBe('AQIDBAUGBwg.ERITFBUWFxg')
     expect(pawn.str).toBe('AQIDBAUGBwg.ERITFBUWFxg.ISIjJCUm')
@@ -127,7 +127,7 @@ describe('разбор уровней', () => {
     expect(pawn.head().str).toBe('..ISIjJCUm')
   })
 
-  test('нулевая area — домашний ленд лорда, то есть сам лорд', () => {
+  test('zero area means the home land of the lord, that is the lord itself', () => {
     const home = Link.land(lord, ZERO8)
     expect(home.equals(lord)).toBe(true)
     expect(home.bin.length).toBe(8)
@@ -137,7 +137,7 @@ describe('разбор уровней', () => {
     expect(inHome.land().equals(lord)).toBe(true)
   })
 
-  test('пустая ссылка', () => {
+  test('empty link', () => {
     expect(Link.hole.str).toBe('')
     expect(Link.hole.bin.length).toBe(0)
     expect(Link.parse('').equals(Link.hole)).toBe(true)
@@ -146,26 +146,26 @@ describe('разбор уровней', () => {
     expect(Link.hole.head().equals(Link.hole)).toBe(true)
   })
 
-  test('секции короче своего уровня дают пустую ссылку', () => {
+  test('sections shorter than their level give an empty link', () => {
     expect(lord.area().equals(Link.hole)).toBe(true)
     expect(land.head().equals(Link.hole)).toBe(true)
   })
 
-  test('чужие байты не протекают внутрь', () => {
+  test('foreign bytes do not leak inside', () => {
     const raw = bytes('0102030405060708')
     const link = Link.peer(raw)
     raw[0] = 0xff
     expect(link.str).toBe('AQIDBAUGBwg')
   })
 
-  test('размеры вне контракта отвергаются', () => {
-    expect(() => Link.from(new Uint8Array(7))).toThrow(/Длина ссылки 7 Б/)
-    expect(() => Link.peer(new Uint8Array(6))).toThrow(/peer — 8 Б/)
-    expect(() => Link.land(lord, new Uint8Array(6))).toThrow(/area — 8 Б/)
-    expect(() => Link.pawn(land, new Uint8Array(8))).toThrow(/head — 6 Б/)
+  test('sizes outside the contract are rejected', () => {
+    expect(() => Link.from(new Uint8Array(7))).toThrow(/Link length 7 B/)
+    expect(() => Link.peer(new Uint8Array(6))).toThrow(/peer is 8 B/)
+    expect(() => Link.land(lord, new Uint8Array(6))).toThrow(/area is 8 B/)
+    expect(() => Link.pawn(land, new Uint8Array(8))).toThrow(/head is 6 B/)
   })
 
-  test('типы уровней', () => {
+  test('level types', () => {
     expectTypeOf(pawn.peer()).toEqualTypeOf<Link>()
     expectTypeOf(pawn.land()).toEqualTypeOf<Link>()
     expectTypeOf(pawn.xor(lord)).toEqualTypeOf<Uint8Array>()
@@ -176,7 +176,7 @@ describe('разбор уровней', () => {
 // ── relate / resolve ─────────────────────────────────────────────────────────
 
 describe('relate / resolve', () => {
-  test('relate(resolve(x)) === x для относительной формы (10 000 прогонов)', () => {
+  test('relate(resolve(x)) === x for the relative form (10,000 runs)', () => {
     fc.assert(
       fc.property(landArb, headArb, (landBin, headBin) => {
         const base = Link.from(landBin)
@@ -188,7 +188,7 @@ describe('relate / resolve', () => {
     )
   })
 
-  test('resolve(relate(y)) === y для пешки своего ленда (10 000 прогонов)', () => {
+  test('resolve(relate(y)) === y for a pawn of its own land (10,000 runs)', () => {
     fc.assert(
       fc.property(landArb, headArb, (landBin, headBin) => {
         const base = Link.from(landBin)
@@ -199,7 +199,7 @@ describe('relate / resolve', () => {
     )
   })
 
-  test('обе операции идемпотентны (10 000 прогонов)', () => {
+  test('both operations are idempotent (10,000 runs)', () => {
     fc.assert(
       fc.property(binArb, landArb, (raw, landBin) => {
         const base = Link.from(landBin)
@@ -213,14 +213,14 @@ describe('relate / resolve', () => {
     )
   })
 
-  test('относительная форма — 6 значащих байт вместо 22', () => {
+  test('the relative form is 6 significant bytes instead of 22', () => {
     const land = Link.land(Link.peer(PEER), AREA)
     const pawn = Link.pawn(land, HEAD)
     expect(pawn.relate(land).str).toBe('..ISIjJCUm')
     expect(pawn.relate(land).str.length).toBeLessThan(pawn.str.length)
   })
 
-  test('пешка чужого ленда остаётся абсолютной', () => {
+  test('a pawn of a foreign land stays absolute', () => {
     const mine = Link.land(Link.peer(PEER), AREA)
     const other = Link.land(Link.peer(bytes('0807060504030201')), AREA)
     const pawn = Link.pawn(mine, HEAD)
@@ -228,7 +228,7 @@ describe('relate / resolve', () => {
     expect(pawn.resolve(other).equals(pawn)).toBe(true)
   })
 
-  test('не-пешки не относительны', () => {
+  test('non-pawns are not relative', () => {
     const lord = Link.peer(PEER)
     const land = Link.land(lord, AREA)
     expect(lord.relate(land).equals(lord)).toBe(true)
@@ -237,7 +237,7 @@ describe('relate / resolve', () => {
     expect(Link.hole.resolve(land).equals(Link.hole)).toBe(true)
   })
 
-  test('пешка домашнего ленда относится к лорду', () => {
+  test('a pawn of the home land relates to the lord', () => {
     const lord = Link.peer(PEER)
     const pawn = Link.pawn(lord, HEAD)
     expect(pawn.relate(lord).str).toBe('..ISIjJCUm')
@@ -247,21 +247,21 @@ describe('relate / resolve', () => {
 
 // ── Ошибки разбора ───────────────────────────────────────────────────────────
 
-describe('невалидные строки', () => {
+describe('invalid strings', () => {
   const cases: ReadonlyArray<readonly [string, string, RegExp]> = [
-    ['хвостовой разделитель', 'AQIDBAUGBwg.', /хвостовая секция пуста/],
-    ['два хвостовых разделителя', 'AQIDBAUGBwg.ERITFBUWFxg.', /хвостовая секция пуста/],
-    ['только разделитель', '.', /хвостовая секция пуста/],
-    ['лишняя секция', 'AQIDBAUGBwg.ERITFBUWFxg.ISIjJCUm.ISIjJCUm', /секций 4/],
-    ['короткая секция peer', 'AQIDBAUGBw', /секция peer: символов 10, ожидалось 11/],
-    ['длинная секция head', 'AQIDBAUGBwg.ERITFBUWFxg.ISIjJCUmX', /секция head: символов 9, ожидалось 8/],
-    ['символ вне алфавита', 'AQIDBAUGBw+', /символ «\+» вне алфавита/],
-    ['слэш из обычного base64', 'AQIDBAUGBw/', /символ «\/» вне алфавита/],
-    ['точка внутри секции', 'AQIDBAUGB.g', /секция peer: символов 9/],
-    ['не-ASCII', 'AQIDBAUGBwæ', /символ «æ» вне алфавита/],
-    ['нулевая секция записана явно', 'AAAAAAAAAAA', /секция peer нулевая/],
-    ['нулевая area записана явно', 'AQIDBAUGBwg.AAAAAAAAAAA', /секция area нулевая/],
-    ['ненулевые хвостовые биты', 'AQIDBAUGBwh', /секция peer: хвостовые биты не нулевые/],
+    ['trailing separator', 'AQIDBAUGBwg.', /trailing section is empty/],
+    ['two trailing separators', 'AQIDBAUGBwg.ERITFBUWFxg.', /trailing section is empty/],
+    ['separator only', '.', /trailing section is empty/],
+    ['extra section', 'AQIDBAUGBwg.ERITFBUWFxg.ISIjJCUm.ISIjJCUm', /4 sections/],
+    ['short peer section', 'AQIDBAUGBw', /section peer: 10 characters, expected 11/],
+    ['long head section', 'AQIDBAUGBwg.ERITFBUWFxg.ISIjJCUmX', /section head: 9 characters, expected 8/],
+    ['character outside the alphabet', 'AQIDBAUGBw+', /character "\+" outside the alphabet/],
+    ['slash from plain base64', 'AQIDBAUGBw/', /character "\/" outside the alphabet/],
+    ['dot inside a section', 'AQIDBAUGB.g', /section peer: 9 characters/],
+    ['non-ASCII', 'AQIDBAUGBwæ', /character "æ" outside the alphabet/],
+    ['zero section written explicitly', 'AAAAAAAAAAA', /section peer is zero/],
+    ['zero area written explicitly', 'AQIDBAUGBwg.AAAAAAAAAAA', /section area is zero/],
+    ['non-zero trailing bits', 'AQIDBAUGBwh', /section peer: trailing bits are not zero/],
   ]
 
   for (const [note, str, message] of cases) {
@@ -269,11 +269,11 @@ describe('невалидные строки', () => {
       expect(() => Link.parse(str)).toThrow(message)
       // В сообщении обязана быть сама строка: без неё разбор пакета из сети
       // не диагностируется (PRINCIPLES.md, «данные для диагностики»).
-      expect(() => Link.parse(str)).toThrow(new RegExp(`Неверная ссылка «${str.replace(/[+/]/g, '\\$&')}»`))
+      expect(() => Link.parse(str)).toThrow(new RegExp(`Invalid link "${str.replace(/[+/]/g, '\\$&')}"`))
     })
   }
 
-  test('соседняя валидная строка разбирается', () => {
+  test('a neighboring valid string parses', () => {
     // 'AAAAAAAAAAE' отличается от нулевой секции одним битом полезной нагрузки.
     expect(hex(Link.parse('AAAAAAAAAAE').bin)).toBe('0000000000000001')
   })
@@ -284,19 +284,19 @@ describe('невалидные строки', () => {
 // Фикстуру читает общий `./golden`: те же векторы гоняются в Chromium
 // (`cross-runtime.test.ts`), а туда `node:fs` не едет.
 
-describe('golden-векторы', () => {
-  test('файл на месте и покрывает все уровни', () => {
+describe('golden vectors', () => {
+  test('file is present and covers all levels', () => {
     expect(golden.alphabet).toBe(LINK_ALPHABET)
     expect(golden.separator).toBe('.')
     expect(golden.vectors.length).toBeGreaterThanOrEqual(12)
   })
 
   for (const vector of golden.vectors) {
-    test(`${vector.note}: байты → текст`, () => {
+    test(`${vector.note}: bytes → text`, () => {
       expect(Link.from(bytes(vector.hex)).str).toBe(vector.str)
     })
 
-    test(`${vector.note}: текст → байты`, () => {
+    test(`${vector.note}: text → bytes`, () => {
       expect(hex(Link.parse(vector.str).bin)).toBe(vector.hex)
     })
   }
@@ -305,7 +305,7 @@ describe('golden-векторы', () => {
 // ── xor, равенство, ключ ─────────────────────────────────────────────────────
 
 describe('xor', () => {
-  test('сам с собой даёт нули, дважды — исходное (10 000 прогонов)', () => {
+  test('xor with itself gives zeros, twice gives the original (10,000 runs)', () => {
     fc.assert(
       fc.property(binArb, binArb, (left, right) => {
         const a = Link.from(left)
@@ -325,7 +325,7 @@ describe('xor', () => {
     )
   })
 
-  test('длина не зависит от усечения нулевого хвоста', () => {
+  test('length does not depend on zero-tail truncation', () => {
     const lord = Link.peer(PEER)
     const pawn = Link.pawn(Link.land(lord, AREA), HEAD)
     // Лорд короче пешки — недостающие байты считаются нулями.
@@ -333,8 +333,8 @@ describe('xor', () => {
   })
 })
 
-describe('равенство и ключ', () => {
-  test('равенство — по байтам (10 000 прогонов)', () => {
+describe('equality and key', () => {
+  test('equality is by bytes (10,000 runs)', () => {
     fc.assert(
       fc.property(binArb, binArb, (left, right) => {
         const a = Link.from(left)
@@ -347,7 +347,7 @@ describe('равенство и ключ', () => {
     )
   })
 
-  test('подчёркивание — значащий символ алфавита, а не разделитель', () => {
+  test('underscore is a significant alphabet character, not a separator', () => {
     // Ровно та неоднозначность, из-за которой сменён разделитель: `_` входит в
     // стандартный base64url, и секция вправе с него начинаться. Разбор обязан
     // читать его как данные.
@@ -356,14 +356,14 @@ describe('равенство и ключ', () => {
     expect(withUnderscore.str).toBe('_QIDBAUGBwg')
   })
 
-  test('ключ Map', () => {
+  test('Map key', () => {
     const land = Link.land(Link.peer(PEER), AREA)
     const map = new Map<string, string>()
     map.set(Link.pawn(land, HEAD).key(), 'значение')
     expect(map.get(Link.parse('AQIDBAUGBwg.ERITFBUWFxg.ISIjJCUm').key())).toBe('значение')
   })
 
-  test('текстовые формы', () => {
+  test('text forms', () => {
     const link = Link.peer(PEER)
     expect(link.toString()).toBe('AQIDBAUGBwg')
     expect(link.toJSON()).toBe('AQIDBAUGBwg')
@@ -377,20 +377,20 @@ describe('равенство и ключ', () => {
 describe('hash', () => {
   const data = new TextEncoder().encode('приветствие ленду')
 
-  test('первые 8 байт SHA-256 — как у node:crypto', async () => {
+  test('first 8 bytes of SHA-256 — same as node:crypto', async () => {
     const digest = new Uint8Array(createHash('sha256').update(data).digest())
     const link = await Link.hash(data)
     expect(hex(link.bin)).toBe(hex(digest.subarray(0, 8)))
     expect(link.bin.length).toBe(8)
   })
 
-  test('размер выбирается уровнем', async () => {
+  test('size is chosen by level', async () => {
     const digest = new Uint8Array(createHash('sha256').update(data).digest())
     expect(hex((await Link.hash(data, 16)).bin)).toBe(hex(digest.subarray(0, 16)))
     expect(hex((await Link.hash(data, 22)).bin)).toBe(hex(digest.subarray(0, 22)))
   })
 
-  test('готовый хэш не требует промиса', () => {
+  test('a ready hash needs no promise', () => {
     const digest = new Uint8Array(createHash('sha256').update(data).digest())
     expect(Link.from(digest.subarray(0, 8)).equals(Link.from(digest.subarray(0, 8)))).toBe(true)
   })

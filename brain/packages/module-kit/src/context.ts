@@ -22,11 +22,11 @@ export function installBrain(app: App, brain: Brain): void {
 }
 
 export function useSpaces(): Spaces {
-  return need(SPACES, 'пространства не собраны: вызовите installBrain(app, …) до mount');
+  return need(SPACES, 'spaces are not assembled: call installBrain(app, …) before mount');
 }
 
 export function useRegistry(): Registry {
-  return need(REGISTRY, 'реестр не собран: вызовите installBrain(app, …) до mount');
+  return need(REGISTRY, 'registry is not assembled: call installBrain(app, …) before mount');
 }
 
 function need<T>(key: InjectionKey<T>, message: string): T {

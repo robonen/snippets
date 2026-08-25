@@ -7,7 +7,7 @@
 import { memoryStore } from '../memory'
 import { storeContract, type StoreCase } from './contract'
 
-storeContract('память', async (): Promise<StoreCase> => {
+storeContract('memory', async (): Promise<StoreCase> => {
   const store = memoryStore()
   return {
     store: () => store,

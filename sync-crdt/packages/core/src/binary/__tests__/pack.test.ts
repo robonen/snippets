@@ -95,7 +95,7 @@ function face(over: Partial<PackFace> = {}): PackFace {
 /** Часть №`index` — с проверкой, что она вообще есть: `noUncheckedIndexedAccess`. */
 function at(parts: PackParts, index: number): [LandId, PackPart] {
   const one = parts[index]
-  if (one === undefined) throw new Error(`в пакете нет части #${index}, всего ${parts.length}`)
+  if (one === undefined) throw new Error(`the pack has no part #${index}, only ${parts.length} total`)
   return one
 }
 
@@ -115,8 +115,8 @@ const RUNS = { numRuns: 500 }
 
 // ── Раскладка ────────────────────────────────────────────────────────────────
 
-describe('раскладка', () => {
-  test('офсеты и размеры совпадают с таблицей спецификации (docs/03 §3)', () => {
+describe('layout', () => {
+  test('offsets and sizes match the specification table (docs/03 §3)', () => {
     expect(PACK_AT).toEqual({ magic: 0, land: 4, faces: 20, pad: 22, body: 24 })
     expect(FACE_AT).toEqual({ peer: 0, tick: 8, time: 10, summ: 14, pad: 18 })
     expect(PACK_BYTES).toEqual({ head: 24, face: 24, magic: 4, land: 16, align: 8 })
@@ -126,7 +126,7 @@ describe('раскладка', () => {
     expect(String.fromCharCode(...PACK_MAGIC)).toBe('LAND')
   })
 
-  test('заголовок ленда собран по офсетам', () => {
+  test('land header assembled by offsets', () => {
     const bin = packEncode([[landA, packPart()]])
 
     expect(bin.length).toBe(24)
@@ -136,7 +136,7 @@ describe('раскладка', () => {
     expect(hex(bin.subarray(PACK_AT.pad, PACK_AT.body))).toBe('0000')
   })
 
-  test('faceCount пишется big-endian, как и всё многобайтовое в формате', () => {
+  test('faceCount is written big-endian, like everything multi-byte in the format', () => {
     const faces: PackFace[] = []
     for (let i = 0; i < 0x0102; i++) faces.push(face({ time: i }))
     const bin = packEncode([[landA, packPart({ faces })]])
@@ -144,7 +144,7 @@ describe('раскладка', () => {
     expect(hex(bin.subarray(PACK_AT.faces, PACK_AT.faces + 2))).toBe('0102')
   })
 
-  test('каждое поле фейса читается со своего офсета из собранных руками байт', () => {
+  test('each face field reads from its offset in hand-built bytes', () => {
     // Байты выписаны здесь, а не получены кодировщиком: иначе тест проверял бы
     // согласие кода с самим собой, а не с таблицей офсетов.
     const bin = new Uint8Array(48)
@@ -171,7 +171,7 @@ describe('раскладка', () => {
     expect(one.summ).toBe(0x08090a0b)
   })
 
-  test('все секции кратны 8 — на этом держится арена (docs/06 §4)', () => {
+  test('all sections are multiples of 8 — the arena rests on this (docs/06 §4)', () => {
     const { unit, ball, key } = bigSand(100, 0x44)
     const bin = packEncode([[landA, packPart({
       faces: [face(), face({ peer: peerB })],
@@ -185,7 +185,7 @@ describe('раскладка', () => {
     for (const one of [sand(), gift, seal, pass, unit]) expect(one.bin.length % 8).toBe(0)
   })
 
-  test('длина любого юнита кратна 8 при любом размере значения', () => {
+  test('any unit length is a multiple of 8 for any value size', () => {
     fc.assert(
       fc.property(fc.string({ maxLength: 40 }), (value) => {
         expect(sand({ value }).bin.length % 8).toBe(0)
@@ -197,8 +197,8 @@ describe('раскладка', () => {
 
 // ── Наполнение: четыре строки таблицы §3 ─────────────────────────────────────
 
-describe('семантика наполнения (docs/03 §3)', () => {
-  test('фейсы без юнитов — «вот моё состояние»', () => {
+describe('content semantics (docs/03 §3)', () => {
+  test('faces without units — "here is my state"', () => {
     const faces = [face(), face({ peer: peerB, time: 200, tick: 0, summ: 9 })]
     const bin = packEncode([[landA, packPart({ faces })]])
 
@@ -214,7 +214,7 @@ describe('семантика наполнения (docs/03 §3)', () => {
     ])
   })
 
-  test('юниты без фейсов — дельта', () => {
+  test('units without faces — a delta', () => {
     const units = [sand(), gift]
     const bin = packEncode([[landA, packPart({ units })]])
 
@@ -223,7 +223,7 @@ describe('семантика наполнения (docs/03 §3)', () => {
     expect(part.units.map(u => u.kind())).toEqual(['sand', 'gift'])
   })
 
-  test('фейсы и юниты — дельта плюс подтверждение состояния', () => {
+  test('faces and units — a delta plus a state confirmation', () => {
     const bin = packEncode([[landA, packPart({ faces: [face()], units: [sand()] })]])
 
     const part = only(packDecode(bin))
@@ -231,7 +231,7 @@ describe('семантика наполнения (docs/03 §3)', () => {
     expect(part.units).toHaveLength(1)
   })
 
-  test('пусто — «забудь этот ленд»: 24 байта заголовка, а не ноль', () => {
+  test('empty — "forget this land": 24 header bytes, not zero', () => {
     const bin = packEncode([[landA, packPart()]])
 
     // Отписка обязана быть представима. baza на таком входе падала («Empty Pack»),
@@ -244,7 +244,7 @@ describe('семантика наполнения (docs/03 §3)', () => {
     expect(part.units).toHaveLength(0)
   })
 
-  test('пакет совсем без лендов — ноль байт, и он разбирается в пустой список', () => {
+  test('a pack with no lands at all is zero bytes and parses into an empty list', () => {
     const bin = packEncode([])
     expect(bin.length).toBe(0)
     expect(packDecode(bin)).toEqual([])
@@ -344,7 +344,7 @@ describe('packEncode(packDecode(b)) ≡ b', () => {
     return { units, balls }
   }
 
-  test('канонический пакет переживает круг байт в байт', () => {
+  test('a canonical pack survives the round-trip byte for byte', () => {
     fc.assert(
       fc.property(fc.array(partArb, { maxLength: 4 }), (drafts) => {
         const parts: PackParts = drafts.map((draft, i) => {
@@ -361,7 +361,7 @@ describe('packEncode(packDecode(b)) ≡ b', () => {
     )
   })
 
-  test('разбор восстанавливает поля, а не только байты', () => {
+  test('parsing restores the fields, not just the bytes', () => {
     fc.assert(
       fc.property(partArb, (draft) => {
         const { units, balls } = assemble(draft.recipes)
@@ -380,7 +380,7 @@ describe('packEncode(packDecode(b)) ≡ b', () => {
     )
   })
 
-  test('нормализация идемпотентна: второй круг ничего не меняет', () => {
+  test('normalization is idempotent: a second round changes nothing', () => {
     const { unit, ball, key } = bigSand(70, 0x9a)
     const parts: PackParts = [
       [landA, packPart({ faces: [face()], units: [sand(), unit], balls: new Map([[key, ball]]) })],
@@ -393,7 +393,7 @@ describe('packEncode(packDecode(b)) ≡ b', () => {
     expect(hex(twice)).toBe(hex(once))
   })
 
-  test('packLength обещает ровно то, что выдаёт packEncode', () => {
+  test('packLength promises exactly what packEncode produces', () => {
     fc.assert(
       fc.property(fc.array(partArb, { maxLength: 3 }), (drafts) => {
         const parts: PackParts = drafts.map((draft, i) => {
@@ -410,8 +410,8 @@ describe('packEncode(packDecode(b)) ≡ b', () => {
 
 // ── Несколько лендов ─────────────────────────────────────────────────────────
 
-describe('несколько лендов в одном пакете', () => {
-  test('порядок лендов и содержимое сохраняются', () => {
+describe('several lands in one pack', () => {
+  test('land order and contents are preserved', () => {
     const landC = Link.land(peerB, bytes('1111111111111111'))
     const parts: PackParts = [
       [landA, packPart({ faces: [face()], units: [sand()] })],
@@ -426,7 +426,7 @@ describe('несколько лендов в одном пакете', () => {
     expect(decoded.map(([, part]) => part.faces.length)).toEqual([1, 0, 1])
   })
 
-  test('юниты не перетекают между лендами: каждый ложится к своему заголовку', () => {
+  test('units do not leak between lands: each goes with its own header', () => {
     const parts: PackParts = [
       [landA, packPart({ units: [sand(), sand({ time: 2 })] })],
       [landB, packPart({ units: [gift] })],
@@ -437,7 +437,7 @@ describe('несколько лендов в одном пакете', () => {
     expect((decoded[1] as PackParts[number])[1].units.map(u => u.kind())).toEqual(['gift'])
   })
 
-  test('повторный заголовок одного ленда дописывает часть, а не заводит вторую', () => {
+  test('a repeated header of the same land appends to the part instead of starting a second one', () => {
     // Именно так растёт арена: юниты ленда дописываются в конец файла, за чужим
     // заголовком, и своя шапка пишется заново (docs/06 §4).
     const bin = packEncode([
@@ -462,7 +462,7 @@ describe('несколько лендов в одном пакете', () => {
     expect(hex(packEncode(packDecode(packed)))).toBe(hex(packed))
   })
 
-  test('нулевой ленд представим и переживает круг', () => {
+  test('the zero land is representable and survives the round-trip', () => {
     // `Link.hole` — пустые байты, а в заголовке под ленд отведено 16. Кодировщик
     // добивает нулями, разбор канонизирует обратно в пустую ссылку.
     const bin = packEncode([[Link.hole, packPart({ units: [gift] })]])
@@ -475,7 +475,7 @@ describe('несколько лендов в одном пакете', () => {
     expect(hex(packEncode(packDecode(bin)))).toBe(hex(bin))
   })
 
-  test('домашний ленд лорда и сам лорд — один ключ', () => {
+  test('the home land of a lord and the lord itself are one key', () => {
     // `Link` канонизирует нулевую area, значит `land(peer, 0)` и `peer` — одно
     // значение и одна часть, а не две.
     const home = Link.land(peerB, new Uint8Array(8))
@@ -491,7 +491,7 @@ describe('несколько лендов в одном пакете', () => {
 
 // ── Арена: свободные слоты ───────────────────────────────────────────────────
 
-describe('арена (docs/06 §4)', () => {
+describe('arena (docs/06 §4)', () => {
   /** Зануляет `size` байт с офсета `at` — так хранилище удаляет юнит. */
   function wipe(bin: Uint8Array, at: number, size: number): Uint8Array {
     const out = bin.slice()
@@ -499,7 +499,7 @@ describe('арена (docs/06 §4)', () => {
     return out
   }
 
-  test('зануленный слот пропускается, остальные юниты читаются', () => {
+  test('a zeroed slot is skipped, the remaining units read fine', () => {
     const units = [sand({ value: 'a' }), gift, sand({ value: 'c' })]
     const bin = packEncode([[landA, packPart({ units })]])
 
@@ -512,7 +512,7 @@ describe('арена (docs/06 §4)', () => {
     expect((part.units[1] as SandUnit).value()).toBe('c')
   })
 
-  test('после уборки дыр байты совпадают с пакетом, где дыры не было', () => {
+  test('after hole cleanup the bytes match a pack that never had the hole', () => {
     const bin = packEncode([[landA, packPart({ units: [sand({ value: 'a' }), gift, pass] })]])
     const compact = packEncode([[landA, packPart({ units: [sand({ value: 'a' }), pass] })]])
 
@@ -521,7 +521,7 @@ describe('арена (docs/06 §4)', () => {
     expect(hex(packEncode(packDecode(holed)))).toBe(hex(compact))
   })
 
-  test('дыра в начале файла — юниты ещё не пришли, а место уже освободили', () => {
+  test('a hole at the start of the file — units not arrived yet, space already freed', () => {
     const bin = packEncode([[landA, packPart({ units: [sand()] })]])
     const holed = new Uint8Array(16 + bin.length)
     holed.set(bin, 16)
@@ -533,7 +533,7 @@ describe('арена (docs/06 §4)', () => {
     expect(calls).toEqual([[0, 16]])
   })
 
-  test('пул получает прогон целиком, а не по восьмёрке', () => {
+  test('the pool gets the run as a whole, not in eights', () => {
     const units = [sand(), gift, pass]
     const bin = packEncode([[landA, packPart({ units })]])
 
@@ -547,7 +547,7 @@ describe('арена (docs/06 §4)', () => {
     expect(calls).toEqual([[at, gift.bin.length + pass.bin.length]])
   })
 
-  test('свободным слот делает байт вида, а не зачищенный хвост', () => {
+  test('the kind byte makes a slot free, not the wiped tail', () => {
     // Хранилище зануляет слот целиком (docs/06 §4), но парсер смотрит только на
     // байт вида: остальные семь — дело того, кто зачищал. Реализация, экономящая
     // запись, остаётся читаемой, а мусор в хвосте не превращается в юнит.
@@ -565,7 +565,7 @@ describe('арена (docs/06 §4)', () => {
     expect(calls).toEqual([[at, gift.bin.length]])
   })
 
-  test('дыра между лендами не мешает следующему заголовку', () => {
+  test('a hole between lands does not break the next header', () => {
     const bin = packEncode([
       [landA, packPart({ units: [sand(), gift] })],
       [landB, packPart({ units: [pass] })],
@@ -579,13 +579,13 @@ describe('арена (docs/06 §4)', () => {
     expect(decoded.map(([, part]) => part.units.map(u => u.kind()))).toEqual([['sand'], ['pass']])
   })
 
-  test('пул не трогают, когда дыр нет', () => {
+  test('the pool is untouched when there are no holes', () => {
     const { calls, pool } = spyPool()
     packDecode(packEncode([[landA, packPart({ units: [sand()] })]]), { pool })
     expect(calls).toEqual([])
   })
 
-  test('offsets говорит, где лежит каждый юнит', () => {
+  test('offsets tells where each unit lies', () => {
     const units = [sand(), gift, pass]
     const bin = packEncode([[landA, packPart({ faces: [face()], units })]])
 
@@ -602,7 +602,7 @@ describe('арена (docs/06 §4)', () => {
     }
   })
 
-  test('юнит — окно в буфер пакета, а не копия', () => {
+  test('a unit is a window into the pack buffer, not a copy', () => {
     const bin = packEncode([[landA, packPart({ units: [sand()] })]])
     const part = only(packDecode(bin))
 
@@ -611,7 +611,7 @@ describe('арена (docs/06 §4)', () => {
     expect((part.units[0] as SandUnit).bin.buffer).toBe(bin.buffer)
   })
 
-  test('нулевой фейс остаётся фейсом: секция фейсов считается, а не сканируется', () => {
+  test('a zero face stays a face: the face section is counted, not scanned', () => {
     const zero: PackFace = { peer: Link.hole, time: 0, tick: 0, summ: 0 }
     const bin = packEncode([[landA, packPart({ faces: [zero, face()] })]])
 
@@ -625,7 +625,7 @@ describe('арена (docs/06 §4)', () => {
 // ── Выносные значения ────────────────────────────────────────────────────────
 
 describe('ball', () => {
-  test('ball лежит сразу за своим сандом и добит нулями до кратности 8', () => {
+  test('ball lies right after its sand, zero-padded to a multiple of 8', () => {
     const { unit, ball, key } = bigSand(100, 0x44)
     const bin = packEncode([[landA, packPart({ units: [unit], balls: new Map([[key, ball]]) })]])
 
@@ -634,7 +634,7 @@ describe('ball', () => {
     expect(hex(bin.subarray(24 + 48 + 100))).toBe('00000000')
   })
 
-  test('ball достаётся по shotKey и остаётся окном в буфер', () => {
+  test('ball is retrieved by shotKey and stays a window into the buffer', () => {
     const { unit, ball, key } = bigSand(80, 0x21)
     const bin = packEncode([[landA, packPart({ units: [unit], balls: new Map([[key, ball]]) })]])
 
@@ -644,7 +644,7 @@ describe('ball', () => {
     expect((part.balls.get(key) as Uint8Array).buffer).toBe(bin.buffer)
   })
 
-  test('за большим сандом идёт ball, а не следующий юнит', () => {
+  test('a big sand is followed by its ball, not by the next unit', () => {
     const { unit, ball, key } = bigSand(64, 0x5c)
     const bin = packEncode([[landA, packPart({
       units: [unit, gift],
@@ -655,7 +655,7 @@ describe('ball', () => {
     expect(part.units.map(u => u.kind())).toEqual(['sand', 'gift'])
   })
 
-  test('ball, начинающийся с байта вида юнита, не сбивает разбор', () => {
+  test('a ball starting with a unit kind byte does not derail parsing', () => {
     // Содержимое балла произвольно: там может лежать и 0x00, и 0x4c. Парсер не
     // смотрит на эти байты вовсе — он шагает через `align8(size)`.
     const { unit, key } = bigSand(64, 0x00)
@@ -669,7 +669,7 @@ describe('ball', () => {
     expect(hex(part.balls.get(key) as Uint8Array)).toBe(hex(ball))
   })
 
-  test('два санда с одним shot делят один ball', () => {
+  test('two sands with the same shot share one ball', () => {
     const { unit, ball, shot, key } = bigSand(64, 0x33)
     const twin = SandUnit.makeBig({ peer: peerB, time: 9, tick: 0, self, head, lead, size: 64, shot })
 
@@ -684,138 +684,138 @@ describe('ball', () => {
 
 // ── Отказы ───────────────────────────────────────────────────────────────────
 
-describe('битый вход отвергается внятно', () => {
+describe('corrupt input is rejected clearly', () => {
   const valid = packEncode([[landA, packPart({ faces: [face()], units: [sand(), gift] })]])
 
-  test('длина не кратна 8', () => {
+  test('length not a multiple of 8', () => {
     expect(() => packDecode(valid.subarray(0, valid.length - 4)))
-      .toThrow(/не кратна 8/)
+      .toThrow(/not a multiple of 8/)
     expect(() => packDecode(valid.subarray(0, valid.length - 4))).toThrow(PackError)
   })
 
-  test('заголовок ленда обрезан', () => {
-    expect(() => packDecode(valid.subarray(0, 16))).toThrow(/заголовок ленда — 24 Б, а до конца пакета 16/)
+  test('truncated land header', () => {
+    expect(() => packDecode(valid.subarray(0, 16))).toThrow(/land header is 24 B, but only 16 left in the pack/)
   })
 
-  test('чужая метка вместо LAND', () => {
+  test('foreign marker instead of LAND', () => {
     const bad = valid.slice()
     bad[2] = 0x58 // 'X'
-    expect(() => packDecode(bad)).toThrow(/ожидалась метка «LAND», а лежит 4c4158/)
+    expect(() => packDecode(bad)).toThrow(/expected the "LAND" marker, got 4c4158/)
   })
 
-  test('ненулевой хвост заголовка', () => {
+  test('non-zero header padding', () => {
     const bad = valid.slice()
     bad[PACK_AT.pad] = 1
-    expect(() => packDecode(bad)).toThrow(/хвост заголовка .* обязан быть нулевым/)
+    expect(() => packDecode(bad)).toThrow(/header padding .* must be zero/)
   })
 
-  test('ненулевой хвост фейса', () => {
+  test('non-zero face padding', () => {
     const bad = valid.slice()
     bad[24 + FACE_AT.pad + 2] = 0xff
-    expect(() => packDecode(bad)).toThrow(/хвост фейса .* обязан быть нулевым/)
+    expect(() => packDecode(bad)).toThrow(/face padding .* must be zero/)
   })
 
-  test('фейсов объявлено больше, чем влезло', () => {
+  test('more faces declared than fit', () => {
     const bad = valid.slice()
     bad[PACK_AT.faces] = 0xff
-    expect(() => packDecode(bad)).toThrow(/объявлено \d+ фейсов .*, а до конца пакета/)
+    expect(() => packDecode(bad)).toThrow(/\d+ faces declared .*, but only \d+ left in the pack/)
   })
 
-  test('юнит до первого заголовка ленда', () => {
+  test('unit before the first land header', () => {
     const orphan = sand().bin.slice()
-    expect(() => packDecode(orphan)).toThrow(/юнит вида №1 до первого заголовка ленда/)
+    expect(() => packDecode(orphan)).toThrow(/unit of kind #1 before the first land header/)
   })
 
-  test('неизвестный вид юнита — с офсетом и с UnitError в cause', () => {
+  test('unknown unit kind — with offset and UnitError in cause', () => {
     const bad = valid.slice()
     bad[24 + 24] = 9
 
     expect(() => packDecode(bad)).toThrow(PackError)
     try {
       packDecode(bad)
-      expect.unreachable('разбор обязан был отказать')
+      expect.unreachable('parsing must have refused')
     } catch (error) {
       expect(error).toBeInstanceOf(PackError)
       const fail = error as PackError
-      expect(fail.message).toContain('вид №9 неизвестен')
-      expect(fail.at).toBe(`ленд ${landA.str}, офсет 48`)
+      expect(fail.message).toContain('kind #9 is unknown')
+      expect(fail.at).toBe(`land ${landA.str}, offset 48`)
       expect(fail.cause).toBeInstanceOf(UnitError)
     }
   })
 
-  test('юнит не помещается в остаток пакета', () => {
+  test('unit does not fit in the rest of the pack', () => {
     const cut = valid.subarray(0, valid.length - 8)
-    expect(() => packDecode(cut)).toThrow(/юнит объявил \d+ Б, а до конца пакета/)
+    expect(() => packDecode(cut)).toThrow(/unit declared \d+ B, but only \d+ left in the pack/)
   })
 
-  test('ball не помещается в остаток пакета', () => {
+  test('ball does not fit in the rest of the pack', () => {
     const { unit, ball, key } = bigSand(100, 0x44)
     const bin = packEncode([[landA, packPart({ units: [unit], balls: new Map([[key, ball]]) })]])
 
     expect(() => packDecode(bin.subarray(0, bin.length - 8)))
-      .toThrow(/санд объявил выносное значение 100 Б, а до конца пакета 96/)
+      .toThrow(/sand declared an external value of 100 B, but only 96 left in the pack/)
   })
 
-  test('ненулевая добивка ball', () => {
+  test('non-zero ball padding', () => {
     const { unit, ball, key } = bigSand(100, 0x44)
     const bin = packEncode([[landA, packPart({ units: [unit], balls: new Map([[key, ball]]) })]])
     bin[bin.length - 1] = 1
 
-    expect(() => packDecode(bin)).toThrow(/хвост ball до кратности 8 обязан быть нулевым/)
+    expect(() => packDecode(bin)).toThrow(/ball padding to a multiple of 8 must be zero/)
   })
 
-  test('пешка вместо ленда', () => {
+  test('pawn instead of a land', () => {
     const pawn = Link.pawn(landA, bytes('010101010101'))
-    expect(() => packEncode([[pawn, packPart()]])).toThrow(/ленд — 16 Б, а пришла ссылка в 22 Б/)
+    expect(() => packEncode([[pawn, packPart()]])).toThrow(/land is 16 B, but the link is 22 B/)
   })
 
-  test('большой санд без приложенного ball', () => {
+  test('big sand without an attached ball', () => {
     const { unit } = bigSand(100, 0x44)
     expect(() => packEncode([[landA, packPart({ units: [unit] })]]))
-      .toThrow(/ball не приложен/)
+      .toThrow(/no ball is attached/)
   })
 
-  test('ball не той длины', () => {
+  test('ball of the wrong length', () => {
     const { unit, key } = bigSand(100, 0x44)
     expect(() => packEncode([[landA, packPart({ units: [unit], balls: new Map([[key, fill(1, 99)]]) })]]))
-      .toThrow(/юнит объявил 100 Б, приложено 99/)
+      .toThrow(/unit declared 100 B, 99 attached/)
   })
 
-  test('поле фейса вне диапазона', () => {
+  test('face field out of range', () => {
     expect(() => packEncode([[landA, packPart({ faces: [face({ time: 2 ** 32 })] })]]))
-      .toThrow(/time = 4294967296: ожидалось целое 0…4294967295/)
+      .toThrow(/time = 4294967296: expected an integer 0…4294967295/)
     expect(() => packEncode([[landA, packPart({ faces: [face({ tick: -1 })] })]]))
       .toThrow(/tick = -1/)
     expect(() => packEncode([[landA, packPart({ faces: [face({ summ: 1.5 })] })]]))
       .toThrow(/summ = 1.5/)
   })
 
-  test('ленд вместо пира в фейсе', () => {
+  test('land instead of a peer in a face', () => {
     expect(() => packEncode([[landA, packPart({ faces: [face({ peer: landA })] })]]))
-      .toThrow(/peer — 8 Б, а пришла ссылка в 16 Б/)
+      .toThrow(/peer is 8 B, but the link is 16 B/)
   })
 
-  test('фейсов больше, чем влезает в счётчик', () => {
+  test('more faces than the counter fits', () => {
     const faces: PackFace[] = []
     for (let i = 0; i <= 0x10000; i++) faces.push(face())
-    expect(() => packLength([[landA, packPart({ faces })]])).toThrow(/фейсов 65537, а в двух байтах/)
+    expect(() => packLength([[landA, packPart({ faces })]])).toThrow(/65537 faces, but the two header bytes/)
   })
 
-  test('сообщение об отказе несёт координату, а не только текст', () => {
+  test('the refusal message carries a coordinate, not just text', () => {
     try {
       packEncode([[landA, packPart({ faces: [face(), face({ tick: 99999 })] })]])
-      expect.unreachable('кодирование обязано было отказать')
+      expect.unreachable('encoding must have refused')
     } catch (error) {
       expect(error).toBeInstanceOf(PackError)
-      expect((error as PackError).at).toBe(`ленд ${landA.str}, фейс #1`)
+      expect((error as PackError).at).toBe(`land ${landA.str}, face #1`)
     }
   })
 })
 
 // ── Типы ─────────────────────────────────────────────────────────────────────
 
-describe('типы', () => {
-  test('часть пакета — один шейп, все поля обязательны', () => {
+describe('types', () => {
+  test('a pack part is one shape, all fields required', () => {
     const part = packPart()
     expectTypeOf(part.faces).toEqualTypeOf<readonly PackFace[]>()
     expectTypeOf(part.units).toEqualTypeOf<readonly AnyUnit[]>()
@@ -823,7 +823,7 @@ describe('типы', () => {
     expect(Object.keys(part).sort()).toEqual(['balls', 'faces', 'units'])
   })
 
-  test('LandId — это Link', () => {
+  test('LandId is Link', () => {
     expectTypeOf<LandId>().toEqualTypeOf<Link>()
   })
 })
@@ -833,13 +833,13 @@ describe('типы', () => {
 // Фикстуру читает общий `./golden`: те же векторы гоняются в Chromium
 // (`cross-runtime.test.ts`), а туда `node:fs` не едет.
 
-describe('golden-векторы', () => {
-  test('фикстура непуста — иначе тест зелёный ни о чём', () => {
+describe('golden vectors', () => {
+  test('fixture is not empty — otherwise the test is green about nothing', () => {
     expect(golden.vectors.length).toBeGreaterThanOrEqual(6)
   })
 
   for (const vector of golden.vectors) {
-    test(`разбирается: ${vector.note}`, () => {
+    test(`parses: ${vector.note}`, () => {
       const bin = bytes(vector.hex)
       const parts = packDecode(bin)
 
@@ -856,7 +856,7 @@ describe('golden-векторы', () => {
       }
     })
 
-    test(`собирается обратно байт в байт: ${vector.note}`, () => {
+    test(`re-encodes byte for byte: ${vector.note}`, () => {
       const bin = bytes(vector.hex)
       expect(hex(packEncode(packDecode(bin)))).toBe(vector.hex)
     })

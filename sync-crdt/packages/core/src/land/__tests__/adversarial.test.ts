@@ -27,7 +27,7 @@ function chain(replica: Replica, values: readonly string[], head: string = ROOT)
   return out
 }
 
-describe('состязательные сценарии — потери и расхождения', () => {
+describe('adversarial scenarios — losses and divergence', () => {
   /**
    * Сценарий 1 из задания, усиленный третьей репликой.
    *
@@ -45,7 +45,7 @@ describe('состязательные сценарии — потери и ра
    * Блок `p3` достижим от корня только через `1`, а `1` заперт в кольце.
    * Итог: из семи живых по LWW элементов читаются два.
    */
-  test('кольцо из конкурентных move уносит с собой блок, набранный третьей репликой', () => {
+  test('a cycle of concurrent moves takes along a block typed by a third replica', () => {
     const clock = fixedClock(1000)
     const a = new Replica('p1', clock)
     const b = new Replica('p2', clock)
@@ -86,7 +86,7 @@ describe('состязательные сценарии — потери и ра
    * [docs/04 §6](../../../../../docs/04-crdt-core.md): элемент, который
    * пользователь удалил, обязан остаться удалённым.
    */
-  test('move элемента, удалённого другой репликой, воскрешает его', () => {
+  test('move of an element removed by another replica resurrects it', () => {
     const clock = fixedClock(1000)
     const a = new Replica('p1', clock)
     const b = new Replica('p2', clock)
@@ -132,7 +132,7 @@ describe('состязательные сценарии — потери и ра
    * переставил единицу. Тем не менее в сеть уходит живой юнит для `2` с более
    * поздним временем — и удалённый элемент воскресает у всех.
    */
-  test('move воскрешает соседа, удалённого другой репликой', () => {
+  test('move resurrects a neighbor removed by another replica', () => {
     const clock = fixedClock(1000)
     const a = new Replica('p1', clock)
     const b = new Replica('p2', clock)
@@ -163,7 +163,7 @@ describe('состязательные сценарии — потери и ра
    * спускается в его детей. Тест зелёный и остаётся сторожем для будущей
    * оптимизированной версии `order()`.
    */
-  test('вставка за удалённым элементом остаётся видимой', () => {
+  test('insert after a removed element stays visible', () => {
     const clock = fixedClock(1000)
     const a = new Replica('p1', clock)
     const b = new Replica('p2', clock)
@@ -187,7 +187,7 @@ describe('состязательные сценарии — потери и ра
    * Ассоциативность держится, и это ожидаемо: `applySands` — поточечный максимум
    * по решётке LWW, а `order()` — чистая функция от набора юнитов.
    */
-  test('три реплики: порядок парных обменов не влияет на итог', () => {
+  test('three replicas: the order of pairwise exchanges does not affect the outcome', () => {
     const build = (): readonly [Replica, Replica, Replica] => {
       const clock = fixedClock(1000)
       const a = new Replica('p1', clock)
@@ -238,7 +238,7 @@ describe('состязательные сценарии — потери и ра
    * жмёт «удалить» — элемент не исчезает, и `remove` при этом возвращает `true`.
    * Никакой конкуренции здесь нет: обмен уже состоялся, реплики согласованы.
    */
-  test('remove не срабатывает, если чужая вставка услышана в ту же секунду', () => {
+  test('remove does not take effect if a foreign insert was heard in the same second', () => {
     const clock = fixedClock(1000)
     const a = new Replica('p1', clock)
     const b = new Replica('p2', clock)
@@ -263,7 +263,7 @@ describe('состязательные сценарии — потери и ра
    * Время одинаковое, `p1 < p2` — значит юнит `p1` в блоке детей `ROOT` идёт
    * первым, и новый элемент оказывается не перед списком, а после всей цепочки.
    */
-  test('вставка в начало уезжает в конец, если список услышан в ту же секунду', () => {
+  test('insert at the head drifts to the tail if the list was heard in the same second', () => {
     const clock = fixedClock(1000)
     const a = new Replica('p1', clock)
     const b = new Replica('p2', clock)
@@ -283,7 +283,7 @@ describe('состязательные сценарии — потери и ра
    * услышанному `1005` — и всё равно проигрывает, потому что подтянулся
    * ровно до, а не за.
    */
-  test('подтяжка часов до услышанного времени не спасает: нужен строгий +1', () => {
+  test('catching the clock up to the heard time does not help: a strict +1 is needed', () => {
     const slow = fixedClock(1000)
     const fast = fixedClock(1005)
     const a = new Replica('p1', fast)
@@ -308,7 +308,7 @@ describe('состязательные сценарии — потери и ра
    * ничего, даже локально. Отдельным тестом, потому что здесь ложь в
    * возвращаемом значении: вызывающий код вправе считать `true` подтверждением.
    */
-  test('move возвращает true, но не двигает элемент даже локально', () => {
+  test('move returns true but does not move the element even locally', () => {
     const clock = fixedClock(1000)
     const a = new Replica('p1', clock)
     const b = new Replica('p2', clock)
@@ -327,7 +327,7 @@ describe('состязательные сценарии — потери и ра
    * не мешают друг другу — надгробие родителя не рушит порядок внутри него,
    * `move` внутри вложенного `head` работает.
    */
-  test('операции над разными head не мешают друг другу', () => {
+  test('operations on different heads do not interfere with each other', () => {
     const clock = fixedClock(1000)
     const a = new Replica('p1', clock)
     const b = new Replica('p2', clock)
@@ -361,7 +361,7 @@ describe('состязательные сценарии — потери и ра
    * порядке. Воскрешение из предыдущих тестов приходит не отсюда — его делает
    * **новый** юнит от пира, не знавшего об удалении.
    */
-  test('повторная доставка перекрытого юнита не воскрешает удалённое', () => {
+  test('redelivery of an overridden unit does not resurrect the removed', () => {
     const clock = fixedClock(1000)
     const a = new Replica('p1', clock)
     const b = new Replica('p2', clock)
@@ -402,7 +402,7 @@ describe('состязательные сценарии — потери и ра
    * Дополнительная плата: реплика теряет **собственную** запись, потому что её
    * же новый юнит не побеждает гидрированный из хранилища.
    */
-  test('перезапуск пира в ту же секунду: одинаковый набор юнитов читается по-разному', () => {
+  test('peer restart within the same second: the same set of units reads differently', () => {
     const clock = fixedClock(1000)
 
     const live = new Replica('p1', clock)
@@ -443,7 +443,7 @@ describe('состязательные сценарии — потери и ра
    * 5 000 элементов проходят, 10 000 — уже `RangeError`. Никакого CRDT-конфликта
    * не нужно: достаточно одной реплики и одного длинного документа.
    */
-  test('order() падает по стеку на цепочке из 10 000 элементов', () => {
+  test('order() overflows the stack on a chain of 10 000 elements', () => {
     const clock = fixedClock(1000)
     const replica = new Replica('p1', clock)
 
@@ -462,7 +462,7 @@ describe('состязательные сценарии — потери и ра
    * - сохранность нет: считаем, в скольких расписаниях живые по LWW элементы
    *   пропали из чтения.
    */
-  test('фузз 400 расписаний: сходимость держится, сохранность — нет', () => {
+  test('fuzz of 400 schedules: convergence holds, preservation does not', () => {
     // xorshift32, а не LCG: произведение в LCG вылезает за 2^53, младшие биты
     // теряются, и генератор вырождается в константу — проверено, отдавал одни нули.
     let seed = 0x2f6e2b1

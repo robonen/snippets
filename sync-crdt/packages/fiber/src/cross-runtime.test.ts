@@ -30,7 +30,7 @@ function pump(trace: string[], label: string, read: () => unknown): void {
   }
 }
 
-test('круг приостановки идёт одним и тем же порядком', async () => {
+test('Suspension round proceeds in the same order', async () => {
   const trace: string[] = []
   let release!: (value: string) => void
   const gate = new Promise<string>((resolve) => {
@@ -67,7 +67,7 @@ test('круг приостановки идёт одним и тем же по�
   ])
 })
 
-test('одноразовая задача переиспользуется по позиции, а не считается заново', async () => {
+test('One-shot task is reused by position, not recomputed', async () => {
   const trace: string[] = []
   let releaseFirst!: (value: string) => void
   let releaseSecond!: (value: string) => void
@@ -115,7 +115,7 @@ test('одноразовая задача переиспользуется по 
   ])
 })
 
-test('nextTick и queueMicrotask чередуются одинаково', async () => {
+test('nextTick and queueMicrotask interleave identically', async () => {
   const trace: string[] = []
   const count = ref(0)
 
@@ -138,7 +138,7 @@ test('nextTick и queueMicrotask чередуются одинаково', async
   expect(trace).toEqual(['эффект:0', 'эффект:1', 'микрозадача', 'после-nextTick'])
 })
 
-test('batch схлопывает записи в один пересчёт', () => {
+test('batch collapses writes into a single recompute', () => {
   const trace: string[] = []
   const width = ref(1)
   const height = ref(1)
@@ -169,7 +169,7 @@ test('batch схлопывает записи в один пересчёт', () 
   ])
 })
 
-test('узел без подписчиков собирается на том же flush', () => {
+test('Node without subscribers is collected on the same flush', () => {
   const trace: string[] = []
   const source = ref(1)
 
@@ -191,7 +191,7 @@ test('узел без подписчиков собирается на том ж
   expect(trace).toEqual(['вид:прогон', 'вид:прогон'])
 })
 
-test('ошибка внутри приостановки доходит до читателя тем же путём', async () => {
+test('Error inside a suspension reaches the reader by the same path', async () => {
   const trace: string[] = []
   let reject!: (error: Error) => void
   const gate = new Promise<string>((_, no) => {

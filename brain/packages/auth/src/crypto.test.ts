@@ -25,7 +25,7 @@ const PASSPHRASE_TEST_ITERATIONS = 1000;
 const text = (value: string): Uint8Array => new TextEncoder().encode(value);
 
 describe('AES-GCM', () => {
-  test('что зашифровали — то и расшифровали', async () => {
+  test('What was encrypted is what gets decrypted', async () => {
     const key = createDek();
     const plain = text('лечу в отпуск 12 сентября');
 
@@ -33,7 +33,7 @@ describe('AES-GCM', () => {
     expect(await open(key, sealed)).toEqual(plain);
   });
 
-  test('nonce свой у каждой операции — иначе GCM теряет и ключ аутентификации', async () => {
+  test('Each operation gets its own nonce — otherwise GCM loses the authentication key too', async () => {
     const key = createDek();
     const plain = text('одно и то же');
 
@@ -45,12 +45,12 @@ describe('AES-GCM', () => {
     expect(a.cipher).not.toEqual(b.cipher);
   });
 
-  test('чужой ключ не открывает', async () => {
+  test('A foreign key does not open', async () => {
     const sealed = await seal(createDek(), text('секрет'));
     await expect(open(createDek(), sealed)).rejects.toThrow();
   });
 
-  test('порча любого байта шифртекста ловится', async () => {
+  test('Corruption of any ciphertext byte is caught', async () => {
     const key = createDek();
     const sealed = await seal(key, text('целостность важнее секретности'));
 
@@ -61,7 +61,7 @@ describe('AES-GCM', () => {
     }
   });
 
-  test('порча nonce ловится', async () => {
+  test('Nonce corruption is caught', async () => {
     const key = createDek();
     const sealed = await seal(key, text('данные'));
     const nonce = sealed.nonce.slice();
@@ -70,7 +70,7 @@ describe('AES-GCM', () => {
     await expect(open(key, { nonce, cipher: sealed.cipher })).rejects.toThrow();
   });
 
-  test('AAD подписан: с другим адресом ленда не открывается', async () => {
+  test('AAD is signed: does not open with a different land address', async () => {
     const key = createDek();
     const sealed = await seal(key, text('дневник'), text('land:kcal'));
 
@@ -79,13 +79,13 @@ describe('AES-GCM', () => {
     await expect(open(key, sealed)).rejects.toThrow();
   });
 
-  test('пустые данные шифруются и переживают цикл', async () => {
+  test('Empty data encrypts and survives the round trip', async () => {
     const key = createDek();
     const sealed = await seal(key, new Uint8Array(0));
     expect(await open(key, sealed)).toEqual(new Uint8Array(0));
   });
 
-  test('вид на кусок буфера шифруется как самостоятельные данные', async () => {
+  test('A view into a buffer slice encrypts as standalone data', async () => {
     const key = createDek();
     const backing = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]);
     const view = backing.subarray(2, 6);
@@ -95,15 +95,15 @@ describe('AES-GCM', () => {
   });
 });
 
-describe('вывод KEK', () => {
-  test('PRF: тот же вывод и та же соль дают тот же ключ', async () => {
+describe('KEK derivation', () => {
+  test('PRF: the same output and the same salt yield the same key', async () => {
     const prf = randomBytes(32);
     const salt = createSalt();
 
     expect(await kekFromPrf(prf, salt)).toEqual(await kekFromPrf(prf, salt));
   });
 
-  test('PRF: другая соль или другой вывод — другой ключ', async () => {
+  test('PRF: a different salt or a different output — a different key', async () => {
     const prf = randomBytes(32);
     const salt = createSalt();
     const kek = await kekFromPrf(prf, salt);
@@ -112,7 +112,7 @@ describe('вывод KEK', () => {
     expect(await kekFromPrf(randomBytes(32), salt)).not.toEqual(kek);
   });
 
-  test('фраза: тот же ввод даёт тот же ключ, опечатка — другой', async () => {
+  test('Phrase: the same input yields the same key, a typo — a different one', async () => {
     const salt = createSalt();
     const phrase = 'астра берег вилка гроза';
 
@@ -122,7 +122,7 @@ describe('вывод KEK', () => {
       .not.toEqual(kek);
   });
 
-  test('фраза нормализуется по NFKD: составной и готовый символ — один ключ', async () => {
+  test('Phrase is NFKD-normalized: decomposed and precomposed characters — one key', async () => {
     const salt = createSalt();
     // «й» одним кодом против «и» + U+0306. Пользователь видит одно и то же,
     // и разные ключи здесь были бы невоспроизводимой потерей данных.
@@ -134,7 +134,7 @@ describe('вывод KEK', () => {
       .toEqual(await kekFromPassphrase(decomposed, salt, PASSPHRASE_TEST_ITERATIONS));
   });
 
-  test('PRF и фраза с одинаковым входом дают РАЗНЫЕ ключи', async () => {
+  test('PRF and phrase with identical input yield DIFFERENT keys', async () => {
     // Разделение назначений: один и тот же материал не должен связывать
     // два способа доступа между собой.
     const salt = createSalt();
@@ -146,8 +146,8 @@ describe('вывод KEK', () => {
   });
 });
 
-describe('конверт DEK', () => {
-  test('обёртка снимается своим ключом', async () => {
+describe('DEK envelope', () => {
+  test('Wrap opens with its own key', async () => {
     const dek = createDek();
     const kek = await kekFromPrf(randomBytes(32), createSalt());
 
@@ -155,7 +155,7 @@ describe('конверт DEK', () => {
     expect(await unwrapDek(wrapped, kek)).toEqual(dek);
   });
 
-  test('обёртка не снимается чужим ключом', async () => {
+  test('Wrap does not open with a foreign key', async () => {
     const kek = await kekFromPrf(randomBytes(32), createSalt());
     const other = await kekFromPrf(randomBytes(32), createSalt());
 
@@ -163,7 +163,7 @@ describe('конверт DEK', () => {
     await expect(unwrapDek(wrapped, other)).rejects.toThrow();
   });
 
-  test('один DEK под N способами доступа: каждый открывает тот же ключ', async () => {
+  test('One DEK under N access methods: each opens the same key', async () => {
     const dek = createDek();
     const phone = await kekFromPrf(randomBytes(32), createSalt());
     const laptop = await kekFromPrf(randomBytes(32), createSalt());
@@ -183,7 +183,7 @@ describe('конверт DEK', () => {
     expect(wraps[0]!.cipher).not.toEqual(wraps[1]!.cipher);
   });
 
-  test('подмена метки обёртки ломает снятие', async () => {
+  test('Tampering with the wrap label breaks unwrapping', async () => {
     const kek = await kekFromPrf(randomBytes(32), createSalt());
     const wrapped = await wrapDek(createDek(), kek, {
       kind: 'passkey',
@@ -196,8 +196,8 @@ describe('конверт DEK', () => {
   });
 });
 
-describe('ключ устройства', () => {
-  test('ключ неизвлекаемый: байт из него не достать', async () => {
+describe('Device key', () => {
+  test('Key is non-extractable: not a byte can be pulled out', async () => {
     const kek = await createDeviceKek();
 
     // Ровно то, ради чего он существует: экспорт обязан быть невозможен, иначе
@@ -206,7 +206,7 @@ describe('ключ устройства', () => {
     await expect(crypto.subtle.exportKey('raw', kek)).rejects.toThrow();
   });
 
-  test('обёртка под ключом устройства снимается им и только им', async () => {
+  test('Wrap under the device key opens with it and only it', async () => {
     const dek = createDek();
     const mine = await createDeviceKek();
     const stranger = await createDeviceKek();

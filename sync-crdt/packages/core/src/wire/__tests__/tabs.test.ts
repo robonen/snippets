@@ -66,7 +66,7 @@ function hub() {
       // Доставка может породить новые сообщения — крутимся до дна, с потолком.
       let guard = 0
       while (queue.length > 0) {
-        if (++guard > 10_000) throw new Error('канал не замолкает: похоже на петлю реплик')
+        if (++guard > 10_000) throw new Error('the channel does not go quiet: looks like a replication loop')
         const next = queue.shift() as { from: FakePort; bytes: Uint8Array }
         count += 1
         for (const port of ports) {
@@ -96,7 +96,7 @@ async function settled(): Promise<void> {
 
 // ─── Фейсы и дельта ───────────────────────────────────────────────────────────
 
-test('фейсы считают водяной знак и число юнитов по пирам', () => {
+test('faces track the watermark and unit count per peer', () => {
   const land = tabLand(0x10)
   const first = land.post(ROOT, ROOT, 'а')
   land.post(ROOT, first.self, 'б')
@@ -108,7 +108,7 @@ test('фейсы считают водяной знак и число юнито
   expect(face?.time).toBe(1000)
 })
 
-test('фейсы переживают круг через форму пачки', () => {
+test('faces survive the round-trip through the pack form', () => {
   const land = tabLand(0x10)
   land.post(ROOT, ROOT, 'а')
 
@@ -117,7 +117,7 @@ test('фейсы переживают круг через форму пачки'
   expect(back).toEqual(faces)
 })
 
-test('дельта: строго старое не пересылается, пограничная секунда — целиком', () => {
+test('delta: strictly old is not resent, the boundary second goes whole', () => {
   const clock = fixedClock(1000)
   const a = new Land(peerOf(0x11), clock, { session: 0x10 })
   const first = a.post(ROOT, ROOT, 'старое')
@@ -140,7 +140,7 @@ test('дельта: строго старое не пересылается, п�
   expect(delta.units.map((unit) => unit.time()).sort()).toEqual([1005, 1010])
 })
 
-test('Fail Summ: потерянная середина истории досылается целиком', () => {
+test('Fail Summ: a lost middle of history is resent whole', () => {
   const clock = fixedClock(1000)
   const a = new Land(peerOf(0x11), clock, { session: 0x10 })
   const one = a.post(ROOT, ROOT, 'раз')
@@ -162,7 +162,7 @@ test('Fail Summ: потерянная середина истории досыл
   expect(delta.units).toHaveLength(3)
 })
 
-test('behindOf видит отставание по знаку, по пиру и по счёту', () => {
+test('behindOf sees lag by watermark, by peer, and by count', () => {
   const clock = fixedClock(1000)
   const a = new Land(peerOf(0x11), clock, { session: 0x10 })
   a.post(ROOT, ROOT, 'а')
@@ -175,7 +175,7 @@ test('behindOf видит отставание по знаку, по пиру и
 
 // ─── Канал вкладок ────────────────────────────────────────────────────────────
 
-test('вошедшая вкладка получает всё при привете', () => {
+test('a joining tab receives everything on hello', () => {
   const net = hub()
   const a = tabLand(0x000010)
   const one = a.post(ROOT, ROOT, 'раз')
@@ -193,7 +193,7 @@ test('вошедшая вкладка получает всё при приве�
   syncB.close()
 })
 
-test('встречная дельта: старожил получает офлайн-правки вошедшей', () => {
+test('counter-delta: the old-timer receives the offline edits of the joining tab', () => {
   const net = hub()
   const a = tabLand(0x000010)
   a.post(ROOT, ROOT, 'от старожила')
@@ -212,7 +212,7 @@ test('встречная дельта: старожил получает офл�
   syncB.close()
 })
 
-test('старожил отстал: вошедшая ничего не просит, но старожил узнаёт и получает', () => {
+test('the old-timer is behind: the joining tab asks nothing, but the old-timer learns and receives', () => {
   const net = hub()
   // A — старожил с пустым лендом, B входит с данными. Дельта A→B пуста, и без
   // ветки «назваться» A не узнал бы, что отстал.
@@ -230,7 +230,7 @@ test('старожил отстал: вошедшая ничего не прос
   syncB.close()
 })
 
-test('живой поток: запись уезжает краном и доезжает до соседей', async () => {
+test('live stream: a write leaves through the tap and reaches the neighbors', async () => {
   const net = hub()
   const a = tabLand(0x000010)
   const b = tabLand(0x800010)
@@ -254,7 +254,7 @@ test('живой поток: запись уезжает краном и дое�
   syncB.close()
 })
 
-test('три вкладки сходятся и канал замолкает', async () => {
+test('three tabs converge and the channel goes quiet', async () => {
   const net = hub()
   const tabs = [tabLand(0x000010), tabLand(0x600010), tabLand(0xc00010)]
   const syncs = tabs.map((land) => syncTabs({ land, id: LAND, port: net.port() }))
@@ -278,7 +278,7 @@ test('три вкладки сходятся и канал замолкает', 
   for (const sync of syncs) sync.close()
 })
 
-test('длинное значение доезжает вместе с ball — и приветом, и краном', async () => {
+test('a long value arrives with its ball — both by hello and by tap', async () => {
   const long = 'Длинный заголовок, который не помещается в юнит и уезжает в ball'
   expect(new TextEncoder().encode(long).length).toBeGreaterThan(62)
 
@@ -305,7 +305,7 @@ test('длинное значение доезжает вместе с ball — 
   syncB.close()
 })
 
-test('чужое не пересылается: эха на общем канале нет', async () => {
+test('foreign data is not relayed: no echo on the shared channel', async () => {
   const net = hub()
   const tabs = [tabLand(0x000010), tabLand(0x600010), tabLand(0xc00010)]
   const syncs = tabs.map((land) => syncTabs({ land, id: LAND, port: net.port() }))
@@ -326,7 +326,7 @@ test('чужое не пересылается: эха на общем кана�
   for (const sync of syncs) sync.close()
 })
 
-test('пустая синхронизация двух одинаковых вкладок — меньше килобайта', () => {
+test('empty sync of two identical tabs is under a kilobyte', () => {
   const net = hub()
   const a = tabLand(0x000010)
   const one = a.post(ROOT, ROOT, 'общие')
@@ -348,7 +348,7 @@ test('пустая синхронизация двух одинаковых вк
   syncB.close()
 })
 
-test('канал другого ленда игнорируется', () => {
+test('a channel of another land is ignored', () => {
   const OTHER = Link.land(Link.peer(new Uint8Array(8).fill(0xf2)), new Uint8Array(8))
   const net = hub()
   const a = tabLand(0x000010)
@@ -366,7 +366,7 @@ test('канал другого ленда игнорируется', () => {
 
 // ─── Настоящий BroadcastChannel (Node 18+) ────────────────────────────────────
 
-test('дым: два ленда сходятся через настоящий BroadcastChannel', async () => {
+test('smoke: two lands converge through a real BroadcastChannel', async () => {
   const a = tabLand(0x000010)
   const b = tabLand(0x800010)
   const one = a.post(ROOT, ROOT, 'по-настоящему')

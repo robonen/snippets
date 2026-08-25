@@ -27,7 +27,7 @@ function pump(read: () => unknown): Promise<unknown> | null {
   }
 }
 
-test('test types: sync разворачивает Promise<T> в T', () => {
+test('test types: sync unwraps Promise<T> into T', () => {
   const load = (): Promise<string> => Promise.resolve('')
   const read = () => sync(load)
 
@@ -37,7 +37,7 @@ test('test types: sync разворачивает Promise<T> в T', () => {
   expect(typeof read).toBe('function')
 })
 
-test('sync внутри async: значение доезжает, источник дёрнут ровно один раз', async () => {
+test('sync inside async: the value arrives, the source is hit exactly once', async () => {
   let count = 0
   const load = (): Promise<number> => Promise.resolve(++count)
 
@@ -46,7 +46,7 @@ test('sync внутри async: значение доезжает, источни
   expect(count).toBe(1)
 })
 
-test('sync с аргументами: разные аргументы — разные задачи', async () => {
+test('sync with arguments: different arguments — different tasks', async () => {
   const calls: number[] = []
   const load = (value: number): Promise<number> => {
     calls.push(value)
@@ -68,7 +68,7 @@ test('sync с аргументами: разные аргументы — раз
   expect(calls).toEqual([1, 2])
 })
 
-test('test construct itself: созданный объект переживает перезапуск файбера', async () => {
+test('test construct itself: a created object survives fiber restart', async () => {
   class Widget {}
 
   const instances: Widget[] = []

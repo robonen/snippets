@@ -11,7 +11,7 @@ import type { IdbFactory, IdbRanges } from '../idb-api'
 import { idbSuite } from './idb-suite'
 
 idbSuite({
-  what: 'подделка',
+  what: 'fake',
   factory: new IDBFactory() as unknown as IdbFactory,
   ranges: IDBKeyRange as unknown as IdbRanges,
 })

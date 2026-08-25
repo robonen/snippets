@@ -21,8 +21,8 @@ function task(patch: Partial<Task> = {}): Task {
   };
 }
 
-describe('сводка: счётчики', () => {
-  it('пустой список — все нули и ни одного проекта', () => {
+describe('overview: counters', () => {
+  it('empty list — all zeros and not a single project', () => {
     expect(overviewOf([], TODAY)).toEqual({
       open: 0,
       overdue: 0,
@@ -32,7 +32,7 @@ describe('сводка: счётчики', () => {
     });
   });
 
-  it('просроченные и сегодняшние разведены: их складывают глазами, а не мы', () => {
+  it('overdue and today are kept apart: the eyes add them up, not us', () => {
     const list = [
       task({ id: '1', dueAt: '2026-08-20' }),
       task({ id: '2', dueAt: '2026-08-23' }),
@@ -45,7 +45,7 @@ describe('сводка: счётчики', () => {
     expect(overview.open).toBe(3);
   });
 
-  it('выполненные не считаются ни открытыми, ни просроченными', () => {
+  it('completed count neither as open nor as overdue', () => {
     const list = [task({ id: '1', dueAt: '2026-08-20', doneAt: at('2026-08-22') })];
     const overview = overviewOf(list, TODAY);
 
@@ -54,7 +54,7 @@ describe('сводка: счётчики', () => {
     expect(overview.doneWeek).toBe(1);
   });
 
-  it('«за неделю» — последние семь дней, включая сегодня', () => {
+  it('"this week" — the last seven days including today', () => {
     const list = [
       task({ id: '1', doneAt: at(TODAY) }),
       task({ id: '2', doneAt: at('2026-08-18') }),
@@ -64,25 +64,25 @@ describe('сводка: счётчики', () => {
     expect(overviewOf(list, TODAY).doneWeek).toBe(2);
   });
 
-  it('будущий срок не горит и в «сегодня» не попадает', () => {
+  it('future due date does not burn and does not fall into "today"', () => {
     const overview = overviewOf([task({ dueAt: '2026-09-01' })], TODAY);
     expect(overview.overdue).toBe(0);
     expect(overview.today).toBe(0);
     expect(overview.open).toBe(1);
   });
 
-  it('отложенные и неразобранные — тоже открытые дела', () => {
+  it('deferred and untriaged are open work too', () => {
     const list = [task({ id: '1', status: 'someday' }), task({ id: '2' })];
     expect(overviewOf(list, TODAY).open).toBe(2);
   });
 });
 
-describe('итог дня', () => {
-  it('пустой список — пустая полоса', () => {
+describe('day summary', () => {
+  it('empty list — empty bar', () => {
     expect(dayProgress([], TODAY)).toEqual({ done: 0, total: 0 });
   });
 
-  it('закрытое СЕГОДНЯ считается, хотя из списка уже ушло', () => {
+  it('closed TODAY counts, though it already left the list', () => {
     const list = [
       task({ id: '1', doneAt: at(TODAY) }),
       task({ id: '2', dueAt: TODAY }),
@@ -90,21 +90,21 @@ describe('итог дня', () => {
     expect(dayProgress(list, TODAY)).toEqual({ done: 1, total: 2 });
   });
 
-  it('закрытое вчера в сегодняшнюю полосу не входит', () => {
+  it('closed yesterday does not enter the bar for today', () => {
     expect(dayProgress([task({ doneAt: at('2026-08-23') })], TODAY)).toEqual({ done: 0, total: 0 });
   });
 
-  it('просроченное — тоже работа на сегодня, только опоздавшая', () => {
+  it('overdue is also work for today, just late', () => {
     const list = [task({ id: '1', dueAt: '2026-08-01' }), task({ id: '2', dueAt: TODAY })];
     expect(dayProgress(list, TODAY)).toEqual({ done: 0, total: 2 });
   });
 
-  it('дела без срока и на будущее в полосу дня не попадают', () => {
+  it('undated and future work does not enter the day bar', () => {
     const list = [task({ id: '1' }), task({ id: '2', dueAt: '2026-09-01' })];
     expect(dayProgress(list, TODAY)).toEqual({ done: 0, total: 0 });
   });
 
-  it('свойство: сделанного никогда не больше, чем всего', () => {
+  it('property: done is never more than total', () => {
     const list = [
       task({ id: '1', doneAt: at(TODAY) }),
       task({ id: '2', doneAt: at(TODAY) }),
@@ -115,14 +115,14 @@ describe('итог дня', () => {
   });
 });
 
-describe('сводка: разбивка по проектам', () => {
-  it('задачи вне проектов собираются одной строкой без идентификатора', () => {
+describe('overview: per-project breakdown', () => {
+  it('tasks outside projects gather into one row without an identifier', () => {
     const overview = overviewOf([task({ id: '1' })], TODAY);
     expect(overview.projects).toHaveLength(1);
     expect(Object.hasOwn(overview.projects[0] ?? {}, 'project')).toBeFalsy();
   });
 
-  it('счётчики проекта повторяют общие, но только по своим задачам', () => {
+  it('project counters mirror the overall ones, but only over its tasks', () => {
     const list = [
       task({ id: '1', project: 'дом', dueAt: '2026-08-20' }),
       task({ id: '2', project: 'дом' }),
@@ -137,7 +137,7 @@ describe('сводка: разбивка по проектам', () => {
     expect(work).toEqual({ project: 'работа', open: 0, overdue: 0, done: 1 });
   });
 
-  it('порядок: где горит — выше, потом по объёму работы', () => {
+  it('order: burning first, then by amount of work', () => {
     const list = [
       task({ id: '1', project: 'тихий' }),
       task({ id: '2', project: 'тихий' }),
@@ -146,19 +146,19 @@ describe('сводка: разбивка по проектам', () => {
     expect(overviewOf(list, TODAY).projects.map(item => item.project)).toEqual(['горит', 'тихий']);
   });
 
-  it('«вне проектов» при равенстве уходит вниз: это остаток, а не проект', () => {
+  it('"outside projects" sinks on ties: it is a remainder, not a project', () => {
     const list = [task({ id: '1' }), task({ id: '2', project: 'дом' })];
     expect(overviewOf(list, TODAY).projects.map(item => item.project)).toEqual(['дом', undefined]);
   });
 
-  it('проект с одними старыми закрытиями остаётся в сводке пустой строкой', () => {
+  it('project with only old completions stays in the overview as an empty row', () => {
     const list = [task({ id: '1', project: 'старый', doneAt: at('2026-01-01') })];
     expect(overviewOf(list, TODAY).projects).toEqual([
       { project: 'старый', open: 0, overdue: 0, done: 0 },
     ]);
   });
 
-  it('свойство: суммы по проектам сходятся с общими счётчиками', () => {
+  it('property: per-project sums match the overall counters', () => {
     const list = [
       task({ id: '1', project: 'дом', dueAt: '2026-08-20' }),
       task({ id: '2', project: 'дом', dueAt: TODAY }),

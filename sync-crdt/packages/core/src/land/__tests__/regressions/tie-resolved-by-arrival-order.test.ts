@@ -53,7 +53,7 @@ function landWith(order: readonly SandUnit[]): Land {
   return land
 }
 
-test('исход не зависит от порядка доставки', () => {
+test('the outcome does not depend on delivery order', () => {
   const [x, y] = twins()
 
   const first = landWith([x, y]).order(ROOT).map((view) => view.value)
@@ -64,7 +64,7 @@ test('исход не зависит от порядка доставки', () =
   expect(first).toHaveLength(1)
 })
 
-test('арбитраж идёт по байтам, а не по значению', () => {
+test('arbitration goes by bytes, not by value', () => {
   const [x, y] = twins()
   // Побеждает лексикографически меньший юнит. Значения 'X' и 'Y' отличаются
   // ровно одним байтом полезной нагрузки, поэтому порядок юнитов повторяет
@@ -73,7 +73,7 @@ test('арбитраж идёт по байтам, а не по значению
   expect(winner).toBe('X')
 })
 
-test('повторная доставка того же юнита изменением не считается', () => {
+test('redelivery of the same unit does not count as a change', () => {
   const [x] = twins()
   const land = landWith([x])
   // Без этого цикл синхронизации не встанет никогда: он останавливается по

@@ -2,44 +2,44 @@ import { describe, expect, it } from 'vitest';
 import { addTag, formatTags, normalizeTag, parseTags, removeTag, toggleTag } from './tags';
 
 describe(normalizeTag, () => {
-  it('снимает решётку, пробелы и регистр', () => {
+  it('strips the hash, spaces, and case', () => {
     expect(normalizeTag('  #Работа  ')).toBe('работа');
   });
 
-  it('схлопывает пробелы внутри тега', () => {
+  it('collapses spaces inside a tag', () => {
     expect(normalizeTag('личные   дела')).toBe('личные дела');
   });
 
-  it('тег из одних решёток и пробелов пустеет', () => {
+  it('tag of only hashes and spaces becomes empty', () => {
     expect(normalizeTag('## ')).toBe('');
   });
 });
 
 describe(parseTags, () => {
-  it('делит строку по запятым и нормализует каждый тег', () => {
+  it('splits a string by commas and normalizes each tag', () => {
     expect(parseTags('Работа, #идеи ,ЧТЕНИЕ')).toEqual(['работа', 'идеи', 'чтение']);
   });
 
-  it('выбрасывает пустые куски', () => {
+  it('drops empty pieces', () => {
     expect(parseTags(' , работа,,  ,')).toEqual(['работа']);
   });
 
-  it('схлопывает повторы, сохраняя порядок первого появления', () => {
+  it('collapses duplicates, keeping first-appearance order', () => {
     expect(parseTags('идеи, Работа, ИДЕИ')).toEqual(['идеи', 'работа']);
   });
 
-  it('пустая строка даёт пустой список', () => {
+  it('empty string yields an empty list', () => {
     expect(parseTags('')).toEqual([]);
     expect(parseTags('   ')).toEqual([]);
   });
 });
 
 describe(addTag, () => {
-  it('нормализует добавляемое и дописывает в конец', () => {
+  it('normalizes the added tag and appends it to the end', () => {
     expect(addTag(['работа'], ' #Идеи ')).toEqual(['работа', 'идеи']);
   });
 
-  it('повтор и пустой тег НАБОР НЕ МЕНЯЮТ — возвращается тот же массив', () => {
+  it('duplicate and empty tag DO NOT CHANGE THE SET — the same array is returned', () => {
     // Тождество здесь работает: экран сравнивает снимки, и новый массив с тем
     // же содержимым выглядел бы правкой заметки.
     const tags = ['работа'];
@@ -49,38 +49,38 @@ describe(addTag, () => {
 });
 
 describe(removeTag, () => {
-  it('убирает тег, узнавая его в любом написании', () => {
+  it('removes a tag, recognizing it in any spelling', () => {
     expect(removeTag(['работа', 'идеи'], '#Работа')).toEqual(['идеи']);
   });
 
-  it('чужой тег набор не меняет', () => {
+  it('foreign tag does not change the set', () => {
     const tags = ['работа'];
     expect(removeTag(tags, 'чтение')).toBe(tags);
   });
 });
 
 describe(toggleTag, () => {
-  it('добавляет отсутствующий и снимает выбранный', () => {
+  it('adds a missing tag and removes a selected one', () => {
     expect(toggleTag([], 'дом')).toEqual(['дом']);
     expect(toggleTag(['дом', 'работа'], 'дом')).toEqual(['работа']);
   });
 
-  it('двойное переключение возвращает исходный набор', () => {
+  it('double toggle returns the original set', () => {
     expect(toggleTag(toggleTag(['работа'], 'дом'), 'дом')).toEqual(['работа']);
   });
 });
 
-describe('круг тегов', () => {
-  it('parse ∘ format возвращает тот же список', () => {
+describe('tag round-trip', () => {
+  it('parse ∘ format returns the same list', () => {
     const tags = ['работа', 'идеи', 'личные дела'];
     expect(parseTags(formatTags(tags))).toEqual(tags);
   });
 
-  it('format ∘ parse нормализует ввод к каноническому виду', () => {
+  it('format ∘ parse normalizes input to canonical form', () => {
     expect(formatTags(parseTags('#Работа ,  идеи'))).toBe('работа, идеи');
   });
 
-  it('пустой список даёт пустую строку — и обратно', () => {
+  it('empty list yields an empty string — and back', () => {
     expect(formatTags([])).toBe('');
     expect(parseTags(formatTags([]))).toEqual([]);
   });

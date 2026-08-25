@@ -125,7 +125,7 @@ export function readList(core: SpaceCore, cell: Cell, head: Head): readonly unkn
       // `order()` отдаёт только живых, значит `null` тут — не надгробие, а
       // значение, вынесенное в `ball`: его подаёт хранилище (S5), не ленд.
       if (core.broken(view)) {
-        core.report(issueAt(core, cell, head, view, 'shape', item.name, 'байты, которых кодек не знает'))
+        core.report(issueAt(core, cell, head, view, 'shape', item.name, 'bytes the codec does not know'))
       }
       continue
     }
@@ -155,7 +155,7 @@ function encodeAll(cell: Cell, next: readonly unknown[]): Vary[] {
       // `null` в ленде — НАДГРОБИЕ, а не значение (решение Р6). Элемент, чья
       // линза кодирует значение в `null` (`t.maybe`), молча стёр бы соседа.
       throw new ModelError(
-        `поле «${cell.key}»: элемент №${i} кодируется в null, а null в ленде — надгробие, а не значение`,
+        `field «${cell.key}»: element #${i} encodes to null, and null in a land is a tombstone, not a value`,
         'list.write',
       )
     }
@@ -481,7 +481,7 @@ export const LIST_METHODS: Readonly<Record<string, unknown>> = Object.freeze({
       const raw = core.valueOf(view)
       if (raw === null) {
         if (!core.broken(view)) continue
-        return issueAt(core, cell, head, view, 'shape', item.name, 'байты, которых кодек не знает')
+        return issueAt(core, cell, head, view, 'shape', item.name, 'bytes the codec does not know')
       }
       if (item.decode(raw) === null) {
         return issueAt(core, cell, head, view, 'decode', item.name, describe(raw))

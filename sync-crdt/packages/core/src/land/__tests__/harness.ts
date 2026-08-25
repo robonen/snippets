@@ -60,7 +60,7 @@ export function converge(...replicas: readonly Replica[]): void {
   }
 
   const sizes = replicas.map(r => `${r.peer}=${r.sands().length}`).join(', ')
-  throw new Error(`Реплики не сошлись за ${ROUNDS_MAX} раундов: ${sizes}`)
+  throw new Error(`Replicas did not converge in ${ROUNDS_MAX} rounds: ${sizes}`)
 }
 
 /** Наблюдаемое состояние — то, что сравнивают property-тесты. */

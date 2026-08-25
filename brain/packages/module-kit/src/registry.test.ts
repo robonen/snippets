@@ -16,7 +16,7 @@ function stub(id: string, extra: Partial<BrainModule> = {}): BrainModule {
   });
 }
 
-test('маршруты модуля висят под /<id> и завёрнуты в свой хост', () => {
+test('Module routes hang under /<id> and are wrapped in their own host', () => {
   const registry = createRegistry([stub('kcal'), stub('notes')]);
   const routes = registry.routes();
 
@@ -29,23 +29,23 @@ test('маршруты модуля висят под /<id> и завёрнут�
   expect(routes[0]!.component).not.toBe(routes[1]!.component);
 });
 
-test('одинаковые имена модулей отвергаются', () => {
-  expect(() => createRegistry([stub('notes'), stub('notes')])).toThrow(/объявлен дважды/);
+test('Duplicate module names are rejected', () => {
+  expect(() => createRegistry([stub('notes'), stub('notes')])).toThrow(/declared twice/);
 });
 
-test('разные имена с одним адресом ленда отвергаются', () => {
+test('Different names with the same land address are rejected', () => {
   // Схема чеканки повторяет имя по кругу: «ab» и «abab» дают один ленд.
-  expect(() => createRegistry([stub('ab'), stub('abab')])).toThrow(/один адрес ленда/);
+  expect(() => createRegistry([stub('ab'), stub('abab')])).toThrow(/same land address/);
 });
 
-test('имя не по форме отвергается: из него строятся пути и адрес', () => {
-  expect(() => createRegistry([stub('Notes')])).toThrow(/не годится/);
-  expect(() => createRegistry([stub('my notes')])).toThrow(/не годится/);
-  expect(() => createRegistry([stub('заметки')])).toThrow(/не годится/);
-  expect(() => createRegistry([stub('a-very-long-module-id')])).toThrow(/не годится/);
+test('Malformed name is rejected: paths and the address are built from it', () => {
+  expect(() => createRegistry([stub('Notes')])).toThrow(/not valid/);
+  expect(() => createRegistry([stub('my notes')])).toThrow(/not valid/);
+  expect(() => createRegistry([stub('заметки')])).toThrow(/not valid/);
+  expect(() => createRegistry([stub('a-very-long-module-id')])).toThrow(/not valid/);
 });
 
-test('виджеты собираются со всех модулей и сортируются по order', () => {
+test('Widgets are collected from all modules and sorted by order', () => {
   const registry = createRegistry([
     stub('kcal', { widgets: [{ id: 'today', title: 'Ккал', component: Screen, order: 20 }] }),
     stub('notes', {
@@ -60,7 +60,7 @@ test('виджеты собираются со всех модулей и сор
   expect(registry.widgets()[0]!.module.id).toBe('notes');
 });
 
-test('команды собираются со всех модулей и помнят свой модуль', () => {
+test('Commands are collected from all modules and remember their module', () => {
   const registry = createRegistry([
     stub('notes', { commands: [{ id: 'new', title: 'Новая заметка', run: () => {} }] }),
     stub('kcal'),
@@ -72,8 +72,8 @@ test('команды собираются со всех модулей и пом
   expect(commands[0]!.command.title).toBe('Новая заметка');
 });
 
-test('незнакомое имя — опечатка, а не данные: get бросает', () => {
+test('Unknown name is a typo, not data: get throws', () => {
   const registry = createRegistry([stub('notes')]);
   expect(registry.get('notes').id).toBe('notes');
-  expect(() => registry.get('tasks')).toThrow(/не зарегистрирован/);
+  expect(() => registry.get('tasks')).toThrow(/not registered/);
 });

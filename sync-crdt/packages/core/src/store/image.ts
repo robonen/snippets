@@ -97,7 +97,7 @@ export class PackImage {
    */
   static open(volume: Volume, id: LandId): PackImage {
     if (!PackImage.clean(volume)) {
-      throw new StoreError('образ оборван на записи — метки секции нет', `ленд ${id.str}`)
+      throw new StoreError('image was cut off during a write — the section mark is missing', `land ${id.str}`)
     }
     const image = new PackImage(volume, id)
     image.#scan()
@@ -284,8 +284,8 @@ export class PackImage {
           heads += 1
           if (!sameLand(cursor.land, this.#id)) {
             throw new StoreError(
-              `образ несёт ленд ${cursor.land.str}, а открывают ${this.#id.str}`,
-              `офсет ${cursor.at}`,
+              `image carries land ${cursor.land.str}, but ${this.#id.str} is being opened`,
+              `offset ${cursor.at}`,
             )
           }
           continue
@@ -296,13 +296,13 @@ export class PackImage {
       }
     } catch (cause) {
       if (cause instanceof PackError) {
-        throw new StoreError('образ не разбирается как пачка', `ленд ${this.#id.str}`, cause)
+        throw new StoreError('image does not parse as a pack', `land ${this.#id.str}`, cause)
       }
       throw cause
     }
 
     if (heads === 0) {
-      throw new StoreError('в образе нет заголовка ленда', `ленд ${this.#id.str}`)
+      throw new StoreError('image has no land header', `land ${this.#id.str}`)
     }
     this.#fill = bin.length
   }

@@ -11,53 +11,53 @@ import fc from 'fast-check'
 import { describe, expect, test } from 'vitest'
 import { fitTokens, single, splitParagraphs, tokenize, utf8Len } from '../tokens'
 
-describe('токены: корпус baza дословно', () => {
-  test('пустая строка', () => {
+describe('tokens: the baza corpus verbatim', () => {
+  test('empty string', () => {
     // baza: `null`. Один сентинел на API — пустая выдача.
     expect(tokenize('')).toEqual([])
   })
 
-  test('переводы строк', () => {
+  test('newlines', () => {
     expect(tokenize('\n\r\n')).toEqual(['\n', '\r\n'])
   })
 
-  test('числа', () => {
+  test('numbers', () => {
     expect(tokenize('123')).toEqual(['123'])
   })
 
-  test('эмодзи', () => {
+  test('emoji', () => {
     expect(tokenize('😀😁')).toEqual(['😀', '😁'])
   })
 
-  test('эмодзи с модификатором тона', () => {
+  test('emoji with a tone modifier', () => {
     expect(tokenize('👩🏿👩🏿')).toEqual(['👩🏿', '👩🏿'])
   })
 
-  test('составное эмодзи через ZWJ — ОДИН токен', () => {
+  test('a compound emoji via ZWJ is ONE token', () => {
     // Семья из четырёх кодовых точек обязана быть неделимой: разрежь её
     // слиянием пополам — и получится не человек.
     expect(tokenize('👩🏿‍🤝‍🧑🏿👩🏿‍🤝‍🧑🏿')).toEqual(['👩🏿‍🤝‍🧑🏿', '👩🏿‍🤝‍🧑🏿'])
   })
 
-  test('слово с двойным пробелом', () => {
+  test('a word with a double space', () => {
     expect(tokenize('foo1  bar2')).toEqual(['foo1', ' ', ' bar2'])
   })
 
-  test('слово с диакритикой', () => {
+  test('a word with diacritics', () => {
     expect(tokenize('Е́е́')).toEqual(['Е́е́'])
   })
 
-  test('слово с пунктуацией', () => {
+  test('a word with punctuation', () => {
     expect(tokenize('foo--bar')).toEqual(['foo', '--', 'bar'])
   })
 
-  test('CamelCase — граница слова', () => {
+  test('CamelCase is a word boundary', () => {
     expect(tokenize('Foo1BAR2')).toEqual(['Foo1', 'BAR2'])
   })
 })
 
-describe('токены: инвариант 1 — ведущий пробел принадлежит следующему', () => {
-  test('пробел не становится отдельным юнитом', () => {
+describe('tokens: invariant 1 — a leading space belongs to the next token', () => {
+  test('a space does not become a separate unit', () => {
     // Отдельный пробел был бы лишней точкой конфликта: два пира, вставляющие
     // соседние слова, правили бы общий разделитель.
     expect(tokenize('foo bar')).toEqual(['foo', ' bar'])
@@ -66,7 +66,7 @@ describe('токены: инвариант 1 — ведущий пробел п�
   })
 })
 
-describe('токены: инвариант 2 — тотальность', () => {
+describe('tokens: invariant 2 — totality', () => {
   /**
    * ЧЕТЫРЕ ЖИВЫХ КОНТРПРИМЕРА К baza.
    *
@@ -84,11 +84,11 @@ describe('токены: инвариант 2 — тотальность', () => 
     'a\u2028b',
   ]
 
-  test('символы, которые терял токенизатор baza, доезжают целиком', () => {
+  test('characters the baza tokenizer lost arrive whole', () => {
     for (const text of LOST) expect(tokenize(text).join('')).toBe(text)
   })
 
-  test('склейка токенов равна исходной строке — на чём угодно', () => {
+  test('joining tokens equals the source string — on anything', () => {
     // Алфавит намеренно злой: экзотические пробелы, диакритика, суррогатные
     // пары, разделители строк и пунктуация вперемешку.
     const alphabet = fc.constantFrom(
@@ -104,7 +104,7 @@ describe('токены: инвариант 2 — тотальность', () => 
     )
   })
 
-  test('ни один токен не пуст: пустое совпадение зациклило бы разбор', () => {
+  test('no token is empty: an empty match would loop the parse', () => {
     fc.assert(
       fc.property(fc.string({ maxLength: 40 }), text => {
         for (const word of tokenize(text)) expect(word.length).toBeGreaterThan(0)
@@ -114,15 +114,15 @@ describe('токены: инвариант 2 — тотальность', () => 
   })
 })
 
-describe('абзацы', () => {
-  test('перевод строки принадлежит СВОЕМУ абзацу', () => {
+describe('paragraphs', () => {
+  test('a newline belongs to ITS OWN paragraph', () => {
     expect(splitParagraphs('a\nb')).toEqual(['a\n', 'b'])
     expect(splitParagraphs('a\n')).toEqual(['a\n'])
     expect(splitParagraphs('a\n\nb')).toEqual(['a\n', '\n', 'b'])
     expect(splitParagraphs('')).toEqual([])
   })
 
-  test('склейка абзацев равна исходной строке', () => {
+  test('joining paragraphs equals the source string', () => {
     fc.assert(
       fc.property(fc.string({ maxLength: 60 }), text => {
         expect(splitParagraphs(text).join('')).toBe(text)
@@ -131,7 +131,7 @@ describe('абзацы', () => {
     )
   })
 
-  test('одним абзацем читается то, у чего `\\n` только в конце', () => {
+  test('text whose only `\\n` is at the end reads as one paragraph', () => {
     expect(single('abc')).toBe(true)
     expect(single('abc\n')).toBe(true)
     expect(single('a\nb')).toBe(false)
@@ -139,8 +139,8 @@ describe('абзацы', () => {
   })
 })
 
-describe('длинное слово режется под потолок юнита', () => {
-  test('слово в 200 знаков распадается, а склейка сохраняется', () => {
+describe('a long word is cut to the unit ceiling', () => {
+  test('a 200-character word splits apart, and the join is preserved', () => {
     const word = 'z'.repeat(200)
     const cut = fitTokens([word])
     expect(cut.length).toBeGreaterThan(1)
@@ -148,12 +148,12 @@ describe('длинное слово режется под потолок юни�
     for (const piece of cut) expect(utf8Len(piece)).toBeLessThanOrEqual(60)
   })
 
-  test('короткие слова возвращаются ТЕМ ЖЕ массивом — без аллокации', () => {
+  test('short words come back as THE SAME array — no allocation', () => {
     const words = tokenize('обычная строка без длинных слов')
     expect(fitTokens(words)).toBe(words)
   })
 
-  test('суррогатная пара не разрезается: одинокий суррогат уронил бы кодек', () => {
+  test('a surrogate pair is not cut: a lone surrogate would crash the codec', () => {
     // 40 эмодзи по 4 байта — 160 байт, то есть три куска при потолке 60.
     const word = '😀'.repeat(40)
     const cut = fitTokens([word])
@@ -166,7 +166,7 @@ describe('длинное слово режется под потолок юни�
     }
   })
 
-  test('utf8Len совпадает с TextEncoder', () => {
+  test('utf8Len matches TextEncoder', () => {
     const encoder = new TextEncoder()
     fc.assert(
       fc.property(fc.string({ maxLength: 40 }), text => {

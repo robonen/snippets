@@ -20,15 +20,15 @@ const NOTE: Note = {
   updatedAt: 1_700_100,
 };
 
-describe('модели заметок на @sync/core', () => {
-  it('заметка переживает круг документ → снимок', () => {
+describe('note models on @sync/core', () => {
+  it('note survives the document → snapshot round-trip', () => {
     const root = spaceOf().root(NotesModel);
     writeNote(root.notes(NOTE.id), NOTE);
 
     expect(readNote(NOTE.id, root.notes(NOTE.id))).toEqual(NOTE);
   });
 
-  it('обычная заметка не обзаводится полем дня', () => {
+  it('ordinary note does not acquire a day field', () => {
     const root = spaceOf().root(NotesModel);
     writeNote(root.notes(NOTE.id), NOTE);
 
@@ -37,7 +37,7 @@ describe('модели заметок на @sync/core', () => {
     expect(Object.hasOwn(readNote(NOTE.id, root.notes(NOTE.id)), 'daily')).toBeFalsy();
   });
 
-  it('у заметки дня дата переживает круг', () => {
+  it('daily note date survives the round-trip', () => {
     const root = spaceOf().root(NotesModel);
     const daily: Note = { ...NOTE, id: 'daily:2026-08-24', title: '2026-08-24', daily: '2026-08-24' };
     writeNote(root.notes(daily.id), daily);
@@ -45,14 +45,14 @@ describe('модели заметок на @sync/core', () => {
     expect(readNote(daily.id, root.notes(daily.id))).toEqual(daily);
   });
 
-  it('теги нормализуются по дороге в ленд и обратно', () => {
+  it('tags are normalized on the way into the land and back', () => {
     const root = spaceOf().root(NotesModel);
     writeNote(root.notes('n2'), { ...NOTE, id: 'n2', tags: ['#Работа', 'идеи', 'идеи'] });
 
     expect(readNote('n2', root.notes('n2')).tags).toEqual(['работа', 'идеи']);
   });
 
-  it('архив переживает круг и остаётся состоянием, а не удалением', () => {
+  it('archive survives the round-trip and stays a state, not a deletion', () => {
     const root = spaceOf().root(NotesModel);
     writeNote(root.notes('n4'), { ...NOTE, id: 'n4', archived: true });
 
@@ -60,7 +60,7 @@ describe('модели заметок на @sync/core', () => {
     expect(root.notes.has('n4')).toBeTruthy();
   });
 
-  it('пустая заметка читается пустой, а не сломанной', () => {
+  it('empty note reads as empty, not as broken', () => {
     const root = spaceOf().root(NotesModel);
     const empty: Note = {
       id: 'n3',
@@ -77,7 +77,7 @@ describe('модели заметок на @sync/core', () => {
     expect(readNote(empty.id, root.notes(empty.id))).toEqual(empty);
   });
 
-  it('ключи каталога видны и удаляются', () => {
+  it('catalog keys are visible and deletable', () => {
     const root = spaceOf().root(NotesModel);
     writeNote(root.notes('a'), { ...NOTE, id: 'a' });
     writeNote(root.notes('b'), { ...NOTE, id: 'b', title: 'Дневник' });
@@ -87,7 +87,7 @@ describe('модели заметок на @sync/core', () => {
     expect([...root.notes.keys()]).toEqual(['b']);
   });
 
-  it('две вкладки сходятся: заметка из одной видна в другой', () => {
+  it('two tabs converge: a note from one is visible in the other', () => {
     const clock = fixedClock(1_700_000);
     const peer = Link.peer(new Uint8Array(8).fill(0x4e));
     const tabA = new Land(peer, clock, { session: 0x000100 });

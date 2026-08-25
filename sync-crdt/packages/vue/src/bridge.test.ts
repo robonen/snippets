@@ -3,7 +3,7 @@ import { effectScope, watchEffect as vueWatchEffect } from 'vue'
 import { expect, test } from 'vitest'
 import { createSync, useSync } from './index'
 
-test('значение из графа файберов доезжает в реактивность Vue', () => {
+test('Value from the fiber graph reaches Vue reactivity', () => {
   const count = ref(1)
   const double = computed(() => count() * 2)
 
@@ -18,7 +18,7 @@ test('значение из графа файберов доезжает в ре
   bridge.stop()
 })
 
-test('Vue-эффект перезапускается от изменения в нашем графе', () => {
+test('Vue effect re-runs on a change in our graph', () => {
   const count = ref(0)
   const bridge = createSync(() => count())
 
@@ -40,7 +40,7 @@ test('Vue-эффект перезапускается от изменения в
   bridge.stop()
 })
 
-test('приостановка не протекает наружу: pending вместо исключения', async () => {
+test('Suspension does not leak out: pending instead of an exception', async () => {
   let release!: (value: string) => void
   const gate = new Promise<string>((resolve) => {
     release = resolve
@@ -65,7 +65,7 @@ test('приостановка не протекает наружу: pending в�
   bridge.stop()
 })
 
-test('пока грузится новое, data держит прошлое значение', async () => {
+test('While the new value loads, data holds the previous one', async () => {
   const page = ref(0)
   let release!: (value: string) => void
   let gate = new Promise<string>((resolve) => {
@@ -101,19 +101,19 @@ test('пока грузится новое, data держит прошлое з�
   bridge.stop()
 })
 
-test('ошибка попадает в error, а не роняет мост', () => {
+test('Error lands in error instead of crashing the bridge', () => {
   const boom = computed(function boom(): number {
-    throw new Error('взорвалось')
+    throw new Error('boom')
   })
 
   const bridge = createSync(() => boom())
   expect(bridge.error.value).toBeInstanceOf(Error)
-  expect((bridge.error.value as Error).message).toBe('взорвалось')
+  expect((bridge.error.value as Error).message).toBe('boom')
   expect(bridge.pending.value).toBe(false)
   bridge.stop()
 })
 
-test('остановка моста отписывает от графа', () => {
+test('Stopping the bridge unsubscribes from the graph', () => {
   const count = ref(1)
   const double = computed(() => count() * 2)
 
@@ -125,7 +125,7 @@ test('остановка моста отписывает от графа', () =>
   expect(double.node.subs).toBeUndefined()
 })
 
-test('скоуп компонента останавливает мост сам', () => {
+test('Component scope stops the bridge on its own', () => {
   const count = ref(1)
   const double = computed(() => count() * 2)
 

@@ -173,7 +173,7 @@ export function lock(): void {
 export async function unlockByPasskey(rpId: string): Promise<void> {
   const candidates = keyed(legacyWraps.length > 0 ? legacyWraps : wraps.value)
     .filter(wrap => wrap.kind === 'passkey');
-  if (candidates.length === 0) throw new Error('passkey не настроен');
+  if (candidates.length === 0) throw new Error('passkey is not set up');
 
   // Соль общая для всех passkey-обёрток: PRF заказывается ДО того, как станет
   // известно, каким именно ключом человек ответил.
@@ -181,7 +181,7 @@ export async function unlockByPasskey(rpId: string): Promise<void> {
   const assertion = await authenticate({ rpId, challenge: randomBytes(32) }, salt);
   const kek = await kekFromAssertion(assertion, salt);
   if (kek === null) {
-    throw new Error('этот ключ не умеет PRF — откройте фразой восстановления');
+    throw new Error('this key does not support PRF — unlock with the recovery phrase');
   }
 
   await openWithKek(candidates, kek);
@@ -191,8 +191,8 @@ export async function unlockByPhrase(phrase: string): Promise<void> {
   const candidates = keyed(legacyWraps.length > 0 ? legacyWraps : wraps.value)
     .filter(wrap => wrap.kind === 'passphrase');
   const wrap = candidates[0];
-  if (wrap === undefined) throw new Error('фраза восстановления не настроена');
-  if (!isKnownPhrase(phrase)) throw new Error('в этой фразе есть слова не из словаря');
+  if (wrap === undefined) throw new Error('recovery phrase is not set up');
+  if (!isKnownPhrase(phrase)) throw new Error('this phrase contains words outside the wordlist');
 
   const kek = await kekFromPassphrase(normalizePhrase(phrase), wrap.salt);
   await openWithKek(candidates, kek);
@@ -207,7 +207,7 @@ export async function addAccess(
   meta: { kind: WrappedDek['kind']; label: string; salt: Uint8Array },
 ): Promise<void> {
   const opened = ring.value;
-  if (opened === null) throw new Error('связка заперта: сначала откройте данные');
+  if (opened === null) throw new Error('keyring is locked: unlock the data first');
 
   save(await opened.wrapFor(kek, meta));
 
@@ -225,7 +225,7 @@ export function currentKeyring(): Keyring | null {
 /** Убрать способ доступа. Последний убрать нельзя — данные стали бы недоступны. */
 export function removeAccess(label: string): void {
   if (keyed(wraps.value).length < 2) {
-    throw new Error('это последний способ доступа: убрать его нельзя');
+    throw new Error('this is the last access method: it cannot be removed');
   }
   dropWrap(label);
   refresh();
@@ -254,7 +254,7 @@ function refresh(): void {
 
 /** Ключ подошёл: поднять данные и объявить открытым — именно в таком порядке. */
 async function settle(opened: Keyring): Promise<void> {
-  if (bound === null) throw new Error('замок не собран: вызовите armLock(…) на старте');
+  if (bound === null) throw new Error('lock is not armed: call armLock(…) at startup');
   await bound.reveal(opened);
   ring.value = opened;
   state.value = 'open';
@@ -286,5 +286,5 @@ async function openWithKek(candidates: readonly WrappedDek[], kek: Uint8Array): 
     await settle(opened);
     return;
   }
-  throw new Error('ключ не подошёл ни к одной обёртке');
+  throw new Error('key did not match any wrap');
 }

@@ -15,17 +15,17 @@ function rule(id: string, day: number, extra: Partial<Recurring> = {}): Recurrin
 }
 
 describe(occurrenceDate, () => {
-  it('обычный день остаётся собой', () => {
+  it('ordinary day stays itself', () => {
     expect(occurrenceDate('2026-08', 5)).toBe('2026-08-05');
     expect(occurrenceDate('2026-08', 31)).toBe('2026-08-31');
   });
 
-  it('31-е в коротком месяце — последний день месяца, а не первое число следующего', () => {
+  it('the 31st in a short month is the last day of the month, not the 1st of the next', () => {
     expect(occurrenceDate('2026-04', 31)).toBe('2026-04-30');
     expect(occurrenceDate('2026-09', 31)).toBe('2026-09-30');
   });
 
-  it('февраль зажимается по своей длине, високосный — по своей', () => {
+  it('February is clamped to its own length, leap year to its own', () => {
     expect(occurrenceDate('2026-02', 31)).toBe('2026-02-28');
     expect(occurrenceDate('2026-02', 30)).toBe('2026-02-28');
     expect(occurrenceDate('2028-02', 31)).toBe('2028-02-29');
@@ -35,7 +35,7 @@ describe(occurrenceDate, () => {
     expect(occurrenceDate('1900-02', 31)).toBe('1900-02-28');
   });
 
-  it('день вне календаря приводится к краю, а не к пустой дате', () => {
+  it('day outside the calendar is clamped to the edge, not to an empty date', () => {
     expect(occurrenceDate('2026-08', 0)).toBe('2026-08-01');
     expect(occurrenceDate('2026-08', -5)).toBe('2026-08-01');
     expect(occurrenceDate('2026-08', 99)).toBe('2026-08-31');
@@ -53,13 +53,13 @@ describe(isRecorded, () => {
     recurring: 'music',
   };
 
-  it('запись узнаётся по ссылке на правило, а не по совпадению суммы', () => {
+  it('record is recognized by the rule reference, not by amount equality', () => {
     expect(isRecorded(music, [recorded], '2026-08')).toBeTruthy();
     expect(isRecorded(music, [{ ...recorded, amount: 99_999 }], '2026-08')).toBeTruthy();
     expect(isRecorded(music, [{ ...recorded, recurring: undefined }], '2026-08')).toBeFalsy();
   });
 
-  it('чужой месяц не считается записанным', () => {
+  it('another month does not count as recorded', () => {
     expect(isRecorded(music, [recorded], '2026-09')).toBeFalsy();
   });
 });
@@ -68,15 +68,15 @@ describe(dueRules, () => {
   const rules = [rule('music', 5), rule('rent', 25), rule('gym', 10, { active: false })];
   const today = '2026-08-24';
 
-  it('пора записать то, чей день наступил и чего в месяце ещё нет', () => {
+  it('time to record what is due and not yet in the month', () => {
     expect(dueRules(rules, [], '2026-08', today).map(item => item.id)).toEqual(['music']);
   });
 
-  it('выключенное правило не подставляется, даже когда день прошёл', () => {
+  it('disabled rule is not applied even when its day has passed', () => {
     expect(dueRules(rules, [], '2026-08', today).some(item => item.id === 'gym')).toBeFalsy();
   });
 
-  it('уже записанное второй раз не предлагается: подстановка идемпотентна', () => {
+  it('already recorded is not offered twice: application is idempotent', () => {
     const recorded: Expense = {
       id: 'e1',
       amount: 50_000,
@@ -87,23 +87,23 @@ describe(dueRules, () => {
     expect(dueRules(rules, [recorded], '2026-08', today)).toEqual([]);
   });
 
-  it('прошлый месяц предлагает всё, будущий — ничего: сравнение с днём одно', () => {
+  it('past month offers everything, future month nothing: one comparison with the day', () => {
     expect(dueRules(rules, [], '2026-07', today).map(item => item.id)).toEqual(['music', 'rent']);
     expect(dueRules(rules, [], '2026-09', today)).toEqual([]);
   });
 
-  it('день списания сегодня — уже пора', () => {
+  it('charge day today — already due', () => {
     expect(dueRules([rule('today', 24)], [], '2026-08', today)).toHaveLength(1);
   });
 
-  it('конец месяца не проглатывается зажатием: 31-е в феврале наступает 28-го', () => {
+  it('month end is not swallowed by clamping: the 31st in February arrives on the 28th', () => {
     expect(dueRules([rule('rent', 31)], [], '2026-02', '2026-02-28')).toHaveLength(1);
     expect(dueRules([rule('rent', 31)], [], '2026-02', '2026-02-27')).toHaveLength(0);
   });
 });
 
 describe(draftFromRule, () => {
-  it('трата помечена ссылкой на правило и встаёт на свой день', () => {
+  it('expense is tagged with the rule reference and lands on its day', () => {
     expect(draftFromRule(rule('music', 31, { title: 'Музыка', category: 'fun' }), '2026-02', 'e9', 777))
       .toEqual({
         id: 'e9',
@@ -116,7 +116,7 @@ describe(draftFromRule, () => {
       });
   });
 
-  it('пустое название полем не становится, категории может не быть', () => {
+  it('empty name does not become a field, category may be absent', () => {
     const draft = draftFromRule(rule('bare', 3, { title: '  ' }), '2026-08', 'e1', 1);
     expect(Object.hasOwn(draft, 'note')).toBeFalsy();
     expect(Object.hasOwn(draft, 'category')).toBeFalsy();
@@ -124,7 +124,7 @@ describe(draftFromRule, () => {
 });
 
 describe(monthlyLoad, () => {
-  it('считаются только активные правила', () => {
+  it('only active rules are counted', () => {
     expect(monthlyLoad([rule('a', 1), rule('b', 2, { amount: 120_000 })])).toBe(170_000);
     expect(monthlyLoad([rule('a', 1, { active: false })])).toBe(0);
     expect(monthlyLoad([])).toBe(0);
@@ -132,12 +132,12 @@ describe(monthlyLoad, () => {
 });
 
 describe(sortRules, () => {
-  it('по дню списания, при совпадении — по названию', () => {
+  it('by charge day, ties broken by name', () => {
     const sorted = sortRules([rule('b', 10, { title: 'Б' }), rule('a', 10, { title: 'А' }), rule('c', 1)]);
     expect(sorted.map(item => item.id)).toEqual(['c', 'a', 'b']);
   });
 
-  it('исходный список не трогается', () => {
+  it('source list is untouched', () => {
     const rules = [rule('b', 10), rule('a', 1)];
     sortRules(rules);
     expect(rules.map(item => item.id)).toEqual(['b', 'a']);

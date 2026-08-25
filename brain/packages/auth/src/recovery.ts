@@ -69,7 +69,7 @@ const DICTIONARY = new Set(WORDS.map(word => word.replaceAll('ё', 'е')));
  */
 export function createPhrase(length: number = PHRASE_LENGTH): string[] {
   if (WORDS.length !== 256) {
-    throw new Error(`словарь обязан быть ровно 256 слов, а в нём ${WORDS.length}: иначе выборка неравномерна`);
+    throw new Error(`the dictionary must be exactly 256 words, but it has ${WORDS.length}: otherwise sampling is uneven`);
   }
   const source = randomBytes(length);
   return [...source].map(byte => WORDS[byte]!);

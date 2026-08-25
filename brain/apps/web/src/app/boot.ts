@@ -90,7 +90,7 @@ function secretsOf(ring: Keyring): SecretRing {
       const key = ring.secretOf(land.str);
       // Бросок, а не `null`: `null` означал бы «вези открытым», и опечатка в
       // имени ленда молча сложила бы данные текстом.
-      if (key === null) throw new Error(`нет секрета ленда «${land.str}» — связка неполна`);
+      if (key === null) throw new Error(`no secret for land "${land.str}" — keyring is incomplete`);
       return key;
     },
   };
@@ -133,7 +133,7 @@ export async function joinSpace(): Promise<void> {
   const identity = await deviceIdentity();
 
   const secrets = await claimGrant(spaces.space(KEYS_ID), identity);
-  if (secrets === null) throw new Error('обёртка для этого устройства ещё не выдана');
+  if (secrets === null) throw new Error('no grant issued for this device yet');
 
   stopSync();
   await spaces.seal();
@@ -202,7 +202,7 @@ async function wipeServerLands(): Promise<void> {
       headers: { authorization: `Bearer ${settings.token}` },
     });
     if (!response.ok) {
-      throw new Error(`сервер не стёр ленд «${name}»: ${response.status} — отзыв не завершён, повторите`);
+      throw new Error(`server did not wipe land "${name}": ${response.status} — revocation incomplete, retry`);
     }
   }
 }
@@ -226,17 +226,17 @@ export async function pendingGrant(): Promise<boolean> {
 }
 
 function need(): Spaces {
-  if (spacesRef === null) throw new Error('приложение ещё не собрано');
+  if (spacesRef === null) throw new Error('app is not assembled yet');
   return spacesRef;
 }
 
 function ringNow(): Keyring {
   const ring = currentKeyring();
-  if (ring === null) throw new Error('связка заперта');
+  if (ring === null) throw new Error('keyring is locked');
   return ring;
 }
 
 function signerNow(): Signer {
-  if (signerRef === null) throw new Error('подписант не готов');
+  if (signerRef === null) throw new Error('signer is not ready');
   return signerRef;
 }

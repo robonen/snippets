@@ -29,7 +29,7 @@ import { converge, readAll } from '../harness'
  *
  * @see ../convergence.prop.test.ts — свойство `reachability`
  */
-test('конкурентные move крест-накрест роняют оба элемента из чтения', () => {
+test('criss-cross concurrent moves drop both elements from reads', () => {
   const clock = fixedClock(1000)
   const left = new Replica('p1', clock)
   const right = new Replica('p2', clock)

@@ -62,7 +62,7 @@ function alienSand(): SandUnit {
   return SandUnit.wrap(bin)
 }
 
-test('боевой Land: удаление увиденного чужого элемента доходит', () => {
+test('production Land: removal of a seen foreign element goes through', () => {
   const land = new Land(Link.peer(peerOf(0x01)), fixedClock(1000))
   land.post(ROOT, ROOT, 'моё')
 
@@ -74,7 +74,7 @@ test('боевой Land: удаление увиденного чужого эл
   expect(land.order(ROOT).map(view => view.value)).toEqual(['моё'])
 })
 
-test('оракул Replica: та же правка и тот же исход', () => {
+test('oracle Replica: the same edit and the same outcome', () => {
   const replica = new Replica('01000000000000ff', fixedClock(1000))
   replica.insert('', 'моё')
 

@@ -132,7 +132,7 @@ export function installSpace(
 export function useSpace(): Space {
   const space = inject(SPACE)
   if (space === undefined) {
-    throw new Error('пространство не предоставлено: вызовите provideSpace(space) в предке')
+    throw new Error('space not provided: call provideSpace(space) in an ancestor')
   }
   return space
 }

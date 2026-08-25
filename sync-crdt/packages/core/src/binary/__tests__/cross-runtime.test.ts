@@ -33,16 +33,16 @@ import {
  */
 const RUNTIME = (globalThis as { window?: unknown }).window === undefined ? 'node' : 'browser'
 
-describe(`среда: ${RUNTIME}`, () => {
-  test('WebCrypto на месте — без него Link.hash не работает вовсе', () => {
+describe(`runtime: ${RUNTIME}`, () => {
+  test('WebCrypto is present — without it Link.hash does not work at all', () => {
     expect(typeof crypto.subtle.digest).toBe('function')
   })
 })
 
 // ── Golden-векторы: те же байты в обеих средах ───────────────────────────────
 
-describe('link: байты ↔ текст', () => {
-  test('фикстура непуста', () => {
+describe('link: bytes ↔ text', () => {
+  test('fixture is not empty', () => {
     expect(linkGolden.vectors.length).toBeGreaterThanOrEqual(12)
   })
 
@@ -54,8 +54,8 @@ describe('link: байты ↔ текст', () => {
   }
 })
 
-describe('vary: значение → байты', () => {
-  test('фикстура непуста', () => {
+describe('vary: value → bytes', () => {
+  test('fixture is not empty', () => {
     expect(varyGolden.vectors.length).toBeGreaterThan(30)
   })
 
@@ -70,8 +70,8 @@ describe('vary: значение → байты', () => {
   }
 })
 
-describe('unit: поля → байты', () => {
-  test('фикстура непуста', () => {
+describe('unit: fields → bytes', () => {
+  test('fixture is not empty', () => {
     expect(unitGolden.vectors.length).toBeGreaterThanOrEqual(4)
   })
 
@@ -86,8 +86,8 @@ describe('unit: поля → байты', () => {
   }
 })
 
-describe('pack: контейнер', () => {
-  test('фикстура непуста', () => {
+describe('pack: container', () => {
+  test('fixture is not empty', () => {
     expect(packGolden.vectors.length).toBeGreaterThanOrEqual(6)
   })
 
@@ -106,7 +106,7 @@ const SIZES: readonly LinkBytes[] = [8, 16, 22]
 
 describe('Link.hash', () => {
   for (const item of crossGolden.strings) {
-    test(`${item.name}: SHA-256 совпадает с эталоном node:crypto`, async () => {
+    test(`${item.name}: SHA-256 matches the node:crypto reference`, async () => {
       const data = unhex(item.utf8)
       for (const size of SIZES) {
         const link = await Link.hash(data, size)
@@ -115,7 +115,7 @@ describe('Link.hash', () => {
     })
   }
 
-  test('вид со смещением хэшируется по своему окну, а не по всему буферу', async () => {
+  test('a view with an offset hashes over its own window, not the whole buffer', async () => {
     // Ловушка обеих сред сразу: `crypto.subtle.digest` обязан уважать
     // `byteOffset`/`byteLength`. Юниты и баллы в `packDecode` — именно такие
     // окна в чужой буфер, и хэш от них считается на каждой сверке.
@@ -132,7 +132,7 @@ describe('Link.hash', () => {
     expect(hex((await Link.hash(window)).bin)).toBe(trimZeroTail(item.sha256.slice(0, 16)))
   })
 
-  test('хэш пустого входа', async () => {
+  test('hash of empty input', async () => {
     // Известная константа SHA-256 от пустой строки — её движки не считают,
     // а берут из общего для всех определения алгоритма.
     const link = await Link.hash(new Uint8Array(0))
@@ -154,9 +154,9 @@ function trimZeroTail(prefix: string): string {
 
 // ── Текст: UTF-8, суррогатные пары, эмодзи ───────────────────────────────────
 
-describe('строки вне ASCII', () => {
+describe('strings outside ASCII', () => {
   for (const item of crossGolden.strings) {
-    test(`${item.name}: те же байты`, () => {
+    test(`${item.name}: same bytes`, () => {
       const encoded = varyEncode(item.str)
       expect(hex(encoded)).toBe(item.vary)
 
@@ -166,7 +166,7 @@ describe('строки вне ASCII', () => {
     })
   }
 
-  test('NFD и NFC — разные значения, а не одно', () => {
+  test('NFD and NFC are different values, not one', () => {
     const nfd = crossGolden.strings.find(item => item.name.includes('(NFD)'))
     const nfc = crossGolden.strings.find(item => item.name.includes('(NFC)'))
     expect(nfd).toBeDefined()
@@ -176,7 +176,7 @@ describe('строки вне ASCII', () => {
   })
 
   for (const item of crossGolden.rejects) {
-    test(`${item.name}: отвергается обеими средами`, () => {
+    test(`${item.name}: rejected by both runtimes`, () => {
       // `TextEncoder` здесь молча подставил бы U+FFFD. Отказ — единственный
       // ответ, при котором байты в двух средах не разъезжаются незаметно.
       const broken = String.fromCharCode(...item.units)
@@ -186,9 +186,9 @@ describe('строки вне ASCII', () => {
   }
 })
 
-describe('словари с ключами вне ASCII', () => {
+describe('dictionaries with keys outside ASCII', () => {
   for (const item of crossGolden.dicts) {
-    test(`${item.name}: порядок ключей по байтам UTF-8`, () => {
+    test(`${item.name}: key order by UTF-8 bytes`, () => {
       const value: Record<string, string> = {}
       // Пары кладутся в порядке фикстуры (он намеренно не отсортирован), а
       // числоподобные ключи движок ещё и переставит по-своему при перечислении.
@@ -203,7 +203,7 @@ describe('словари с ключами вне ASCII', () => {
   }
 })
 
-describe('юнит со значением вне ASCII', () => {
+describe('unit with a value outside ASCII', () => {
   const peer = Link.peer(unhex('a0a1a2a3a4a5a6a7'))
   const self = Link.pawn(Link.hole, unhex('010203040506'))
 
@@ -213,7 +213,7 @@ describe('юнит со значением вне ASCII', () => {
     // строки уезжают в ball и здесь не про них.
     if (payload > 62) continue
 
-    test(`${item.name}: значение лежит в санде теми же байтами`, () => {
+    test(`${item.name}: the value lies in the sand as the same bytes`, () => {
       const unit = SandUnit.make({
         peer,
         time: 0x01020304,

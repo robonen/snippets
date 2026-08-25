@@ -24,7 +24,7 @@ const LINK: Bookmark = {
 };
 
 describe(draftLink, () => {
-  it('подставляет заголовок из адреса, когда своего не дали', () => {
+  it('derives a title from the address when none is given', () => {
     expect(draftLink({ url: 'example.com/blog/how-to-cook-pasta' }, 'l1', NOW)).toEqual({
       id: 'l1',
       url: 'https://example.com/blog/how-to-cook-pasta',
@@ -35,7 +35,7 @@ describe(draftLink, () => {
     });
   });
 
-  it('свой заголовок и теги побеждают предложенные', () => {
+  it('own title and tags win over suggested ones', () => {
     const draft = draftLink(
       { url: 'https://example.com/x', title: '  Своё название  ', note: ' зачем ', tags: ['#Vue', 'vue'] },
       'l2',
@@ -44,21 +44,21 @@ describe(draftLink, () => {
     expect(draft).toMatchObject({ title: 'Своё название', note: 'зачем', tags: ['vue'] });
   });
 
-  it('пустая заметка полем не становится', () => {
+  it('empty note does not become a field', () => {
     expect(Object.hasOwn(draftLink({ url: 'example.com', note: '   ' }, 'l3', NOW) ?? {}, 'note')).toBeFalsy();
   });
 
-  it('сразу «прочитано» — вместе с датой дочитывания', () => {
+  it('created as "read" right away — together with the finished date', () => {
     expect(draftLink({ url: 'example.com', status: 'done' }, 'l4', NOW)?.readAt).toBe(NOW);
   });
 
-  it('неразбираемый адрес — null, а не пустая закладка', () => {
+  it('unparseable address — null, not an empty bookmark', () => {
     expect(draftLink({ url: 'мусор с пробелами' }, 'l5', NOW)).toBeNull();
   });
 });
 
 describe(nextStatus, () => {
-  it('перебирает статусы по кругу', () => {
+  it('cycles through statuses in a circle', () => {
     expect(nextStatus('unread')).toBe('reading');
     expect(nextStatus('reading')).toBe('done');
     expect(nextStatus('done')).toBe('unread');
@@ -66,20 +66,20 @@ describe(nextStatus, () => {
 });
 
 describe(withStatus, () => {
-  it('«прочитано» ставит дату, возврат — снимает', () => {
+  it('"read" sets the date, reverting clears it', () => {
     const done = withStatus(LINK, 'done', NOW + 10);
     expect(done.readAt).toBe(NOW + 10);
     expect(Object.hasOwn(withStatus(done, 'reading', NOW + 20), 'readAt')).toBeFalsy();
   });
 
-  it('повторная отметка не переписывает дату первого дочитывания', () => {
+  it('re-marking does not overwrite the first finished date', () => {
     const done = withStatus(LINK, 'done', NOW + 10);
     expect(withStatus(done, 'done', NOW + 99).readAt).toBe(NOW + 10);
   });
 });
 
 describe(matchesQuery, () => {
-  it('ищет по заголовку, адресу, заметке и тегам', () => {
+  it('searches by title, address, note, and tags', () => {
     expect(matchesQuery(LINK, 'crd')).toBeTruthy();
     expect(matchesQuery(LINK, 'EXAMPLE.com')).toBeTruthy();
     expect(matchesQuery({ ...LINK, note: 'про файберы' }, 'файбер')).toBeTruthy();
@@ -87,7 +87,7 @@ describe(matchesQuery, () => {
     expect(matchesQuery(LINK, 'rust')).toBeFalsy();
   });
 
-  it('пустой запрос не совпадает ни с чем: иначе поиск вернул бы весь каталог', () => {
+  it('empty query matches nothing: otherwise search would return the whole catalog', () => {
     expect(matchesQuery(LINK, '   ')).toBeFalsy();
   });
 });
@@ -101,40 +101,40 @@ const CATALOG: Bookmark[] = [
 ];
 
 describe(sortLinks, () => {
-  it('по умолчанию новые сверху', () => {
+  it('newest first by default', () => {
     expect(sortLinks(CATALOG, 'added').map(item => item.id)).toEqual(['d', 'a', 'b', 'c']);
   });
 
-  it('по названию — русский алфавит, а не порядок кодов', () => {
+  it('by name — Russian alphabet, not code-point order', () => {
     // Кириллица у ru-сравнения идёт перед латиницей; по кодам «Guide» был бы
     // первым, а «Ящик» — последним из-за позиции буквы в Unicode.
     expect(sortLinks(CATALOG, 'title').map(item => item.title))
       .toEqual(['Аврора', 'Балкон', 'Ящик', 'Guide']);
   });
 
-  it('по домену — ссылки одного сайта рядом, внутри свежие сверху', () => {
+  it('by domain — links of one site together, freshest first inside', () => {
     expect(sortLinks(CATALOG, 'domain').map(item => item.id)).toEqual(['d', 'b', 'c', 'a']);
   });
 
-  it('исходный список не трогается: экран показывает его же', () => {
+  it('source list is untouched: the screen shows the same one', () => {
     const before = CATALOG.map(item => item.id);
     sortLinks(CATALOG, 'title');
     expect(CATALOG.map(item => item.id)).toEqual(before);
   });
 
-  it('пустой список сортируется в пустой', () => {
+  it('empty list sorts into an empty one', () => {
     expect(sortLinks([], 'domain')).toEqual([]);
   });
 });
 
 describe(groupByDomain, () => {
-  it('крупные сайты сверху, порядок внутри группы — входной', () => {
+  it('large sites first, order within a group is the input order', () => {
     const groups = groupByDomain(sortLinks(CATALOG, 'added'));
     expect(groups.map(group => group.domain)).toEqual(['example.com', 'vuejs.org']);
     expect(groups[0]?.items.map(item => item.id)).toEqual(['d', 'b', 'c']);
   });
 
-  it('при равном числе ссылок сайты идут по алфавиту: строки не прыгают', () => {
+  it('with equal link counts sites go alphabetically: rows do not jump', () => {
     const groups = groupByDomain([
       link('1', 'https://b.example/x', 'X', NOW, []),
       link('2', 'https://a.example/y', 'Y', NOW, []),
@@ -142,19 +142,19 @@ describe(groupByDomain, () => {
     expect(groups.map(group => group.domain)).toEqual(['a.example', 'b.example']);
   });
 
-  it('ни одна ссылка не теряется и не двоится', () => {
+  it('no link is lost or duplicated', () => {
     const groups = groupByDomain(CATALOG);
     expect(groups.flatMap(group => group.items).map(item => item.id).sort())
       .toEqual(['a', 'b', 'c', 'd']);
   });
 
-  it('пустой список — пустая группировка, а не сайт без имени', () => {
+  it('empty list — empty grouping, not a site without a name', () => {
     expect(groupByDomain([])).toEqual([]);
   });
 });
 
 describe(countByStatus, () => {
-  it('считает все три статуса, включая нулевые', () => {
+  it('counts all three statuses, including zeros', () => {
     expect(countByStatus([
       { ...LINK, status: 'unread' },
       { ...LINK, status: 'unread' },
@@ -162,32 +162,32 @@ describe(countByStatus, () => {
     ])).toEqual({ unread: 2, reading: 0, done: 1 });
   });
 
-  it('пустой список — нули, а не пустой объект: у вкладок всегда есть счётчик', () => {
+  it('empty list — zeros, not an empty object: tabs always have a counter', () => {
     expect(countByStatus([])).toEqual({ unread: 0, reading: 0, done: 0 });
   });
 });
 
 describe(tagCounts, () => {
-  it('частые теги сверху, при равной частоте — по алфавиту', () => {
+  it('frequent tags first, ties broken alphabetically', () => {
     expect(tagCounts(CATALOG)).toEqual([
       { tag: 'crdt', count: 2 },
       { tag: 'vue', count: 2 },
     ]);
   });
 
-  it('ссылки без тегов в подсчёт не попадают', () => {
+  it('links without tags are not counted', () => {
     expect(tagCounts([link('x', 'https://a.example/', 'X', NOW, [])])).toEqual([]);
   });
 });
 
 describe(hasEveryTag, () => {
-  it('фильтр сужает: нужны ВСЕ выбранные теги', () => {
+  it('filter narrows: ALL selected tags are required', () => {
     expect(hasEveryTag(LINK, ['vue'])).toBeTruthy();
     expect(hasEveryTag(LINK, ['vue', 'crdt'])).toBeTruthy();
     expect(hasEveryTag(LINK, ['vue', 'rust'])).toBeFalsy();
   });
 
-  it('пустой фильтр пропускает всё', () => {
+  it('empty filter lets everything through', () => {
     expect(hasEveryTag(LINK, [])).toBeTruthy();
   });
 });

@@ -16,14 +16,14 @@ const EXPENSES: Expense[] = [
 ];
 
 describe(sumAmount, () => {
-  it('сумма считается в копейках и не теряет их', () => {
+  it('amount is computed in kopecks and loses none', () => {
     expect(sumAmount(EXPENSES)).toBe(206_050);
     expect(sumAmount([])).toBe(0);
   });
 });
 
 describe(inMonth, () => {
-  it('месяц отсекает соседний день, а не соседнюю неделю', () => {
+  it('month cuts off the adjacent day, not the adjacent week', () => {
     expect(inMonth(EXPENSES, '2026-08').map(item => item.id)).toEqual(['1', '2', '3', '4']);
     expect(inMonth(EXPENSES, '2026-07').map(item => item.id)).toEqual(['5']);
     expect(inMonth(EXPENSES, '2026-09')).toEqual([]);
@@ -33,20 +33,20 @@ describe(inMonth, () => {
 describe(groupByDay, () => {
   const days = groupByDay(inMonth(EXPENSES, '2026-08'));
 
-  it('дни идут свежими сверху', () => {
+  it('days go freshest first', () => {
     expect(days.map(day => day.date)).toEqual(['2026-08-05', '2026-08-02', '2026-08-01']);
   });
 
-  it('сумма дня равна сумме его трат', () => {
+  it('day total equals the sum of its expenses', () => {
     expect(days.map(day => day.total)).toEqual([40_000, 6000, 150_050]);
     expect(sumAmount(days.flatMap(day => day.items))).toBe(sumAmount(inMonth(EXPENSES, '2026-08')));
   });
 
-  it('внутри дня поздняя запись сверху: только что введённую ищут первой', () => {
+  it('within a day the later record is first: the just-entered one is looked for first', () => {
     expect(days.at(-1)?.items.map(item => item.id)).toEqual(['2', '1']);
   });
 
-  it('пустой список — пустая группировка, а не день с нулём', () => {
+  it('empty list — empty grouping, not a day with zero', () => {
     expect(groupByDay([])).toEqual([]);
   });
 });
@@ -54,7 +54,7 @@ describe(groupByDay, () => {
 describe(sumByCategory, () => {
   const sums = sumByCategory(inMonth(EXPENSES, '2026-08'));
 
-  it('суммы и счётчики по категориям, крупные сверху', () => {
+  it('totals and counts per category, largest first', () => {
     expect(sums).toEqual([
       { category: 'food', total: 150_050, count: 2 },
       { total: 40_000, count: 1 },
@@ -62,12 +62,12 @@ describe(sumByCategory, () => {
     ]);
   });
 
-  it('трата без категории — такая же строка: иначе сводка не сходится с итогом', () => {
+  it('expense without a category is a row like any other: otherwise the summary does not match the total', () => {
     expect(sums.find(sum => sum.category === undefined)?.total).toBe(40_000);
     expect(sums.reduce((acc, sum) => acc + sum.total, 0)).toBe(sumAmount(inMonth(EXPENSES, '2026-08')));
   });
 
-  it('при равных суммах порядок устойчив: строки не прыгают на перерисовке', () => {
+  it('with equal amounts the order is stable: rows do not jump on re-render', () => {
     const tied = [
       expense('1', 1000, '2026-08-01', { category: 'b' }),
       expense('2', 1000, '2026-08-01', { category: 'a' }),
@@ -75,13 +75,13 @@ describe(sumByCategory, () => {
     expect(sumByCategory(tied).map(sum => sum.category)).toEqual(['a', 'b']);
   });
 
-  it('пустой список — пустая сводка', () => {
+  it('empty list — empty summary', () => {
     expect(sumByCategory([])).toEqual([]);
   });
 });
 
 describe(shareOf, () => {
-  it('доля от нуля — ноль, а не NaN', () => {
+  it('share of zero is zero, not NaN', () => {
     expect(shareOf(0, 0)).toBe(0);
     expect(shareOf(150_050, 196_050)).toBeCloseTo(0.765, 3);
   });
@@ -90,14 +90,14 @@ describe(shareOf, () => {
 describe(matchesQuery, () => {
   const item = expense('1', 25_000, '2026-08-01', { category: 'food', note: 'Кофе с молоком' });
 
-  it('ищет по описанию и по имени категории, без учёта регистра', () => {
+  it('searches by description and category name, case-insensitive', () => {
     expect(matchesQuery(item, 'кофе')).toBeTruthy();
     expect(matchesQuery(item, 'МОЛОК')).toBeTruthy();
     expect(matchesQuery(item, 'еда', 'Еда')).toBeTruthy();
     expect(matchesQuery(item, 'такси', 'Еда')).toBeFalsy();
   });
 
-  it('пустой запрос не совпадает ни с чем: иначе выдача — весь каталог', () => {
+  it('empty query matches nothing: otherwise the result is the whole catalog', () => {
     expect(matchesQuery(item, '   ')).toBeFalsy();
   });
 });

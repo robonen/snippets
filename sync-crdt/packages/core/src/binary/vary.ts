@@ -513,7 +513,7 @@ function putText(sink: Sink, text: string, what: string): void {
   // перестаёт вставляться в вызывающего. Объект весит больше одинокой строки.
   if (text.length <= TEXT_MANUAL) {
     const size = utf8Size(text)
-    if (size < 0) throw new VaryError(`в ${what} одинокий суррогат — корректного UTF-8 из неё не получится`, '')
+    if (size < 0) throw new VaryError(`lone surrogate in ${what} — valid UTF-8 cannot be produced from it`, '')
     putArg(sink, MAJOR_TEXT, size)
     if (size === 0) return
     sink.room(size)
@@ -528,7 +528,7 @@ function putText(sink: Sink, text: string, what: string): void {
   //
   // `encodeInto` подменил бы одинокий суррогат на U+FFFD, а это уже другое
   // значение, поэтому проверка идёт до записи и отдельно.
-  if (!wellFormed(text)) throw new VaryError(`в ${what} одинокий суррогат — корректного UTF-8 из неё не получится`, '')
+  if (!wellFormed(text)) throw new VaryError(`lone surrogate in ${what} — valid UTF-8 cannot be produced from it`, '')
 
   // Длина в байтах наперёд неизвестна, а тег стоит перед нагрузкой. Поэтому
   // нагрузка пишется с запасом под самый длинный тег, а потом подтягивается к
@@ -541,7 +541,7 @@ function putText(sink: Sink, text: string, what: string): void {
 
   // Сторож на оценку сверху. Если она когда-нибудь окажется мала, `encodeInto`
   // не пожалуется — просто остановится, и в сеть уйдёт обрезанная строка.
-  if (done.read !== text.length) throw new VaryError(`строка не поместилась в оценку: прочитано ${done.read} из ${text.length}`, '')
+  if (done.read !== text.length) throw new VaryError(`string did not fit the estimate: read ${done.read} of ${text.length}`, '')
 
   const written = done.written
   putArg(sink, MAJOR_TEXT, written)
@@ -551,7 +551,7 @@ function putText(sink: Sink, text: string, what: string): void {
 
 function putDate(sink: Sink, value: Date): void {
   const ms = value.getTime()
-  if (Number.isNaN(ms)) throw new VaryError('Invalid Date не кодируется: у неё нет момента, который можно вернуть', '')
+  if (Number.isNaN(ms)) throw new VaryError('Invalid Date cannot be encoded: it has no instant to return', '')
 
   // `ms >= 0` отсекает и `-0`: `Object.is(-0, 0)` тут не нужен, потому что
   // `new Date(-0).getTime()` даёт именно `0`.
@@ -570,7 +570,7 @@ function putList(sink: Sink, list: readonly Vary[], depth: number): void {
     const item = list[i]
     // Правило 6: дырка в массиве и `undefined` неотличимы от `null` после
     // разбора, а значит тождество round-trip на них не держится.
-    if (item === undefined) throw new VaryError(`элемент #${i} — undefined; массив обязан быть плотным`, '')
+    if (item === undefined) throw new VaryError(`element #${i} is undefined; the array must be dense`, '')
     putVary(sink, item, depth + 1)
   }
 }
@@ -590,16 +590,16 @@ function putDict(sink: Sink, dict: { readonly [key: string]: Vary }, depth: numb
 
   for (let i = 0; i < count; i++) {
     const key = keys[i] as string
-    putText(sink, key, 'ключе')
+    putText(sink, key, 'key')
 
     const item = dict[key]
-    if (item === undefined) throw new VaryError(`значение ключа «${key}» — undefined; пустота выражается через null`, '')
+    if (item === undefined) throw new VaryError(`value of key "${key}" is undefined; absence is expressed with null`, '')
     putVary(sink, item, depth + 1)
   }
 }
 
 function putVary(sink: Sink, value: Vary, depth: number): void {
-  if (depth > MAX_DEPTH) throw new VaryError(`вложенность глубже ${MAX_DEPTH}`, '')
+  if (depth > MAX_DEPTH) throw new VaryError(`nesting deeper than ${MAX_DEPTH}`, '')
 
   if (value === null) {
     sink.byte(SPEC_NULL)
@@ -614,7 +614,7 @@ function putVary(sink: Sink, value: Vary, depth: number): void {
     return
   }
   if (typeof value === 'string') {
-    putText(sink, value, 'строке')
+    putText(sink, value, 'string')
     return
   }
   if (typeof value === 'bigint') {
@@ -622,7 +622,7 @@ function putVary(sink: Sink, value: Vary, depth: number): void {
     return
   }
   if (typeof value !== 'object') {
-    throw new VaryError(`значение типа ${typeof value} кодек не берёт`, '')
+    throw new VaryError(`the codec does not accept a value of type ${typeof value}`, '')
   }
 
   if (value instanceof Uint8Array) {
@@ -646,7 +646,7 @@ function putVary(sink: Sink, value: Vary, depth: number): void {
   // страшнее отказа.
   const proto = Object.getPrototypeOf(value) as object | null
   if (proto !== OBJECT_PROTO && proto !== null) {
-    throw new VaryError(`объект вида ${nameOf(value)} кодек не берёт`, '')
+    throw new VaryError(`the codec does not accept an object of kind ${nameOf(value)}`, '')
   }
 
   putDict(sink, value as { readonly [key: string]: Vary }, depth)
@@ -655,7 +655,7 @@ function putVary(sink: Sink, value: Vary, depth: number): void {
 function nameOf(value: object): string {
   const ctor = (value as { constructor?: { name?: string } }).constructor
   const name = ctor === undefined ? undefined : ctor.name
-  return name === undefined || name === '' ? 'без имени' : name
+  return name === undefined || name === '' ? 'unnamed' : name
 }
 
 // ── Источник байтов ──────────────────────────────────────────────────────────
@@ -673,12 +673,12 @@ class Reader {
 }
 
 function at(pos: number): string {
-  return `байт ${pos}`
+  return `byte ${pos}`
 }
 
 function need(reader: Reader, count: number): void {
   if (reader.pos + count > reader.end) {
-    throw new VaryError(`нужно ещё ${count} Б, а до конца осталось ${reader.end - reader.pos}`, at(reader.pos))
+    throw new VaryError(`need ${count} more B, but only ${reader.end - reader.pos} left`, at(reader.pos))
   }
 }
 
@@ -688,18 +688,18 @@ function takeVarint(reader: Reader): number {
   let count = 0
 
   for (;;) {
-    if (reader.pos >= reader.end) throw new VaryError('varint оборвался', at(reader.pos))
+    if (reader.pos >= reader.end) throw new VaryError('varint truncated', at(reader.pos))
     const byte = reader.buf[reader.pos++] as number
     count += 1
     // 8 групп по 7 бит = 56 бит: больше безопасного целого всё равно не бывает.
-    if (count > 8) throw new VaryError('varint шире 53 бит', at(reader.pos - 1))
+    if (count > 8) throw new VaryError('varint wider than 53 bits', at(reader.pos - 1))
 
     value += (byte & 0x7f) * scale
     if ((byte & 0x80) === 0) {
       // Правило 1: у длины одна запись. Хвостовой нулевой группы у минимальной
       // формы не бывает — она добавляет ноль старших бит.
-      if (count > 1 && byte === 0) throw new VaryError('varint записан не минимальной длиной', at(reader.pos - 1))
-      if (value > Number.MAX_SAFE_INTEGER) throw new VaryError('varint больше 2⁵³-1', at(reader.pos - 1))
+      if (count > 1 && byte === 0) throw new VaryError('varint is not minimal-length', at(reader.pos - 1))
+      if (value > Number.MAX_SAFE_INTEGER) throw new VaryError('varint exceeds 2⁵³-1', at(reader.pos - 1))
       return value
     }
     scale *= 128
@@ -713,7 +713,7 @@ function takeArg(reader: Reader, tag: number): number {
   const wide = SHORT_MAX + 1 + takeVarint(reader)
   // Смещение на 31 способно вытолкнуть аргумент за безопасное целое, а дальше
   // арифметика над ним перестанет быть точной.
-  if (wide > Number.MAX_SAFE_INTEGER) throw new VaryError('аргумент тега больше 2⁵³-1', at(reader.pos))
+  if (wide > Number.MAX_SAFE_INTEGER) throw new VaryError('tag argument exceeds 2⁵³-1', at(reader.pos))
   return wide
 }
 
@@ -729,15 +729,15 @@ function takeFloat(reader: Reader): number {
   if ((hi & 0x7ff00000) === 0x7ff00000 && ((hi & 0x000fffff) !== 0 || lo !== 0)) {
     // Правило 3: NaN только в одной записи. Отличить тихий NaN от сигнального
     // после `getFloat64` уже нельзя — смотрим на биты до перевода.
-    if (hi !== 0x7ff80000 || lo !== 0) throw new VaryError('NaN записан не канонически (только 0x7FF8000000000000)', at(reader.pos))
+    if (hi !== 0x7ff80000 || lo !== 0) throw new VaryError('NaN is not canonical (only 0x7FF8000000000000 allowed)', at(reader.pos))
     reader.pos += 8
     return Number.NaN
   }
 
   const value = F64_VIEW.getFloat64(0, false)
-  if (Object.is(value, -0)) throw new VaryError('-0 обязан быть записан как целое 0', at(reader.pos))
+  if (Object.is(value, -0)) throw new VaryError('-0 must be encoded as integer 0', at(reader.pos))
   // Правило 2: если число целое и безопасное, его место в UINT/NINT.
-  if (Number.isSafeInteger(value)) throw new VaryError(`${value} — безопасное целое, его место в целочисленном теге`, at(reader.pos))
+  if (Number.isSafeInteger(value)) throw new VaryError(`${value} is a safe integer and belongs in the integer tag`, at(reader.pos))
 
   reader.pos += 8
   return value
@@ -771,7 +771,7 @@ function takeText(reader: Reader, size: number): string {
   try {
     text = TEXT_DEC.decode(reader.buf.subarray(from, till))
   } catch (error) {
-    throw new VaryError(`битый UTF-8: ${(error as Error).message}`, at(from))
+    throw new VaryError(`malformed UTF-8: ${(error as Error).message}`, at(from))
   }
   reader.pos = till
   return text
@@ -782,11 +782,11 @@ function takeBig(reader: Reader, negative: boolean): bigint {
   need(reader, size)
 
   if (size === 0) {
-    if (negative) throw new VaryError('отрицательного нуля у bigint не бывает', at(reader.pos))
+    if (negative) throw new VaryError('bigint has no negative zero', at(reader.pos))
     return 0n
   }
   // Правило 1: ведущий нулевой байт — вторая запись того же числа.
-  if (reader.buf[reader.pos] === 0) throw new VaryError('у модуля bigint ведущий нулевой байт', at(reader.pos))
+  if (reader.buf[reader.pos] === 0) throw new VaryError('bigint magnitude has a leading zero byte', at(reader.pos))
 
   let hex = ''
   const till = reader.pos + size
@@ -802,15 +802,15 @@ function takeExtra(reader: Reader, tag: number, from: number): Vary {
 
   if (extra === EXTRA_DATE_POS || extra === EXTRA_DATE_NEG) {
     const away = takeVarint(reader)
-    if (away > TIME_LIMIT) throw new VaryError(`${away} мс вне диапазона Date`, at(from))
+    if (away > TIME_LIMIT) throw new VaryError(`${away} ms outside the Date range`, at(from))
     // Правило 1 в приложении к знаку: у эпохи одна запись, положительная.
-    if (extra === EXTRA_DATE_NEG && away === 0) throw new VaryError('эпоха обязана быть записана с положительным знаком', at(from))
+    if (extra === EXTRA_DATE_NEG && away === 0) throw new VaryError('the epoch must be encoded with a positive sign', at(from))
     return new Date(extra === EXTRA_DATE_POS ? away : -away)
   }
   if (extra === EXTRA_BIG_POS) return takeBig(reader, false)
   if (extra === EXTRA_BIG_NEG) return takeBig(reader, true)
 
-  throw new VaryError(`расширение №${extra} этой версии кодека неизвестно`, at(from))
+  throw new VaryError(`extension #${extra} is unknown to this codec version`, at(from))
 }
 
 function takeDict(reader: Reader, tag: number, depth: number): Vary {
@@ -825,7 +825,7 @@ function takeDict(reader: Reader, tag: number, depth: number): Vary {
     const keyAt = reader.pos
     const keyTag = reader.buf[reader.pos++] as number
     if ((keyTag & 0xe0) !== MAJOR_TEXT) {
-      throw new VaryError(`ключ словаря обязан быть строкой, а тег 0x${HEX[keyTag]}`, at(keyAt))
+      throw new VaryError(`a dictionary key must be a string, but the tag is 0x${HEX[keyTag]}`, at(keyAt))
     }
 
     const size = takeArg(reader, keyTag)
@@ -837,7 +837,7 @@ function takeDict(reader: Reader, tag: number, depth: number): Vary {
     // Сравниваются отрезки на месте: пара `subarray` на ключ стоила заметную
     // часть разбора словаря, а нужны они были только ради сравнения.
     if (prevFrom >= 0 && cmpRange(reader.buf, prevFrom, prevSize, from, size) >= 0) {
-      throw new VaryError('ключи словаря идут не строго по возрастанию байтов', at(from))
+      throw new VaryError('dictionary keys are not in strictly ascending byte order', at(from))
     }
     prevFrom = from
     prevSize = size
@@ -856,7 +856,7 @@ function takeDict(reader: Reader, tag: number, depth: number): Vary {
 }
 
 function takeVary(reader: Reader, depth: number): Vary {
-  if (depth > MAX_DEPTH) throw new VaryError(`вложенность глубже ${MAX_DEPTH}`, at(reader.pos))
+  if (depth > MAX_DEPTH) throw new VaryError(`nesting deeper than ${MAX_DEPTH}`, at(reader.pos))
 
   need(reader, 1)
   const from = reader.pos
@@ -868,13 +868,13 @@ function takeVary(reader: Reader, depth: number): Vary {
       if (tag === SPEC_FALSE) return false
       if (tag === SPEC_TRUE) return true
       if (tag === SPEC_FLOAT) return takeFloat(reader)
-      throw new VaryError(`тег 0x${HEX[tag]} этой версии кодека неизвестен`, at(from))
+      throw new VaryError(`tag 0x${HEX[tag]} is unknown to this codec version`, at(from))
     }
     case MAJOR_UINT:
       return takeArg(reader, tag)
     case MAJOR_NINT: {
       const arg = takeArg(reader, tag)
-      if (arg >= Number.MAX_SAFE_INTEGER) throw new VaryError('целое меньше -(2⁵³-1) не представимо числом', at(from))
+      if (arg >= Number.MAX_SAFE_INTEGER) throw new VaryError('an integer below -(2⁵³-1) cannot be represented as a number', at(from))
       return -1 - arg
     }
     case MAJOR_BLOB: {
@@ -1013,7 +1013,7 @@ export function varyDecode(bytes: Uint8Array): Vary {
   const value = takeVary(reader, 0)
 
   if (reader.pos !== reader.end) {
-    throw new VaryError(`после значения осталось ${reader.end - reader.pos} Б`, at(reader.pos))
+    throw new VaryError(`${reader.end - reader.pos} B left after the value`, at(reader.pos))
   }
   return value
 }

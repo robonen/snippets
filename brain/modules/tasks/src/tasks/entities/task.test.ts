@@ -28,46 +28,46 @@ function task(patch: Partial<Task> = {}): Task {
   };
 }
 
-describe('раскладка задачи по корзинам', () => {
-  it('без срока и без отсрочки — инбокс', () => {
+describe('sorting a task into buckets', () => {
+  it('no due date and no deferral — inbox', () => {
     expect(bucketOf(task(), TODAY)).toBe('inbox');
   });
 
-  it('сегодняшний и просроченный срок — «Сегодня»', () => {
+  it('due today or overdue — "Today"', () => {
     expect(bucketOf(task({ dueAt: TODAY }), TODAY)).toBe('today');
     expect(bucketOf(task({ dueAt: '2026-08-23' }), TODAY)).toBe('today');
     expect(bucketOf(task({ dueAt: '2020-01-01' }), TODAY)).toBe('today');
   });
 
-  it('срок в будущем — «Запланировано»', () => {
+  it('due in the future — "Planned"', () => {
     expect(bucketOf(task({ dueAt: '2026-08-25' }), TODAY)).toBe('scheduled');
   });
 
-  it('отложенная без срока — «Когда-нибудь»', () => {
+  it('deferred without a due date — "Someday"', () => {
     expect(bucketOf(task({ status: 'someday' }), TODAY)).toBe('someday');
   });
 
-  it('выполненная — «Выполнено», чем бы она ни была раньше', () => {
+  it('completed — "Done", whatever it was before', () => {
     expect(bucketOf(task({ doneAt: 1_700_100 }), TODAY)).toBe('done');
     expect(bucketOf(task({ dueAt: '2020-01-01', doneAt: 1_700_100 }), TODAY)).toBe('done');
     expect(bucketOf(task({ status: 'someday', doneAt: 1_700_100 }), TODAY)).toBe('done');
   });
 
-  it('после слияния срок сильнее «когда-нибудь»: дело с датой не прячется', () => {
+  it('after merge the due date beats "someday": dated work does not hide', () => {
     // Одно устройство отложило задачу, второе назначило ей день — в ленде
     // окажутся оба поля, и раскладка обязана быть предсказуемой.
     expect(bucketOf(task({ status: 'someday', dueAt: '2026-08-25' }), TODAY)).toBe('scheduled');
     expect(bucketOf(task({ status: 'someday', dueAt: '2026-08-23' }), TODAY)).toBe('today');
   });
 
-  it('раскладка меняется от смены дня, а не от записи в ленд', () => {
+  it('the bucket changes with the day, not with a write to the land', () => {
     const planned = task({ dueAt: '2026-08-25' });
     expect(bucketOf(planned, '2026-08-24')).toBe('scheduled');
     expect(bucketOf(planned, '2026-08-25')).toBe('today');
     expect(bucketOf(planned, '2026-08-26')).toBe('today');
   });
 
-  it('просрочка — только у невыполненных', () => {
+  it('overdue applies only to the uncompleted', () => {
     expect(isOverdue(task({ dueAt: '2026-08-23' }), TODAY)).toBeTruthy();
     expect(isOverdue(task({ dueAt: TODAY }), TODAY)).toBeFalsy();
     expect(isOverdue(task({ dueAt: '2026-08-23', doneAt: 1 }), TODAY)).toBeFalsy();
@@ -75,8 +75,8 @@ describe('раскладка задачи по корзинам', () => {
   });
 });
 
-describe('заготовка новой задачи', () => {
-  it('свойство: задача остаётся в той корзине, в которой её набрали', () => {
+describe('new task draft', () => {
+  it('property: the task stays in the bucket it was typed in', () => {
     const open = BUCKETS.filter((bucket): bucket is Bucket => bucket !== 'done');
     for (const bucket of open) {
       const created = createTask(
@@ -87,7 +87,7 @@ describe('заготовка новой задачи', () => {
     }
   });
 
-  it('обрезает пробелы и не заводит пустых полей', () => {
+  it('trims spaces and creates no empty fields', () => {
     const created = createTask({ title: '  Купить хлеб  ', note: '   ' }, { id: 'x', at: 5, order: 2 });
     expect(created.title).toBe('Купить хлеб');
     expect(Object.hasOwn(created, 'note')).toBeFalsy();
@@ -97,7 +97,7 @@ describe('заготовка новой задачи', () => {
     expect(created.updatedAt).toBe(5);
   });
 
-  it('негодное правило повтора в задачу не попадает', () => {
+  it('invalid repeat rule does not enter the task', () => {
     const created = createTask(
       { title: 'Дело', repeat: { unit: 'day', every: 0, enabled: true } },
       { id: 'x', at: 5, order: 2 },
@@ -105,17 +105,17 @@ describe('заготовка новой задачи', () => {
     expect(Object.hasOwn(created, 'repeat')).toBeFalsy();
   });
 
-  it('следующее место в порядке — за последним', () => {
+  it('next slot in the order is after the last one', () => {
     expect(nextOrder([])).toBe(1);
     expect(nextOrder([1, 7, 3])).toBe(8);
     expect(nextOrder([-4])).toBe(1);
   });
 });
 
-describe('следующая задача повторяющейся серии', () => {
+describe('next task of a recurring series', () => {
   const at = Date.parse('2026-08-24T10:00:00');
 
-  it('рождается новой задачей, а выполненная остаётся в истории', () => {
+  it('is born as a new task, the completed one stays in history', () => {
     const source = task({ dueAt: '2026-08-24', repeat: { unit: 'day', every: 1, enabled: true } });
     const next = followUp(source, { id: 'b', at, order: 9 });
 
@@ -130,7 +130,7 @@ describe('следующая задача повторяющейся серии'
     expect(next === null || Object.hasOwn(next, 'doneAt')).toBeFalsy();
   });
 
-  it('без правила и с выключенным правилом следующей нет', () => {
+  it('no rule or a disabled rule — no next task', () => {
     expect(followUp(task({ dueAt: '2026-08-24' }), { id: 'b', at, order: 2 })).toBeNull();
     expect(followUp(
       task({ dueAt: '2026-08-24', repeat: { unit: 'day', every: 1, enabled: false } }),
@@ -138,17 +138,17 @@ describe('следующая задача повторяющейся серии'
     )).toBeNull();
   });
 
-  it('бессрочная повторяющаяся задача считается от дня выполнения', () => {
+  it('undated recurring task counts from the completion day', () => {
     const source = task({ repeat: { unit: 'week', every: 1, enabled: true } });
     expect(followUp(source, { id: 'b', at, order: 2 })?.dueAt).toBe('2026-08-31');
   });
 
-  it('просроченная серия догоняет сегодня, сохраняя ритм', () => {
+  it('overdue series catches up with today, keeping the rhythm', () => {
     const source = task({ dueAt: '2026-01-05', repeat: { unit: 'month', every: 1, enabled: true } });
     expect(followUp(source, { id: 'b', at, order: 2 })?.dueAt).toBe('2026-09-05');
   });
 
-  it('конец месяца в серии: 31-е прижимается и дальше идёт прижатым', () => {
+  it('month end in a series: the 31st clamps and stays clamped', () => {
     const source = task({ dueAt: '2026-01-31', repeat: { unit: 'month', every: 1, enabled: true } });
     const first = followUp(source, { id: 'b', at: Date.parse('2026-01-31T09:00:00'), order: 2 });
     expect(first?.dueAt).toBe('2026-02-28');
@@ -161,8 +161,8 @@ describe('следующая задача повторяющейся серии'
   });
 });
 
-describe('порядок и поиск', () => {
-  it('в датированных корзинах ближний срок выше', () => {
+describe('order and search', () => {
+  it('in dated buckets the nearer due date is higher', () => {
     const list = [
       task({ id: 'c', dueAt: '2026-08-26' }),
       task({ id: 'a', dueAt: '2026-08-24' }),
@@ -171,7 +171,7 @@ describe('порядок и поиск', () => {
     expect(sortTasks(list, 'scheduled').map(item => item.id)).toEqual(['a', 'b', 'c']);
   });
 
-  it('в инбоксе порядок ручной, затем по времени создания', () => {
+  it('in the inbox the order is manual, then by creation time', () => {
     const list = [
       task({ id: 'c', order: 3, createdAt: 1 }),
       task({ id: 'a', order: 1, createdAt: 9 }),
@@ -180,7 +180,7 @@ describe('порядок и поиск', () => {
     expect(sortTasks(list, 'inbox').map(item => item.id)).toEqual(['a', 'b', 'c']);
   });
 
-  it('в «Выполнено» — свежие сверху', () => {
+  it('in "Done" the freshest are on top', () => {
     const list = [
       task({ id: 'a', doneAt: 10 }),
       task({ id: 'c', doneAt: 30 }),
@@ -189,7 +189,7 @@ describe('порядок и поиск', () => {
     expect(sortTasks(list, 'done').map(item => item.id)).toEqual(['c', 'b', 'a']);
   });
 
-  it('в смешанном списке выполненные уходят вниз', () => {
+  it('in a mixed list the completed sink to the bottom', () => {
     const list = [
       task({ id: 'a', doneAt: 10 }),
       task({ id: 'b' }),
@@ -197,7 +197,7 @@ describe('порядок и поиск', () => {
     expect(sortTasks(list, 'today').map(item => item.id)).toEqual(['b', 'a']);
   });
 
-  it('порядок полный: перемешанный вход даёт тот же результат', () => {
+  it('the order is total: shuffled input yields the same result', () => {
     // Снимок коллекции приезжает в порядке ключей ленда, и на двух устройствах
     // он разный — список обязан выглядеть одинаково.
     const list = [
@@ -211,12 +211,12 @@ describe('порядок и поиск', () => {
     expect(shuffled).toEqual(straight);
   });
 
-  it('бессрочные — в хвосте датированных', () => {
+  it('undated tasks trail the dated ones', () => {
     const list = [task({ id: 'b' }), task({ id: 'a', dueAt: '2026-08-25' })];
     expect(sortTasks(list, 'today').map(item => item.id)).toEqual(['a', 'b']);
   });
 
-  it('равенство по существу не смотрит на время правки', () => {
+  it('essential equality ignores the edit time', () => {
     const item = task({ dueAt: '2026-08-25', repeat: { unit: 'day', every: 2, enabled: true } });
     expect(sameTask(item, { ...item, updatedAt: item.updatedAt + 1000 })).toBeTruthy();
     expect(sameTask(item, { ...item, title: 'Другое' })).toBeFalsy();
@@ -226,7 +226,7 @@ describe('порядок и поиск', () => {
     expect(sameTask(task(), { ...task(), note: '' })).toBeFalsy();
   });
 
-  it('поиск идёт по заголовку и заметке и не замечает регистра', () => {
+  it('search goes over title and note, ignoring case', () => {
     const item = task({ title: 'Позвонить Маше', note: 'Про Отпуск' });
     expect(matchesQuery(item, 'маш')).toBeTruthy();
     expect(matchesQuery(item, 'ОТПУСК')).toBeTruthy();
@@ -236,7 +236,7 @@ describe('порядок и поиск', () => {
     expect(matchesQuery(task({ title: 'Дело' }), 'дел')).toBeTruthy();
   });
 
-  it('поиск находит и по пунктам чек-листа', () => {
+  it('search also finds by checklist items', () => {
     const item = task({
       title: 'Собраться в поход',
       steps: [{ id: 's1', title: 'Купить батарейки', order: 1 }],
@@ -246,8 +246,8 @@ describe('порядок и поиск', () => {
   });
 });
 
-describe('приоритет в задаче', () => {
-  it('«обычный» в задачу не записывается: он и есть отсутствие приоритета', () => {
+describe('priority in a task', () => {
+  it('"normal" is not written into the task: it is the absence of priority', () => {
     const created = createTask({ title: 'Дело', priority: 'normal' }, { id: 'x', at: 1, order: 1 });
     expect(Object.hasOwn(created, 'priority')).toBeFalsy();
 
@@ -255,7 +255,7 @@ describe('приоритет в задаче', () => {
     expect(high.priority).toBe('high');
   });
 
-  it('внутри одной даты срочное выше обычного', () => {
+  it('within one date urgent goes above normal', () => {
     const list = [
       task({ id: 'b', dueAt: '2026-08-24' }),
       task({ id: 'a', dueAt: '2026-08-24', priority: 'urgent' }),
@@ -264,7 +264,7 @@ describe('приоритет в задаче', () => {
     expect(sortTasks(list, 'today').map(item => item.id)).toEqual(['a', 'b', 'c']);
   });
 
-  it('СРОК СИЛЬНЕЕ ПРИОРИТЕТА: просроченное не прячется за срочным на пятницу', () => {
+  it('DUE DATE BEATS PRIORITY: the overdue does not hide behind urgent-for-Friday', () => {
     const list = [
       task({ id: 'urgent-later', dueAt: '2026-08-28', priority: 'urgent' }),
       task({ id: 'plain-overdue', dueAt: '2026-08-20' }),
@@ -272,7 +272,7 @@ describe('приоритет в задаче', () => {
     expect(sortTasks(list, 'today').map(item => item.id)).toEqual(['plain-overdue', 'urgent-later']);
   });
 
-  it('в корзинах без дат приоритет решает всё: там сравнивать больше нечего', () => {
+  it('in dateless buckets priority decides everything: nothing else to compare there', () => {
     const list = [
       task({ id: 'b', order: 1 }),
       task({ id: 'a', order: 9, priority: 'urgent' }),
@@ -280,7 +280,7 @@ describe('приоритет в задаче', () => {
     expect(sortTasks(list, 'inbox').map(item => item.id)).toEqual(['a', 'b']);
   });
 
-  it('в «Выполнено» приоритет не влияет: очереди больше нет, есть журнал', () => {
+  it('in "Done" priority has no effect: there is no queue anymore, only a journal', () => {
     const list = [
       task({ id: 'a', doneAt: 10, priority: 'urgent' }),
       task({ id: 'b', doneAt: 20 }),
@@ -288,37 +288,37 @@ describe('приоритет в задаче', () => {
     expect(sortTasks(list, 'done').map(item => item.id)).toEqual(['b', 'a']);
   });
 
-  it('равенство по существу видит приоритет, но не отличает «обычный» от пустого', () => {
+  it('essential equality sees priority but does not distinguish "normal" from empty', () => {
     const item = task();
     expect(sameTask(item, { ...item, priority: 'normal' })).toBeTruthy();
     expect(sameTask(item, { ...item, priority: 'high' })).toBeFalsy();
   });
 });
 
-describe('чек-лист в задаче', () => {
+describe('checklist in a task', () => {
   const STEPS = [
     { id: 's2', title: 'Второй', order: 2, doneAt: 1_700_100 },
     { id: 's1', title: 'Первый', order: 1 },
   ];
 
-  it('приезжает в задачу уже упорядоченным', () => {
+  it('arrives in the task already ordered', () => {
     const created = createTask({ title: 'Дело', steps: STEPS }, { id: 'x', at: 1, order: 1 });
     expect(created.steps?.map(item => item.id)).toEqual(['s1', 's2']);
   });
 
-  it('пустой список полем не становится', () => {
+  it('empty list does not become a field', () => {
     const created = createTask({ title: 'Дело', steps: [] }, { id: 'x', at: 1, order: 1 });
     expect(Object.hasOwn(created, 'steps')).toBeFalsy();
   });
 
-  it('равенство по существу видит правку пункта', () => {
+  it('essential equality sees an item edit', () => {
     const item = task({ steps: [{ id: 's1', title: 'Первый', order: 1 }] });
     expect(sameTask(item, { ...item, steps: [{ id: 's1', title: 'Другой', order: 1 }] })).toBeFalsy();
     expect(sameTask(item, { ...item, steps: [{ id: 's1', title: 'Первый', order: 1 }] })).toBeTruthy();
     expect(sameTask(item, { ...item, steps: undefined })).toBeFalsy();
   });
 
-  it('следующее вхождение повтора получает ЧИСТЫЙ чек-лист под своими ключами', () => {
+  it('the next repeat occurrence gets a CLEAN checklist under its own keys', () => {
     const source = task({
       dueAt: '2026-08-24',
       repeat: { unit: 'week', every: 1, enabled: true },
@@ -342,7 +342,7 @@ describe('чек-лист в задаче', () => {
     ]);
   });
 
-  it('задача без чек-листа не получает пустого поля при повторе', () => {
+  it('task without a checklist gets no empty field on repeat', () => {
     const source = task({ dueAt: '2026-08-24', repeat: { unit: 'day', every: 1, enabled: true } });
     expect(followUpSteps(source)).toBe(0);
     const next = followUp(source, { id: 'b', at: Date.parse('2026-08-24T10:00:00'), order: 2 });

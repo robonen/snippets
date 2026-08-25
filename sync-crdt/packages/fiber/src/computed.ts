@@ -228,6 +228,6 @@ export function watchEffect(fn: () => void): () => void {
 
 function readOnly(name: string): never {
   throw new TypeError(
-    `computed ${name === '' ? '(без имени)' : name}: канал только для чтения`,
+    `computed ${name === '' ? '(unnamed)' : name}: channel is read-only`,
   )
 }

@@ -315,26 +315,26 @@ export interface PackOpts {
 function checkLand(land: LandId): void {
   if (land.bin.length > LAND_BYTES) {
     throw new PackError(
-      `ленд — ${LAND_BYTES} Б, а пришла ссылка в ${land.bin.length} Б («${land.str}»): пешку надо привести к ленду через land()`,
-      'заголовок ленда',
+      `land is ${LAND_BYTES} B, but the link is ${land.bin.length} B ("${land.str}"): convert the pawn to a land via land()`,
+      'land header',
     )
   }
 }
 
 function checkFace(face: PackFace, land: LandId, index: number): void {
-  const at = `ленд ${land.str}, фейс #${index}`
+  const at = `land ${land.str}, face #${index}`
 
   if (face.peer.bin.length > PEER_BYTES) {
-    throw new PackError(`peer — ${PEER_BYTES} Б, а пришла ссылка в ${face.peer.bin.length} Б («${face.peer.str}»)`, at)
+    throw new PackError(`peer is ${PEER_BYTES} B, but the link is ${face.peer.bin.length} B ("${face.peer.str}")`, at)
   }
   if (!Number.isInteger(face.time) || face.time < 0 || face.time > TIME_MAX) {
-    throw new PackError(`time = ${face.time}: ожидалось целое 0…${TIME_MAX}`, at)
+    throw new PackError(`time = ${face.time}: expected an integer 0…${TIME_MAX}`, at)
   }
   if (!Number.isInteger(face.tick) || face.tick < 0 || face.tick > TICK_MAX) {
-    throw new PackError(`tick = ${face.tick}: ожидалось целое 0…${TICK_MAX}`, at)
+    throw new PackError(`tick = ${face.tick}: expected an integer 0…${TICK_MAX}`, at)
   }
   if (!Number.isInteger(face.summ) || face.summ < 0 || face.summ > SUMM_MAX) {
-    throw new PackError(`summ = ${face.summ}: ожидалось целое 0…${SUMM_MAX}`, at)
+    throw new PackError(`summ = ${face.summ}: expected an integer 0…${SUMM_MAX}`, at)
   }
 }
 
@@ -348,16 +348,16 @@ function checkFace(face: PackFace, land: LandId, index: number): void {
 function ballOf(sand: SandUnit, part: PackPart, land: LandId, index: number): Uint8Array {
   const key = shotKey(sand.shot())
   const ball = part.balls.get(key)
-  const at = `ленд ${land.str}, юнит #${index}`
+  const at = `land ${land.str}, unit #${index}`
 
   if (ball === undefined) {
     throw new PackError(
-      `санд несёт выносное значение ${key} (${sand.size()} Б), а ball не приложен — формат не умеет ссылаться на ball вне пакета`,
+      `sand carries external value ${key} (${sand.size()} B), but no ball is attached — the format cannot reference a ball outside the pack`,
       at,
     )
   }
   if (ball.length !== sand.size()) {
-    throw new PackError(`ball ${key}: юнит объявил ${sand.size()} Б, приложено ${ball.length}`, at)
+    throw new PackError(`ball ${key}: the unit declared ${sand.size()} B, ${ball.length} attached`, at)
   }
 
   return ball
@@ -382,8 +382,8 @@ function plan(parts: readonly (readonly [LandId, PackPart])[], found: Uint8Array
 
     if (part.faces.length > FACES_MAX) {
       throw new PackError(
-        `фейсов ${part.faces.length}, а в двух байтах заголовка влезает ${FACES_MAX}`,
-        `ленд ${land.str}`,
+        `${part.faces.length} faces, but the two header bytes fit ${FACES_MAX}`,
+        `land ${land.str}`,
       )
     }
     for (let i = 0; i < part.faces.length; i++) checkFace(part.faces[i] as PackFace, land, i)
@@ -551,7 +551,7 @@ export class PackCursor {
     // Все секции кратны 8, значит и весь пакет кратен. Проверка одна на разбор и
     // ловит обрезанный хвост раньше, чем он притворится слотом.
     if (bin.length % ALIGN !== 0) {
-      throw new PackError(`длина пакета ${bin.length} Б не кратна ${ALIGN} — пакет обрезан`, '')
+      throw new PackError(`pack length ${bin.length} B is not a multiple of ${ALIGN} — the pack is truncated`, '')
     }
     this.bin = bin
     this.at = 0
@@ -596,7 +596,7 @@ export class PackCursor {
     }
 
     if (!this.#seen) {
-      throw new PackError(`юнит вида №${kind} до первого заголовка ленда — непонятно, чей он`, `офсет ${at}`)
+      throw new PackError(`unit of kind #${kind} before the first land header — no way to tell whose it is`, `offset ${at}`)
     }
 
     // ── Юнит ──────────────────────────────────────────────────────────────────
@@ -607,13 +607,13 @@ export class PackCursor {
       size = unitLengthAt(bin, at)
     } catch (cause) {
       if (cause instanceof UnitError) {
-        throw new PackError(cause.message, `ленд ${this.land.str}, офсет ${at}`, cause)
+        throw new PackError(cause.message, `land ${this.land.str}, offset ${at}`, cause)
       }
       throw cause
     }
 
     if (at + size > end) {
-      throw new PackError(`юнит объявил ${size} Б, а до конца пакета ${end - at}`, `ленд ${this.land.str}, офсет ${at}`)
+      throw new PackError(`the unit declared ${size} B, but only ${end - at} left in the pack`, `land ${this.land.str}, offset ${at}`)
     }
 
     this.at = at
@@ -628,14 +628,14 @@ export class PackCursor {
       const step = align8(ballSize)
       if (ballAt + step > end) {
         throw new PackError(
-          `санд объявил выносное значение ${ballSize} Б, а до конца пакета ${end - ballAt}`,
-          `ленд ${this.land.str}, офсет ${ballAt}`,
+          `the sand declared an external value of ${ballSize} B, but only ${end - ballAt} left in the pack`,
+          `land ${this.land.str}, offset ${ballAt}`,
         )
       }
       if (!zeroes(bin, ballAt + ballSize, step - ballSize)) {
         throw new PackError(
-          `хвост ball до кратности ${ALIGN} обязан быть нулевым, а лежит ${dump(bin, ballAt + ballSize, step - ballSize)}`,
-          `ленд ${this.land.str}, офсет ${ballAt}`,
+          `ball padding to a multiple of ${ALIGN} must be zero, got ${dump(bin, ballAt + ballSize, step - ballSize)}`,
+          `land ${this.land.str}, offset ${ballAt}`,
         )
       }
       this.span = size + step
@@ -650,15 +650,15 @@ export class PackCursor {
     const bin = this.bin
 
     if (at + HEAD_BYTES > end) {
-      throw new PackError(`заголовок ленда — ${HEAD_BYTES} Б, а до конца пакета ${end - at}`, `офсет ${at}`)
+      throw new PackError(`land header is ${HEAD_BYTES} B, but only ${end - at} left in the pack`, `offset ${at}`)
     }
     if (bin[at + 1] !== MAGIC_A || bin[at + 2] !== MAGIC_N || bin[at + 3] !== MAGIC_D) {
-      throw new PackError(`ожидалась метка «LAND», а лежит ${dump(bin, at, 4)}`, `офсет ${at}`)
+      throw new PackError(`expected the "LAND" marker, got ${dump(bin, at, 4)}`, `offset ${at}`)
     }
     if (!zeroes(bin, at + PACK_AT.pad, PACK_AT.body - PACK_AT.pad)) {
       throw new PackError(
-        `хвост заголовка (байты ${PACK_AT.pad}…${PACK_AT.body}) зарезервирован и обязан быть нулевым, а лежит ${dump(bin, at + PACK_AT.pad, 2)}`,
-        `офсет ${at}`,
+        `header padding (bytes ${PACK_AT.pad}…${PACK_AT.body}) is reserved and must be zero, got ${dump(bin, at + PACK_AT.pad, 2)}`,
+        `offset ${at}`,
       )
     }
 
@@ -667,8 +667,8 @@ export class PackCursor {
 
     if (at + HEAD_BYTES + count * FACE_BYTES > end) {
       throw new PackError(
-        `объявлено ${count} фейсов (${count * FACE_BYTES} Б), а до конца пакета ${end - at - HEAD_BYTES}`,
-        `ленд ${id.str}, офсет ${at}`,
+        `${count} faces declared (${count * FACE_BYTES} B), but only ${end - at - HEAD_BYTES} left in the pack`,
+        `land ${id.str}, offset ${at}`,
       )
     }
 
@@ -676,8 +676,8 @@ export class PackCursor {
       const face = at + HEAD_BYTES + i * FACE_BYTES
       if (!zeroes(bin, face + FACE_AT.pad, FACE_BYTES - FACE_AT.pad)) {
         throw new PackError(
-          `хвост фейса (байты ${FACE_AT.pad}…${FACE_BYTES}) зарезервирован и обязан быть нулевым, а лежит ${dump(bin, face + FACE_AT.pad, 6)}`,
-          `ленд ${id.str}, фейс #${i}, офсет ${face}`,
+          `face padding (bytes ${FACE_AT.pad}…${FACE_BYTES}) is reserved and must be zero, got ${dump(bin, face + FACE_AT.pad, 6)}`,
+          `land ${id.str}, face #${i}, offset ${face}`,
         )
       }
     }

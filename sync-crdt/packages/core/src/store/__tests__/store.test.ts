@@ -36,8 +36,8 @@ function revived(bin: Uint8Array, peer = 0x99): unknown[] {
   return land.order(ROOT).map(view => view.value)
 }
 
-describe('пачка, а не юниты', () => {
-  test('save → load даёт те же значения, включая выносные', () => {
+describe('a pack, not units', () => {
+  test('save → load yields the same values, external ones included', () => {
     const store = memoryStore()
     const land = landOf()
     land.post(ROOT, ROOT, 'коротко')
@@ -48,7 +48,7 @@ describe('пачка, а не юниты', () => {
     expect(revived(store.load(LAND))).toEqual(land.order(ROOT).map(view => view.value))
   })
 
-  test('незнакомый ленд отдаёт пустую пачку, а не отказ', () => {
+  test('an unknown land returns an empty pack, not a refusal', () => {
     const store = memoryStore()
     const bin = store.load(LAND)
     // Пустая пачка — это заголовок и ничего больше: «ленда ещё нет» штатно.
@@ -57,7 +57,7 @@ describe('пачка, а не юниты', () => {
     expect(revived(bin)).toEqual([])
   })
 
-  test('байты load принадлежат вызывающему: правка образа их не трогает', () => {
+  test('load bytes belong to the caller: editing the image does not touch them', () => {
     const store = memoryStore()
     const land = landOf()
     land.post(ROOT, ROOT, 'первое')
@@ -75,8 +75,8 @@ describe('пачка, а не юниты', () => {
   })
 })
 
-describe('удаление — это замещение по ключу', () => {
-  test('перезапись значения не добавляет юнита в образе', () => {
+describe('removal is replacement by key', () => {
+  test('overwriting a value adds no unit to the image', () => {
     const store = memoryStore()
     const land = landOf()
     const view = land.post(ROOT, ROOT, 'раз')
@@ -92,7 +92,7 @@ describe('удаление — это замещение по ключу', () =>
     expect(revived(store.load(LAND))).toEqual(['четыре'])
   })
 
-  test('надгробие замещает живую версию, а не ложится рядом', () => {
+  test('a tombstone replaces the live version instead of lying beside it', () => {
     const store = memoryStore()
     const land = landOf()
     const view = land.post(ROOT, ROOT, 'жил')
@@ -103,7 +103,7 @@ describe('удаление — это замещение по ключу', () =>
     expect(revived(store.load(LAND))).toEqual([])
   })
 
-  test('версии РАЗНЫХ пиров лежат по разным ключам', () => {
+  test('versions of DIFFERENT peers live under different keys', () => {
     // Ключ различает пиров намеренно: проигравший по LWW нужен `diff` из S7, и
     // затирать его версией соседа значит терять то, что ещё придётся отдать.
     const store = memoryStore()
@@ -120,8 +120,8 @@ describe('удаление — это замещение по ключу', () =>
   })
 })
 
-describe('файл — валидная пачка и арена одновременно', () => {
-  test('образ разбирается курсором и несёт свободные слоты', () => {
+describe('the file is a valid pack and an arena at once', () => {
+  test('the image parses with a cursor and carries free slots', () => {
     const store = memoryStore({ mirrors: 1 })
     const land = landOf()
     const view = land.post(ROOT, ROOT, 'коротко')
@@ -143,7 +143,7 @@ describe('файл — валидная пачка и арена одновре�
     expect(free).toBeGreaterThan(0)
   })
 
-  test('перезапуск восстанавливает и данные, и состояние аллокатора', () => {
+  test('a restart restores both the data and the allocator state', () => {
     const store = memoryStore()
     const land = landOf()
     const view = land.post(ROOT, ROOT, 'а'.repeat(40))
@@ -166,7 +166,7 @@ describe('файл — валидная пачка и арена одновре�
     expect(store.bytes()).toBe(grown)
   })
 
-  test('образ чужого ленда отвергается, а не читается как свой', () => {
+  test('an image of a foreign land is rejected instead of being read as own', () => {
     const store = memoryStore()
     const land = landOf()
     land.post(ROOT, ROOT, 'моё')
@@ -175,12 +175,12 @@ describe('файл — валидная пачка и арена одновре�
     const other = Link.land(Link.peer(new Uint8Array(8).fill(0xb2)), new Uint8Array(8))
     // Тома те же, ленд другой: `Mirrors.open` обязан сказать это вслух.
     const volumes = store.volumes(LAND)
-    expect(() => Mirrors.open(volumes, other)).toThrow(/несёт ленд/)
+    expect(() => Mirrors.open(volumes, other)).toThrow(/carries land/)
   })
 })
 
-describe('порядок и батчи', () => {
-  test('load после save видит сохранённое, порядок вызовов сохраняется', () => {
+describe('ordering and batches', () => {
+  test('load after save sees what was saved, call order is preserved', () => {
     const store = memoryStore()
     const land = landOf()
     let lead = ROOT
@@ -191,7 +191,7 @@ describe('порядок и батчи', () => {
     expect(revived(store.load(LAND))).toEqual(['а', 'б', 'в'])
   })
 
-  test('пустая пачка ничего не меняет', () => {
+  test('an empty pack changes nothing', () => {
     const store = memoryStore()
     const land = landOf()
     land.post(ROOT, ROOT, 'раз')
@@ -204,8 +204,8 @@ describe('порядок и батчи', () => {
   })
 })
 
-describe('выносные значения', () => {
-  test('ball отдаётся по хэшу, не поднимая ленд', () => {
+describe('external values', () => {
+  test('ball is served by hash without raising the land', () => {
     const store = memoryStore()
     const land = landOf()
     const long = 'я'.repeat(400)
@@ -221,7 +221,7 @@ describe('выносные значения', () => {
     expect(store.ball(LAND, new Uint8Array(12).fill(7))).toBeUndefined()
   })
 
-  test('перезапись большого значения не оставляет прежний ball в карте', () => {
+  test('overwriting a big value does not leave the previous ball in the map', () => {
     const store = memoryStore()
     const land = landOf()
     const view = land.post(ROOT, ROOT, 'я'.repeat(400))
@@ -236,8 +236,8 @@ describe('выносные значения', () => {
   })
 })
 
-describe('ленды', () => {
-  test('lands перечисляет известные, drop забывает ленд', () => {
+describe('lands', () => {
+  test('lands lists the known ones, drop forgets a land', () => {
     const store = memoryStore()
     const land = landOf()
     land.post(ROOT, ROOT, 'раз')

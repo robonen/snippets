@@ -14,7 +14,7 @@ function pump(read: () => unknown): Promise<unknown> | null {
   }
 }
 
-test('ошибка кэшируется как значение и не пересчитывается на каждом чтении', () => {
+test('Error is cached like a value and not recomputed on every read', () => {
   let runs = 0
   const boom = computed(function boom() {
     runs++
@@ -26,7 +26,7 @@ test('ошибка кэшируется как значение и не пере
   expect(runs).toBe(1)
 })
 
-test('activeSub восстанавливается после обычного исключения', () => {
+test('activeSub is restored after a regular exception', () => {
   const boom = computed(function boom(): number {
     throw new Error('x')
   })
@@ -36,7 +36,7 @@ test('activeSub восстанавливается после обычного �
   expect(getActiveSub()).toBeUndefined()
 })
 
-test('activeSub восстанавливается после приостановки', () => {
+test('activeSub is restored after a suspension', () => {
   const gate = new Promise<string>(() => {})
   const load = (): Promise<string> => gate
   const view = computed(function view() {
@@ -47,7 +47,7 @@ test('activeSub восстанавливается после приостано
   expect(getActiveSub()).toBeUndefined()
 })
 
-test('ромб: корень пересчитывается ровно один раз на изменение источника', () => {
+test('Diamond: the root recomputes exactly once per source change', () => {
   const source = ref(1)
   const left = computed(function left() {
     return source() * 2
@@ -71,7 +71,7 @@ test('ромб: корень пересчитывается ровно один 
   expect(rootRuns).toBe(2)
 })
 
-test('значение не изменилось — подписчик не пересчитывается', () => {
+test('Unchanged value — the subscriber is not recomputed', () => {
   const source = ref(1)
   const parity = computed(function parity() {
     return source() % 2
@@ -98,7 +98,7 @@ test('значение не изменилось — подписчик не п�
   expect(runs).toBe(2)
 })
 
-test('переставшая читаться зависимость отписывается и собирается', () => {
+test('Dependency no longer read is unsubscribed and collected', () => {
   const on = ref(true)
   const inner = computed(function inner() {
     return 42
@@ -120,7 +120,7 @@ test('переставшая читаться зависимость отпис�
   stop()
 })
 
-test('наблюдатель перезапускается после разрешения приостановки', async () => {
+test('Watcher restarts after the suspension resolves', async () => {
   let seen: string | null = null
   let release!: (value: string) => void
   const gate = new Promise<string>((resolve) => {
@@ -143,7 +143,7 @@ test('наблюдатель перезапускается после разр�
   stop()
 })
 
-test('подписчик узнаёт о переходе «значение → ожидание»', async () => {
+test('Subscriber learns about the value → pending transition', async () => {
   const page = ref(0)
   let release!: (value: string) => void
   let gate = new Promise<string>((resolve) => {

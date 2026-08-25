@@ -22,7 +22,7 @@ function pump(read: () => unknown): Promise<unknown> | null {
   }
 }
 
-test('Cached channel: запись меняет значение, чтение его отдаёт', () => {
+test('Cached channel: a write changes the value, a read returns it', () => {
   const stored = ref(1)
   const value = computed({
     get: () => stored() + 1,
@@ -35,7 +35,7 @@ test('Cached channel: запись меняет значение, чтение �
   expect(value()).toBe(3)
 })
 
-test('Skip recalculation: зависимость пересчиталась, значение то же — потребитель молчит', () => {
+test('Skip recalculation: a dependency recomputed with the same value — the consumer stays silent', () => {
   const log: string[] = []
 
   const xxx = ref(1)
@@ -59,7 +59,7 @@ test('Skip recalculation: зависимость пересчиталась, з�
   expect(log).toEqual(['zzz', 'yyy', 'yyy'])
 })
 
-test('Dupes: Equality — запись структурно равного значения никого не будит', () => {
+test('Dupes: Equality — writing a structurally equal value wakes no one', () => {
   let counter = 0
 
   const foo = ref<{ numbs: number[] }>({ numbs: [1] })
@@ -78,7 +78,7 @@ test('Dupes: Equality — запись структурно равного зн�
   expect(bar()).toEqual({ numbs: [2], count: 2 })
 })
 
-test('Flow: Auto — набор зависимостей меняется вместе с условием', () => {
+test('Flow: Auto — the dependency set changes along with the condition', () => {
   const source = ref(1)
   const condition = ref(true)
   let counter = 0
@@ -113,7 +113,7 @@ test('Flow: Auto — набор зависимостей меняется вме
   expect(counter).toBe(4)
 })
 
-test('Cycle: Fail — круговая подписка распознаётся, а не вешает процесс', () => {
+test('Cycle: Fail — a circular subscription is detected instead of hanging the process', () => {
   const foo: { (): number } = computed(function foo(): number {
     return bar() + 1
   })
@@ -121,10 +121,10 @@ test('Cycle: Fail — круговая подписка распознаётся
     return foo() + 1
   })
 
-  expect(() => foo()).toThrow(/Circular|цикл/i)
+  expect(() => foo()).toThrow(/Circular/i)
 })
 
-test('Actions inside invariant: запись в зависимость из тела вычисления', () => {
+test('Actions inside invariant: writing to a dependency from the computation body', () => {
   const count = ref(0)
   const count2 = computed(function count2() {
     return count()
@@ -142,7 +142,7 @@ test('Actions inside invariant: запись в зависимость из те
   expect(res()).toBe(6)
 })
 
-test('Restore after error: после снятия причины значение возвращается', () => {
+test('Restore after error: once the cause is removed the value comes back', () => {
   const condition = ref(false)
   const broken = computed(function broken() {
     if (condition()) throw new Error('test error')
@@ -163,7 +163,7 @@ test('Restore after error: после снятия причины значени
   expect(result()).toBe(1)
 })
 
-test('Wait for data: цепочка через асинхронный источник', async () => {
+test('Wait for data: a chain through an async source', async () => {
   const source = async (): Promise<string> => 'Jin'
   const middle = computed(function middle() {
     return sync(source)
@@ -178,7 +178,7 @@ test('Wait for data: цепочка через асинхронный источ
   expect(target()).toBe('Jin')
 })
 
-test('Auto destroy on long alone: узел без читателей собирается, с читателями — нет', () => {
+test('Auto destroy on long alone: a node without readers is collected, with readers it is not', () => {
   const showing = ref(true)
   const details = computed(function details() {
     return { id: 'детали' }
@@ -209,7 +209,7 @@ test('Auto destroy on long alone: узел без читателей собир�
   stop()
 })
 
-test('Hold pubs while wait async task: зависимости переживают ожидание', async () => {
+test('Hold pubs while wait async task: dependencies survive the wait', async () => {
   const resets = ref(0)
   let counter = 0
   const wait = async (): Promise<void> => {}
@@ -234,7 +234,7 @@ test('Hold pubs while wait async task: зависимости переживаю
   expect(result()).toBe(1)
 })
 
-test('Unsubscribe from temp pubs on complete: одноразовая задача не переживает коммит', () => {
+test('Unsubscribe from temp pubs on complete: a one-shot task does not survive the commit', () => {
   let seeds = 0
   const seed = act(() => ++seeds)
 
@@ -253,7 +253,7 @@ test('Unsubscribe from temp pubs on complete: одноразовая задач�
   expect(value()).toBe(2)
 })
 
-test('probe: холодное чтение не меняет граф (аналог $mol_wire_probe)', () => {
+test('probe: a cold read does not change the graph ($mol_wire_probe analog)', () => {
   let runs = 0
   const source = ref(1)
   const value = computed(function value() {

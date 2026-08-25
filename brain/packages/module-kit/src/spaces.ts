@@ -103,7 +103,7 @@ export function openSpaces(options: OpenSpacesOptions): Spaces {
   const open = (at: LandId): Space => {
     const found = byLand.get(at.str);
     if (found === undefined) {
-      throw new Error(`ленд «${at.str}» не открыт: ссылка ведёт в модуль, которого нет в сборке`);
+      throw new Error(`land «${at.str}» is not open: the link leads to a module absent from the build`);
     }
     return found.space;
   };
@@ -142,7 +142,7 @@ export function openSpaces(options: OpenSpacesOptions): Spaces {
     ownerOf: at => byLand.get(at.str)?.id,
     landOf: (moduleId) => {
       const found = lands.get(moduleId);
-      if (found === undefined) throw new Error(`ленд «${moduleId}» не поднят`);
+      if (found === undefined) throw new Error(`land «${moduleId}» is not up`);
       return found;
     },
     get open(): boolean {
@@ -164,7 +164,7 @@ export function openSpaces(options: OpenSpacesOptions): Spaces {
           // Ленд оболочки и модуль с одним именем писали бы в один ленд, а
           // карта молча оставила бы последнего — столкновение обязано быть громким.
           if (byModule.has(entry.id)) {
-            throw new Error(`имя «${entry.id}» занято другим лендом сборки: выберите другое`);
+            throw new Error(`name «${entry.id}» is taken by another land of the build: pick a different one`);
           }
           const at = landId(entry.id);
           // Сеанс — свой у КАЖДОГО одновременно живого ленда (ADR-017): общий
@@ -213,7 +213,7 @@ export function openSpaces(options: OpenSpacesOptions): Spaces {
     },
 
     async wipe(ids: readonly string[]): Promise<void> {
-      if (opened) throw new Error('стирать ленды можно только под замком: сначала seal()');
+      if (opened) throw new Error('lands can be erased only under lock: seal() first');
       for (const id of ids) await inner.drop(landId(id));
     },
 
@@ -242,9 +242,9 @@ function handleOf(
   const found = byModule.get(moduleId);
   if (found === undefined) {
     if (!opened) {
-      throw new Error(`ленд «${moduleId}» ещё заперт: пространства модулей появляются после снятия замка`);
+      throw new Error(`land «${moduleId}» is still locked: module spaces appear after the lock is removed`);
     }
-    throw new Error(`модуль «${moduleId}» не собран: пространства у него нет`);
+    throw new Error(`module «${moduleId}» is not assembled: it has no space`);
   }
   return found;
 }

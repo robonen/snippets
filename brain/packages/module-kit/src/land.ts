@@ -25,15 +25,15 @@ const PEER_BYTES = 8;
 
 export function landBytes(moduleId: string): Uint8Array {
   if (moduleId.length === 0) {
-    throw new Error('идентификатор модуля пуст: из него нельзя отчеканить адрес ленда');
+    throw new Error('module identifier is empty: no land address can be minted from it');
   }
   const out = new Uint8Array(PEER_BYTES);
   for (let i = 0; i < PEER_BYTES; i++) {
     const code = moduleId.charCodeAt(i % moduleId.length);
     if (code > 0x7F) {
       throw new Error(
-        `идентификатор модуля «${moduleId}» не ASCII: адрес ленда чеканится из байтов имени, `
-        + 'и не-ASCII зависел бы от кодировки',
+        `module identifier «${moduleId}» is not ASCII: the land address is minted from the name's bytes, `
+        + 'and non-ASCII would depend on the encoding',
       );
     }
     out[i] = code;

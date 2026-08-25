@@ -25,7 +25,7 @@ let cached: Promise<string> | null = null;
 export default defineHandler((event) => {
   const last = event.url.pathname.split('/').at(-1) ?? '';
   if (last.includes('.')) {
-    throw new HTTPError({ status: 404, message: 'не найдено' });
+    throw new HTTPError({ status: 404, message: 'not found' });
   }
 
   cached ??= readFile(indexHtml, 'utf8');

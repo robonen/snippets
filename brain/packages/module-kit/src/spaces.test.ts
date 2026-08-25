@@ -66,7 +66,7 @@ async function open(modules: readonly BrainModule[]): Promise<Spaces> {
   return spaces;
 }
 
-test('у каждого модуля своё пространство на своём ленде', async () => {
+test('Each module has its own space on its own land', async () => {
   const spaces = await open([notes(), kcal()]);
 
   const a = spaces.space('notes');
@@ -83,7 +83,7 @@ test('у каждого модуля своё пространство на св
   await spaces.close();
 });
 
-test('пространство модуля открывает соседний ленд — на этом держатся ссылки [[…]]', async () => {
+test('Module space opens a neighboring land — [[…]] links rest on this', async () => {
   const spaces = await open([notes(), kcal()]);
   spaces.space('kcal').root(Foods).food('гречка');
 
@@ -95,19 +95,19 @@ test('пространство модуля открывает соседний 
   await spaces.close();
 });
 
-test('ссылка вперёд работает так же, как назад: сосед ищется в момент вызова', async () => {
+test('A forward link works like a backward one: the neighbor is looked up at call time', async () => {
   const spaces = await open([notes(), kcal()]);
   expect(() => spaces.space('notes').of(landId('kcal'))).not.toThrow();
   await spaces.close();
 });
 
-test('ссылка в несобранный модуль отказывается громко', async () => {
+test('A link into an unassembled module fails loudly', async () => {
   const spaces = await open([notes()]);
-  expect(() => spaces.space('notes').of(landId('tasks'))).toThrow(/не открыт/);
+  expect(() => spaces.space('notes').of(landId('tasks'))).toThrow(/not open/);
   await spaces.close();
 });
 
-test('посев зовётся после гидрации и ровно один раз', async () => {
+test('Seeding is called after hydration and exactly once', async () => {
   const calls: string[] = [];
   const spaces = await open([
     notes((space) => {
@@ -123,13 +123,13 @@ test('посев зовётся после гидрации и ровно оди
   await spaces.close();
 });
 
-test('замок убирает расшифрованное, а связка возвращает данные на место', async () => {
+test('The lock removes decrypted data, and the keyring puts it back', async () => {
   const store = memoryStore();
   const keys = await ring();
   const spaces = build([notes()], store);
 
   expect(spaces.open).toBeFalsy();
-  expect(() => spaces.space('notes')).toThrow(/заперт/);
+  expect(() => spaces.space('notes')).toThrow(/locked/);
 
   await spaces.unseal(keys);
   spaces.space('notes').edit(() => {
@@ -139,14 +139,14 @@ test('замок убирает расшифрованное, а связка в
   await spaces.seal();
   // Заперто — расшифрованного в этой вкладке нет вовсе, а не спрятано за `v-if`.
   expect(spaces.open).toBeFalsy();
-  expect(() => spaces.space('notes')).toThrow(/заперт/);
+  expect(() => spaces.space('notes')).toThrow(/locked/);
 
   await spaces.unseal(keys);
   expect(spaces.space('notes').root(Notes).note()).toBe('до замка');
   await spaces.close();
 });
 
-test('на носителе шифртекст: внутреннее хранилище не содержит открытого текста', async () => {
+test('Ciphertext on the medium: internal storage holds no plaintext', async () => {
   const store = memoryStore();
   const keys = await ring();
   const spaces = build([notes()], store);
@@ -162,9 +162,9 @@ test('на носителе шифртекст: внутреннее храни�
   expect(raw.join(',').includes(needle)).toBeFalsy();
 });
 
-test('незнакомый модуль — опечатка: space бросает', async () => {
+test('Unknown module is a typo: space throws', async () => {
   const spaces = await open([notes()]);
-  expect(() => spaces.space('tasks')).toThrow(/не собран/);
+  expect(() => spaces.space('tasks')).toThrow(/not assembled/);
   expect(spaces.ownerOf(landId('notes'))).toBe('notes');
   expect(spaces.ownerOf(landId('tasks'))).toBeUndefined();
   await spaces.close();

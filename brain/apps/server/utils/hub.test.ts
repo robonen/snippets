@@ -59,7 +59,7 @@ async function converse(hub: Hub, land: Land, open?: (pack: Uint8Array) => Promi
 }
 
 describe('hub', () => {
-  it('два устройства сходятся через сервер', async () => {
+  it('two devices converge through the server', async () => {
     const hub = createHub(createStorage(), 5);
     const one = device(0x000010);
     const two = device(0x800010);
@@ -80,7 +80,7 @@ describe('hub', () => {
     expect(valuesOf(one)).toEqual(['с первого', 'со второго']);
   });
 
-  it('образ переживает рестарт: новый хаб над тем же хранилищем отдаёт всё', async () => {
+  it('image survives a restart: a new hub over the same storage returns everything', async () => {
     const storage = createStorage();
     const hub = createHub(storage, 5);
     const one = device(0x10);
@@ -94,7 +94,7 @@ describe('hub', () => {
     expect(valuesOf(two)).toEqual(['до рестарта']);
   });
 
-  it('flush дописывает отложенное, и пир сервера стабилен между рестартами', async () => {
+  it('flush appends the deferred data, and the server peer is stable across restarts', async () => {
     const storage = createStorage();
     const hub = createHub(storage, 60_000); // отложка заведомо не успеет сама
     const one = device(0x10);
@@ -110,7 +110,7 @@ describe('hub', () => {
     expect(new Uint8Array((await storage.getItemRaw('peer')) as Uint8Array)).toEqual(peer);
   });
 
-  it('сервер без ключа возит запечатанные ленды, устройства их читают', async () => {
+  it('server without a key carries sealed lands, devices read them', async () => {
     const hub = createHub(createStorage(), 5);
     const key = await secretKey(mintSecret());
     const one = device(0x000010);
@@ -127,7 +127,7 @@ describe('hub', () => {
     await hub.flush();
   });
 
-  it('переживает драйвер без сырых байтов — профиль cloudflare-kv-http', async () => {
+  it('survives a driver without raw bytes — the cloudflare-kv-http profile', async () => {
     // KV-драйвер умеет только строки: ядро unstorage возит raw base64-фолбэком.
     // Хаб обязан не заметить разницы — на этом держится продакшен-хранилище.
     const cells = new Map<string, string>();
@@ -157,7 +157,7 @@ describe('hub', () => {
     expect(valuesOf(two)).toEqual(['через строковый носитель']);
   });
 
-  it('мусор с провода — исключение наружу, состояние нетронуто', async () => {
+  it('garbage from the wire — exception thrown, state untouched', async () => {
     const hub = createHub(createStorage(), 5);
     await expect(hub.receive(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]))).rejects.toThrow();
 

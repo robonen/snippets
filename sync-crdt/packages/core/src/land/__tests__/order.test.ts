@@ -55,17 +55,17 @@ function permutations<T>(items: readonly T[]): T[][] {
   return out
 }
 
-describe('order — модульные примеры наивной версии', () => {
-  test('пустой набор читается пустым списком', () => {
+describe('order — unit examples from the naive version', () => {
+  test('an empty set reads as an empty list', () => {
     expect(order([], ROOT)).toEqual([])
   })
 
-  test('единственный элемент', () => {
+  test('a single element', () => {
     const a = sand('a', ROOT, 'A')
     expect(values(order([a], ROOT))).toEqual(['A'])
   })
 
-  test('цепочка lead выкладывается по порядку', () => {
+  test('a lead chain lays out in order', () => {
     const a = sand('a', ROOT, 'A')
     const b = sand('b', 'a', 'B')
     const c = sand('c', 'b', 'C')
@@ -73,7 +73,7 @@ describe('order — модульные примеры наивной верси�
     expect(values(order([a, b, c], ROOT))).toEqual(['A', 'B', 'C'])
   })
 
-  test('порядок входного массива не влияет на результат', () => {
+  test('input array order does not affect the result', () => {
     const a = sand('a', ROOT, 'A')
     const b = sand('b', 'a', 'B')
     const c = sand('c', 'b', 'C')
@@ -84,7 +84,7 @@ describe('order — модульные примеры наивной верси�
     expect(values(order([a, c, b], ROOT))).toEqual(expected)
   })
 
-  test('два конкурента на одном lead: свежий встаёт первым', () => {
+  test('two competitors on one lead: the fresher one goes first', () => {
     const base = sand('a', ROOT, 'A', { time: 1 })
     const older = sand('x', 'a', 'X', { time: 2, peer: 'p1' })
     const newer = sand('y', 'a', 'Y', { time: 3, peer: 'p1' })
@@ -92,7 +92,7 @@ describe('order — модульные примеры наивной верси�
     expect(values(order([base, older, newer], ROOT))).toEqual(['A', 'Y', 'X'])
   })
 
-  test('два конкурента на одном lead в одну секунду: арбитр — меньший peer', () => {
+  test('two competitors on one lead in the same second: the smaller peer is the tiebreaker', () => {
     const base = sand('a', ROOT, 'A', { time: 1 })
     const fromP1 = sand('x', 'a', 'X', { time: 2, peer: 'p1' })
     const fromP2 = sand('y', 'a', 'Y', { time: 2, peer: 'p2' })
@@ -101,7 +101,7 @@ describe('order — модульные примеры наивной верси�
     expect(values(order([base, fromP1, fromP2], ROOT))).toEqual(['A', 'X', 'Y'])
   })
 
-  test('надгробие в середине цепочки не рвёт её', () => {
+  test('a tombstone in the middle of a chain does not break it', () => {
     const a = sand('a', ROOT, 'A')
     const b = sand('b', 'a', 'B')
     const c = sand('c', 'b', 'C')
@@ -110,7 +110,7 @@ describe('order — модульные примеры наивной верси�
     expect(values(order([a, b, c, grave], ROOT))).toEqual(['A', 'C'])
   })
 
-  test('потомок удалённого узла по lead остаётся видимым', () => {
+  test('a descendant of a removed node via lead stays visible', () => {
     const a = sand('a', ROOT, 'A')
     const grave = sand('b', 'a', null, { time: 5 })
     const d = sand('d', 'b', 'D', { time: 7 })
@@ -118,7 +118,7 @@ describe('order — модульные примеры наивной верси�
     expect(values(order([a, grave, d], ROOT))).toEqual(['A', 'D'])
   })
 
-  test('потомок удалённого узла по head остаётся видимым', () => {
+  test('a descendant of a removed node via head stays visible', () => {
     const grave = sand('b', ROOT, null, { time: 5 })
     const d = sand('d', ROOT, 'D', { head: 'b' })
 
@@ -126,7 +126,7 @@ describe('order — модульные примеры наивной верси�
     expect(values(order([grave, d], 'b'))).toEqual(['D'])
   })
 
-  test('несколько уровней вложенности через head читаются независимо', () => {
+  test('several nesting levels via head read independently', () => {
     const root1 = sand('r1', ROOT, 'R1')
     const root2 = sand('r2', 'r1', 'R2')
 
@@ -143,7 +143,7 @@ describe('order — модульные примеры наивной верси�
     expect(values(order(all, 'r2'))).toEqual([])
   })
 
-  test('юнит с недоехавшим lead виден в хвосте, а не теряется', () => {
+  test('a unit whose lead has not arrived shows in the tail instead of being lost', () => {
     const orphan = sand('b', 'a', 'B')
     expect(values(order([orphan], ROOT))).toEqual(['B'])
 
@@ -161,14 +161,14 @@ describe('order — модульные примеры наивной верси�
  * обходом дерева: ветвление `lead`, надгробие как точка привязки, сироты,
  * ребёнок старше своего `lead`.
  */
-describe('order ≡ orderNaive на собранных вручную случаях', () => {
+describe('order ≡ orderNaive on hand-built cases', () => {
   const same = (sands: readonly Sand[], head: string = ROOT): unknown[] => {
     const reference = orderNaive(sands, head)
     expect(order(sands, head)).toEqual(reference)
     return every(sands, head)
   }
 
-  test('линейная цепочка', () => {
+  test('a linear chain', () => {
     const a = sand('a', ROOT, 'A', { time: 1 })
     const b = sand('b', 'a', 'B', { time: 2 })
     const c = sand('c', 'b', 'C', { time: 3 })
@@ -176,7 +176,7 @@ describe('order ≡ orderNaive на собранных вручную случа
     expect(same([a, b, c])).toEqual(['A', 'B', 'C'])
   })
 
-  test('вставки в начало ложатся от свежей к старой', () => {
+  test('inserts at the head land from freshest to oldest', () => {
     const first = sand('a', ROOT, 'A', { time: 1 })
     const second = sand('b', ROOT, 'B', { time: 2 })
     const third = sand('c', ROOT, 'C', { time: 3 })
@@ -184,7 +184,7 @@ describe('order ≡ orderNaive на собранных вручную случа
     expect(same([first, second, third])).toEqual(['C', 'B', 'A'])
   })
 
-  test('два блока за одним якорем не чередуются', () => {
+  test('two blocks behind one anchor do not interleave', () => {
     const anchor = sand('a', ROOT, 'A', { time: 1 })
 
     const left1 = sand('l1', 'a', 'L1', { time: 5, peer: 'p1' })
@@ -196,7 +196,7 @@ describe('order ≡ orderNaive на собранных вручную случа
       .toEqual(['A', 'L1', 'L2', 'R1', 'R2'])
   })
 
-  test('ветвление lead: у одного узла двое детей', () => {
+  test('lead branching: one node has two children', () => {
     // Тот самый случай из `move-past-branched-lead`: вставка `x` не трогает
     // связь `b1.lead = b0`, и у `b0` оказывается двое `lead`-детей.
     const b0 = sand('b0', ROOT, 'b0', { time: 1 })
@@ -206,7 +206,7 @@ describe('order ≡ orderNaive на собранных вручную случа
     expect(same([b0, b1, x])).toEqual(['b0', 'x', 'b1'])
   })
 
-  test('ребёнок старше своего lead: переехавший узел тащит поддерево за собой', () => {
+  test('a child older than its lead: a moved node drags its subtree along', () => {
     // `x` переехал (свежая метка), а его старый ребёнок `d` остался висеть на
     // нём. Раскладка обязана держать `d` в поддереве `x`, а не сравнивать его
     // с соседом `s` по плоскому списку.
@@ -217,7 +217,7 @@ describe('order ≡ orderNaive на собранных вручную случа
     expect(same([moved, kid, neighbour])).toEqual(['X', 'D', 'S'])
   })
 
-  test('надгробие держит и соседей по lead, и поддерево по head', () => {
+  test('a tombstone holds both lead neighbors and the head subtree', () => {
     const grave = sand('b', ROOT, null, { time: 5 })
     const after = sand('c', 'b', 'C', { time: 6 })
     const inner = sand('i', ROOT, 'I', { head: 'b', time: 7 })
@@ -226,7 +226,7 @@ describe('order ≡ orderNaive на собранных вручную случа
     expect(same([grave, after, inner], 'b')).toEqual(['I'])
   })
 
-  test('цепочка сирот: недоехал общий предок', () => {
+  test('a chain of orphans: the common ancestor has not arrived', () => {
     const o1 = sand('o1', 'нет', 'O1', { time: 3 })
     const o2 = sand('o2', 'o1', 'O2', { time: 4 })
     const live = sand('a', ROOT, 'A', { time: 9 })
@@ -239,21 +239,21 @@ describe('order ≡ orderNaive на собранных вручную случа
     expect(same([live, o1, o2])).toEqual(['A', 'O2', 'O1'])
   })
 
-  test('сирота свежее живого списка всё равно уходит в хвост', () => {
+  test('an orphan fresher than the live list still goes to the tail', () => {
     const live = sand('a', ROOT, 'A', { time: 1 })
     const orphan = sand('o', 'нет', 'O', { time: 9 })
 
     expect(same([live, orphan])).toEqual(['A', 'O'])
   })
 
-  test('надгробие-сирота не выносит из чтения своё поддерево', () => {
+  test('an orphan tombstone does not drop its subtree from reads', () => {
     const grave = sand('g', 'нет', null, { time: 3 })
     const kid = sand('k', 'g', 'K', { time: 4 })
 
     expect(same([grave, kid])).toEqual(['K'])
   })
 
-  test('юниты чужого head не участвуют в раскладке', () => {
+  test('units of a foreign head do not participate in the layout', () => {
     const mine = sand('a', ROOT, 'A', { time: 1 })
     const alien = sand('b', 'a', 'B', { head: 'иной', time: 2 })
 
@@ -268,8 +268,8 @@ describe('order ≡ orderNaive на собранных вручную случа
  * только два инварианта: ничего не потеряно и ответ не зависит от порядка
  * перебора входа. Совпадение с референсом здесь **не** требуется.
  */
-describe('order на кольцах', () => {
-  test('кольцо из двух узлов не теряет ни одного', () => {
+describe('order on cycles', () => {
+  test('a two-node cycle loses neither node', () => {
     // `move` крест-накрест: 1 → 3 → 1.
     const one = sand('1', '3', 'ОДИН', { time: 9, peer: 'p1' })
     const two = sand('2', '1', 'ДВА', { time: 1 })
@@ -280,14 +280,14 @@ describe('order на кольцах', () => {
     expect([...read].sort()).toEqual(['ДВА', 'ОДИН', 'ТРИ', 'ЧЕТЫРЕ'])
   })
 
-  test('узел, ссылающийся сам на себя, виден ровно один раз', () => {
+  test('a node referencing itself is visible exactly once', () => {
     const loop = sand('a', 'a', 'A', { time: 1 })
     const live = sand('b', ROOT, 'B', { time: 2 })
 
     expect(every([loop, live])).toEqual(['B', 'A'])
   })
 
-  test('кольцо уносит в хвост своё поддерево, но не живой список', () => {
+  test('a cycle takes its subtree to the tail, but not the live list', () => {
     const live = sand('live', ROOT, 'ЖИВОЙ', { time: 1 })
     const ringA = sand('ra', 'rb', 'A', { time: 5, peer: 'p1' })
     const ringB = sand('rb', 'ra', 'B', { time: 5, peer: 'p2' })

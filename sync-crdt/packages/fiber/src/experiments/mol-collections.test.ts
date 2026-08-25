@@ -13,7 +13,7 @@ import { ReactiveMap, ReactiveSet, computed, flush } from '../index'
  * тот же смысл без третьего способа сказать одно и то же (правило 1).
  */
 
-test('карта: наблюдение за одним значением', () => {
+test('map: observing a single value', () => {
   const dict = new ReactiveMap<number, number>()
   const lucky = computed(function lucky() {
     return dict.get(777)
@@ -34,7 +34,7 @@ test('карта: наблюдение за одним значением', () =
   expect(lucky()).toBeUndefined()
 })
 
-test('карта: наблюдение за размером', () => {
+test('map: observing the size', () => {
   const dict = new ReactiveMap<number, number>()
   let runs = 0
   const size = computed(function size() {
@@ -62,7 +62,7 @@ test('карта: наблюдение за размером', () => {
   expect(runs).toBe(3)
 })
 
-test('карта: наблюдение за обходом', () => {
+test('map: observing iteration', () => {
   const dict = new ReactiveMap<number, number>()
   const listed = computed(function listed() {
     const out: number[] = []
@@ -85,7 +85,7 @@ test('карта: наблюдение за обходом', () => {
   expect(listed()).toEqual([20])
 })
 
-test('карта: наблюдение через forEach', () => {
+test('map: observing via forEach', () => {
   const dict = new ReactiveMap<number, number>()
   const summed = computed(function summed() {
     let sum = 0
@@ -106,7 +106,7 @@ test('карта: наблюдение через forEach', () => {
   expect(summed()).toBe(30)
 })
 
-test('карта: чего нет в оригинале — сосед не будит', () => {
+test('map: what the original lacks — a neighbor does not wake you', () => {
   const dict = new ReactiveMap<number, number>()
   dict.set(1, 1)
   dict.set(2, 2)
@@ -131,7 +131,7 @@ test('карта: чего нет в оригинале — сосед не бу
   expect(runs).toBe(2)
 })
 
-test('множество: наблюдение за одним значением', () => {
+test('set: observing a single value', () => {
   const set = new ReactiveSet<number>()
   const lucky = computed(function lucky() {
     return set.has(777)
@@ -152,7 +152,7 @@ test('множество: наблюдение за одним значение�
   expect(lucky()).toBe(false)
 })
 
-test('множество: размер и обход', () => {
+test('set: size and iteration', () => {
   const set = new ReactiveSet<number>()
   const listed = computed(function listed() {
     return [...set]
@@ -180,7 +180,7 @@ test('множество: размер и обход', () => {
   expect(size()).toBe(0)
 })
 
-test('множество: наблюдение через forEach', () => {
+test('set: observing via forEach', () => {
   const set = new ReactiveSet<number>()
   const summed = computed(function summed() {
     let sum = 0

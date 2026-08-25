@@ -62,7 +62,7 @@ export function readAtom(core: SpaceCore, cell: Cell, head: Head): unknown {
     // тут нельзя: «пусто» и «не смогли прочитать» — разные состояния, и именно
     // на их слипании в baza держался п. 34 реестра.
     if (core.broken(view)) {
-      core.report(issueAt(core, cell, head, view, 'shape', type.name, 'байты, которых кодек не знает'))
+      core.report(issueAt(core, cell, head, view, 'shape', type.name, 'bytes the codec does not know'))
     }
     return type.blank
   }
@@ -227,7 +227,7 @@ export const ATOM_METHODS: Readonly<Record<string, unknown>> = Object.freeze({
     const raw = core.valueOf(view)
     if (raw === null) {
       if (!core.broken(view)) return null
-      return issueAt(core, cell, head, view, 'shape', type.name, 'байты, которых кодек не знает')
+      return issueAt(core, cell, head, view, 'shape', type.name, 'bytes the codec does not know')
     }
     if (type.decode(raw) !== null) return null
     return issueAt(core, cell, head, view, 'decode', type.name, describe(raw))

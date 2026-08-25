@@ -82,7 +82,7 @@ class TornVolume implements Volume {
     this.#budget.left -= sent
     this.#budget.done += sent
     this.#done += sent
-    if (sent < size) throw new Aborted(`обрыв: довезено ${this.#budget.done} Б`)
+    if (sent < size) throw new Aborted(`interruption: ${this.#budget.done} B delivered`)
   }
 
   flush(): void {
@@ -129,8 +129,8 @@ function batchOf(land: Land, mark: string, count: number): Uint8Array {
   return land.flush(LAND)
 }
 
-describe('обрыв записи не портит данные', () => {
-  test('1000 позиций обрыва: состояние либо до батча, либо после', () => {
+describe('a write interruption does not corrupt data', () => {
+  test('1000 interruption positions: the state is either before the batch or after', () => {
     // Основа: ленд, уже сохранённый и подтверждённый.
     const land = landOf()
     const first = batchOf(land, 'основа', 12)
@@ -174,7 +174,7 @@ describe('обрыв записи не портит данные', () => {
         if (!(error instanceof Aborted)) throw error
         broke = true
       }
-      expect(broke, `позиция ${budget}: обрыв обязан был случиться`).toBe(true)
+      expect(broke, `position ${budget}: the interruption must have happened`).toBe(true)
 
       // Перезапуск после обрыва: тома те, что остались на носителе.
       const revive = torn.map(volume => new RamVolume(volume.disk()))
@@ -182,10 +182,10 @@ describe('обрыв записи не портит данные', () => {
       const state = revived(mirrors.pack())
 
       if (state.length === after.length) {
-        expect(state, `позиция ${budget}: состояние «после» испорчено`).toEqual(after)
+        expect(state, `position ${budget}: the «after» state is corrupted`).toEqual(after)
         kept += 1
       } else {
-        expect(state, `позиция ${budget}: состояние «до» испорчено`).toEqual(before)
+        expect(state, `position ${budget}: the «before» state is corrupted`).toEqual(before)
         lost += 1
       }
 
@@ -200,7 +200,7 @@ describe('обрыв записи не портит данные', () => {
     expect(kept).toBeGreaterThan(0)
   })
 
-  test('обрыв на ЕДИНСТВЕННОМ зеркале теряет ленд — и говорит об этом', () => {
+  test('an interruption on the ONLY mirror loses the land — and says so', () => {
     // Сторож самой модели: если бы «оборванная сторона» отличалась от целой
     // ничем, тест выше был бы тысячей зелёных прогонов ни о чём. Одно зеркало
     // отказывается от устойчивости к обрыву, и отказ обязан быть громким.
@@ -217,10 +217,10 @@ describe('обрыв записи не портит данные', () => {
     expect(() => Mirrors.open([torn], LAND).save(batchOf(land, 'ещё', 4))).toThrow(Aborted)
 
     const revive = new RamVolume(torn.disk())
-    expect(() => Mirrors.open([revive], LAND)).toThrow(/ни одно зеркало не дописано/)
+    expect(() => Mirrors.open([revive], LAND)).toThrow(/no mirror was fully written/)
   })
 
-  test('обрыв ПОСЛЕ первого зеркала оставляет батч целым', () => {
+  test('an interruption AFTER the first mirror leaves the batch intact', () => {
     // Именно та строка таблицы из шапки `mirrors.ts`, ради которой роли зеркал
     // сделаны постоянными: сторона 0 дописана и новая, сторона 1 ещё старая.
     const land = landOf()

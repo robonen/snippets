@@ -52,8 +52,8 @@ function motley(land: Land): void {
   land.remove(second.self)
 }
 
-describe('формат переживает ленд', () => {
-  test('units() отдаёт ТЕ ЖЕ байты, что приехали: путь apply', () => {
+describe('the format outlives the land', () => {
+  test('units() returns THE SAME bytes that arrived: the apply path', () => {
     const from = makeLand(0x11)
     motley(from)
     const input = from.units()
@@ -68,7 +68,7 @@ describe('формат переживает ленд', () => {
     }
   })
 
-  test('круг packEncode → packDecode → adopt → units → packEncode даёт те же байты', () => {
+  test('the packEncode → packDecode → adopt → units → packEncode round trip yields the same bytes', () => {
     const from = makeLand(0x11)
     motley(from)
 
@@ -80,7 +80,7 @@ describe('формат переживает ленд', () => {
     expect(same(bin, again)).toBe(true)
   })
 
-  test('большой санд: kind, tag, size и shot переживают приём побайтово', () => {
+  test('big sand: kind, tag, size and shot survive receipt byte for byte', () => {
     const value = { long: 'я'.repeat(150) }
     const { unit: big, ball } = SandUnit.makeAuto({
       peer: peerOf(0x22),
@@ -111,7 +111,7 @@ describe('формат переживает ленд', () => {
     expect(land.peek(node)?.value).toEqual(value)
   })
 
-  test('ленд с большим сандом пересобирает свою пачку — вместе с ball', () => {
+  test('a land with a big sand rebuilds its pack — ball included', () => {
     // Дыра, записанная в docs/11: `units()` отдаёт юниты, но не выносные
     // значения, и `packEncode` на таком наборе падал с «ball не приложен». Пачку
     // собирает `part()`, потому что байты значения лежат В АРЕНЕ рядом с юнитом.
@@ -131,7 +131,7 @@ describe('формат переживает ленд', () => {
     expect(same(bin, packEncode([[LAND_ID, to.part()]]))).toBe(true)
   })
 
-  test('перемещение сохраняет tag переезжающего и его последователя', () => {
+  test('a move preserves the tag of the moved node and of its successor', () => {
     // Регресс: `move` пересобирал оба юнита из ЗНАЧЕНИЯ и терял подсказку —
     // словарь после перемещения объявлялся атомом (`keys` → `term`). Ровно эту
     // потерю ADR-016 вменил ленду на обычных объектах.
@@ -145,7 +145,7 @@ describe('формат переживает ленд', () => {
     expect(land.order(ROOT).map(view => view.value)).toEqual([[1], 'три', { a: 1 }])
   })
 
-  test('надгробие сохраняет tag: поддерево переживает своего родителя', () => {
+  test('a tombstone preserves tag: the subtree outlives its parent', () => {
     const land = makeLand()
     const view = land.post(ROOT, ROOT, { a: 1 }, 'keys')
     land.post(view.self, ROOT, 'ребёнок')
@@ -156,7 +156,7 @@ describe('формат переживает ленд', () => {
     expect(land.order(view.self).map(kid => kid.value)).toEqual(['ребёнок'])
   })
 
-  test('юнит, объявивший себя корнем, отвергается', () => {
+  test('a unit declaring itself the root is rejected', () => {
     // Шесть нулевых байт в `self` — законные байты формата, и по проводу такой
     // юнит доедет. Приняв его, ленд делает КОРЕНЬ своим же ребёнком: рекурсивный
     // обход слоя моделей уходит в бесконечность, а сходимость молчит — реплики
@@ -178,7 +178,7 @@ describe('формат переживает ленд', () => {
     expect(land.size()).toBe(1)
   })
 
-  test('юнит, объявивший родителем самого себя, отвергается', () => {
+  test('a unit declaring itself its own parent is rejected', () => {
     const land = makeLand(0x11)
     const self = idOf(5)
     const loop = SandUnit.make({
@@ -196,7 +196,7 @@ describe('формат переживает ленд', () => {
     expect(land.order(node)).toHaveLength(0)
   })
 
-  test('size считает юниты всех пиров, включая проигравших по LWW', () => {
+  test('size counts units of all peers, including LWW losers', () => {
     const clock = fixedClock(1000)
     const a = new Land(peerOf(0x11), clock)
     const b = new Land(peerOf(0x22), clock)
@@ -226,14 +226,14 @@ describe('формат переживает ленд', () => {
   })
 })
 
-describe('чего ленд НЕ делает (записанные дыры, не поблажки)', () => {
+describe('what the land does NOT do (recorded holes, not concessions)', () => {
   /**
    * ЗАКРЫТО на S6-подписях: `gift`/`seal`/`pass` теперь хранятся спутником
    * графа (`#extra`) и едут в `units`/`part`, поэтому реплика-транзит (в том
    * числе сервер-релей) пересылает права и подписи дальше. Санды — по-прежнему
    * в графе, спутники — плоским набором рядом.
    */
-  test('круг через ленд сохраняет все четыре вида юнитов', () => {
+  test('a round trip through the land preserves all four unit kinds', () => {
     const units: AnyUnit[] = [
       SandUnit.make({
         peer: peerOf(0x11), time: 1200, tick: 0,
@@ -260,7 +260,7 @@ describe('чего ленд НЕ делает (записанные дыры, н
    * перебирает его, отбросив идентификатор. Своего `LandId` у ленда нет вовсе,
    * поэтому отфильтровать чужое он не может даже теоретически.
    */
-  test.fails('adopt берёт из пачки только юниты своего ленда', () => {
+  test.fails('adopt takes only its own land units from a pack', () => {
     const mine = SandUnit.make({
       peer: peerOf(0x11), time: 1200, tick: 0,
       self: idOf(1), head: Link.hole, lead: Link.hole, value: 'мой',
@@ -286,7 +286,7 @@ describe('чего ленд НЕ делает (записанные дыры, н
    * РАЗОБРАННОГО значения, а у большого санда оно лежит в `ball` (S5). Один
    * элемент длиннее 62 байт делает список неперемещаемым целиком.
    */
-  test.fails('move работает в списке, где есть большой санд', () => {
+  test.fails('move works in a list that contains a big sand', () => {
     const land = makeLand(0x11)
     const first = land.post(ROOT, ROOT, 'первый')
     const big = SandUnit.makeBig({
@@ -306,7 +306,7 @@ describe('чего ленд НЕ делает (записанные дыры, н
    * `ball` он не хранит (при `adopt` байты балла физически лежат в его арене, но
    * ключа к ним нет), а `packEncode` без балла отказывается кодировать.
    */
-  test.fails('ленд с большим сандом умеет пересобрать свою пачку', () => {
+  test.fails('a land with a big sand can rebuild its pack', () => {
     const shot = new Uint8Array(12).fill(9)
     const ball = new Uint8Array(300).fill(1)
     const big = SandUnit.makeBig({

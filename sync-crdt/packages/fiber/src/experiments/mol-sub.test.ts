@@ -29,7 +29,7 @@ function depsOf(channel: { readonly node: { deps: Link | undefined } }): Node[] 
   return out
 }
 
-test('Collect deps: список зависимостей — порядок чтения, без повторов', () => {
+test('Collect deps: the dependency list follows read order, without duplicates', () => {
   const first = ref(1)
   const second = ref(2)
 
@@ -43,7 +43,7 @@ test('Collect deps: список зависимостей — порядок ч�
   expect(depsOf(view)).toEqual([first.node, second.node])
 })
 
-test('Collect deps: повторный прогон переписывает список целиком', () => {
+test('Collect deps: a repeated run rewrites the list entirely', () => {
   const first = ref(1)
   const second = ref(2)
   const flipped = ref(false)
@@ -63,7 +63,7 @@ test('Collect deps: повторный прогон переписывает с�
   expect(depsOf(view)).toEqual([flipped.node, second.node, first.node])
 })
 
-test('Collect deps: чтение, выпавшее из прогона, отписывается', () => {
+test('Collect deps: a read dropped from the run is unsubscribed', () => {
   const on = ref(true)
   const value = ref(1)
 

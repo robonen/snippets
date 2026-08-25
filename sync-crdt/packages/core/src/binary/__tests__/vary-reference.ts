@@ -45,7 +45,7 @@ export class VaryMismatch extends Error {
   readonly at: number
 
   constructor(reason: string, at: number) {
-    super(`${reason} — байт ${at}`)
+    super(`${reason} — byte ${at}`)
     this.name = 'VaryMismatch'
     this.at = at
   }
@@ -83,7 +83,7 @@ interface Cursor {
 
 function byte(cur: Cursor): number {
   const value = cur.bytes[cur.at]
-  if (value === undefined) throw new VaryMismatch('байты кончились раньше значения', cur.at)
+  if (value === undefined) throw new VaryMismatch('bytes ran out before the value ended', cur.at)
   cur.at += 1
   return value
 }
@@ -107,12 +107,12 @@ function leb128(cur: Cursor): bigint {
     last = b
     if ((b & 0x80) === 0) break
     // Десять групп по 7 бит — это 70 бит; всё, что длиннее, заведомо мусор.
-    if (groups > 10) throw new VaryMismatch('LEB128 длиннее десяти групп', cur.at)
+    if (groups > 10) throw new VaryMismatch('LEB128 longer than ten groups', cur.at)
   }
 
   // Правило 1: длины пишутся минимальным числом байт. Хвостовая нулевая группа
   // — это второе представление того же числа.
-  if (groups > 1 && (last & 0x7f) === 0) throw new VaryMismatch('LEB128 не минимален', cur.at)
+  if (groups > 1 && (last & 0x7f) === 0) throw new VaryMismatch('LEB128 is not minimal', cur.at)
 
   return out
 }
@@ -134,7 +134,7 @@ function tag(cur: Cursor): Tag {
 
 function span(cur: Cursor, length: bigint): Uint8Array {
   if (length > BigInt(cur.bytes.length - cur.at)) {
-    throw new VaryMismatch(`нагрузки на ${length} байт нет в буфере`, cur.at)
+    throw new VaryMismatch(`payload of ${length} bytes is not in the buffer`, cur.at)
   }
   const from = cur.at
   cur.at += Number(length)
@@ -157,7 +157,7 @@ function utf8(bytes: Uint8Array, base: number): string {
   const cont = (index: number): number => {
     const b = bytes[index]
     if (b === undefined || (b & 0xc0) !== 0x80) {
-      throw new VaryMismatch('оборванная последовательность UTF-8', base + index)
+      throw new VaryMismatch('truncated UTF-8 sequence', base + index)
     }
     return b & 0x3f
   }
@@ -182,13 +182,13 @@ function utf8(bytes: Uint8Array, base: number): string {
     } else {
       // 0x80…0xc1 — либо хвост без головы, либо overlong-голова двухбайтовой
       // формы (0xc0/0xc1 кодируют только то, что влезает в один байт).
-      throw new VaryMismatch(`недопустимый ведущий байт UTF-8 0x${lead.toString(16)}`, base + i)
+      throw new VaryMismatch(`invalid UTF-8 lead byte 0x${lead.toString(16)}`, base + i)
     }
 
-    if (size === 3 && code < 0x800) throw new VaryMismatch('overlong-последовательность UTF-8', base + i)
-    if (size === 4 && code < 0x10000) throw new VaryMismatch('overlong-последовательность UTF-8', base + i)
-    if (code >= 0xd800 && code <= 0xdfff) throw new VaryMismatch('суррогат в UTF-8', base + i)
-    if (code > 0x10ffff) throw new VaryMismatch('код-пойнт за U+10FFFF', base + i)
+    if (size === 3 && code < 0x800) throw new VaryMismatch('overlong UTF-8 sequence', base + i)
+    if (size === 4 && code < 0x10000) throw new VaryMismatch('overlong UTF-8 sequence', base + i)
+    if (code >= 0xd800 && code <= 0xdfff) throw new VaryMismatch('surrogate in UTF-8', base + i)
+    if (code > 0x10ffff) throw new VaryMismatch('code point beyond U+10FFFF', base + i)
 
     out += String.fromCodePoint(code)
     i += size
@@ -222,13 +222,13 @@ function float64(cur: Cursor): number {
   const value = view.getFloat64(0, false)
 
   // Правило 3: `-0` пишется как `0`, у NaN одна запись.
-  if (bits === 0x8000_0000_0000_0000n) throw new VaryMismatch('-0 в вещественной ветке', at)
+  if (bits === 0x8000_0000_0000_0000n) throw new VaryMismatch('-0 in the float branch', at)
   if (Number.isNaN(value) && bits !== 0x7ff8_0000_0000_0000n) {
-    throw new VaryMismatch(`неканоничный NaN 0x${bits.toString(16)}`, at)
+    throw new VaryMismatch(`non-canonical NaN 0x${bits.toString(16)}`, at)
   }
   // Правило 2: целые предпочитаются вещественным. Число за границей точного
   // (1e300 и т. п.) целым не пишется — оно `isInteger`, но не `isSafeInteger`.
-  if (Number.isSafeInteger(value)) throw new VaryMismatch(`целое ${value} записано вещественным`, at)
+  if (Number.isSafeInteger(value)) throw new VaryMismatch(`integer ${value} encoded as a float`, at)
 
   return value
 }
@@ -237,7 +237,7 @@ function magnitude(cur: Cursor): bigint {
   const at = cur.at
   const size = leb128(cur)
   const raw = span(cur, size)
-  if (raw.length > 0 && raw[0] === 0) throw new VaryMismatch('ведущий нуль в модуле bigint', at)
+  if (raw.length > 0 && raw[0] === 0) throw new VaryMismatch('leading zero in bigint magnitude', at)
 
   let out = 0n
   for (const b of raw) out = (out << 8n) | BigInt(b)
@@ -245,7 +245,7 @@ function magnitude(cur: Cursor): bigint {
 }
 
 function value(cur: Cursor, depth: number): RefVary {
-  if (depth > REF_MAX_DEPTH) throw new VaryMismatch('вложенность глубже 512', cur.at)
+  if (depth > REF_MAX_DEPTH) throw new VaryMismatch('nesting deeper than 512', cur.at)
 
   const at = cur.at
   const { major, arg } = tag(cur)
@@ -255,17 +255,17 @@ function value(cur: Cursor, depth: number): RefVary {
     if (arg === 1n) return false
     if (arg === 2n) return true
     if (arg === 3n) return float64(cur)
-    throw new VaryMismatch(`неизвестный код спецзначения ${arg}`, at)
+    throw new VaryMismatch(`unknown special-value code ${arg}`, at)
   }
 
   if (major === 1) {
-    if (arg > MAX_SAFE) throw new VaryMismatch(`целое ${arg} за границей безопасного`, at)
+    if (arg > MAX_SAFE) throw new VaryMismatch(`integer ${arg} beyond the safe range`, at)
     return Number(arg)
   }
 
   if (major === 2) {
     const out = -1n - arg
-    if (out < -MAX_SAFE) throw new VaryMismatch(`целое ${out} за границей безопасного`, at)
+    if (out < -MAX_SAFE) throw new VaryMismatch(`integer ${out} beyond the safe range`, at)
     return Number(out)
   }
 
@@ -291,7 +291,7 @@ function value(cur: Cursor, depth: number): RefVary {
     for (let i = 0; i < count; i++) {
       const keyAt = cur.at
       const keyTag = tag(cur)
-      if (keyTag.major !== 4) throw new VaryMismatch(`ключ словаря не TEXT, а major ${keyTag.major}`, keyAt)
+      if (keyTag.major !== 4) throw new VaryMismatch(`dictionary key is not TEXT but major ${keyTag.major}`, keyAt)
       const raw = span(cur, keyTag.arg)
       const key = utf8(raw, keyAt)
 
@@ -299,8 +299,8 @@ function value(cur: Cursor, depth: number): RefVary {
       // дал бы одному значению две записи.
       if (previous !== null) {
         const order = cmpBytes(previous, raw)
-        if (order === 0) throw new VaryMismatch(`ключ «${key}» повторяется`, keyAt)
-        if (order > 0) throw new VaryMismatch(`ключ «${key}» нарушает порядок по байтам`, keyAt)
+        if (order === 0) throw new VaryMismatch(`key "${key}" repeats`, keyAt)
+        if (order > 0) throw new VaryMismatch(`key "${key}" violates byte order`, keyAt)
       }
       previous = raw
 
@@ -316,21 +316,21 @@ function value(cur: Cursor, depth: number): RefVary {
   if (arg === 0n || arg === 1n) {
     const msAt = cur.at
     const ms = leb128(cur)
-    if (ms > BigInt(REF_TIME_LIMIT)) throw new VaryMismatch(`дата за пределами диапазона: ${ms} мс`, msAt)
+    if (ms > BigInt(REF_TIME_LIMIT)) throw new VaryMismatch(`date out of range: ${ms} ms`, msAt)
     // Ноль миллисекунд принадлежит расширению 0; в расширении 1 он был бы
     // вторым написанием эпохи, то есть нарушением единственности представления.
-    if (arg === 1n && ms === 0n) throw new VaryMismatch('нулевая дата записана как отрицательная', msAt)
+    if (arg === 1n && ms === 0n) throw new VaryMismatch('zero date encoded as negative', msAt)
     return new Date(arg === 0n ? Number(ms) : -Number(ms))
   }
 
   if (arg === 2n || arg === 3n) {
     const bigAt = cur.at
     const abs = magnitude(cur)
-    if (arg === 3n && abs === 0n) throw new VaryMismatch('нулевой bigint записан отрицательным', bigAt)
+    if (arg === 3n && abs === 0n) throw new VaryMismatch('zero bigint encoded as negative', bigAt)
     return arg === 2n ? abs : -abs
   }
 
-  throw new VaryMismatch(`расширение №${arg} этой версии формата неизвестно`, at)
+  throw new VaryMismatch(`extension #${arg} is unknown to this format version`, at)
 }
 
 /**
@@ -343,6 +343,6 @@ export function referenceDecode(bytes: Uint8Array): RefVary {
   const cur: Cursor = { bytes, at: 0 }
   const out = value(cur, 0)
   // Правило: у значения ровно одна запись, а значит и ровно одна длина.
-  if (cur.at !== bytes.length) throw new VaryMismatch(`после значения осталось ${bytes.length - cur.at} байт`, cur.at)
+  if (cur.at !== bytes.length) throw new VaryMismatch(`${bytes.length - cur.at} bytes left after the value`, cur.at)
   return out
 }

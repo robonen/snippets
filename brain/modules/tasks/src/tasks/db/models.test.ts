@@ -38,15 +38,15 @@ const BARE: Task = {
   order: 1,
 };
 
-describe('модели задач на @sync/core', () => {
-  it('задача переживает круг документ → снимок вместе с повтором', () => {
+describe('task models on @sync/core', () => {
+  it('task survives the document → snapshot round-trip together with the repeat', () => {
     const root = spaceOf().root(TasksModel);
     writeTask(root.tasks(FULL.id), FULL);
 
     expect(readTask(FULL.id, root.tasks(FULL.id))).toEqual(FULL);
   });
 
-  it('пустые поля остаются отсутствующими, а не превращаются в null', () => {
+  it('empty fields stay absent instead of turning into null', () => {
     const root = spaceOf().root(TasksModel);
     writeTask(root.tasks(BARE.id), BARE);
 
@@ -59,7 +59,7 @@ describe('модели задач на @sync/core', () => {
     }
   });
 
-  it('выключенное правило хранится и читается обратно', () => {
+  it('disabled rule is stored and read back', () => {
     const root = spaceOf().root(TasksModel);
     const paused: Task = { ...BARE, repeat: { unit: 'week', every: 2, enabled: false } };
     writeTask(root.tasks(paused.id), paused);
@@ -71,7 +71,7 @@ describe('модели задач на @sync/core', () => {
     });
   });
 
-  it('дробный шаг повтора не доезжает до ленда: t.int его бы не принял', () => {
+  it('fractional repeat step does not reach the land: t.int would not accept it', () => {
     const root = spaceOf().root(TasksModel);
     const odd: Task = { ...BARE, repeat: { unit: 'day', every: 2.7, enabled: true } };
 
@@ -81,7 +81,7 @@ describe('модели задач на @sync/core', () => {
     expect(readTask(odd.id, root.tasks(odd.id)).repeat?.every).toBe(2);
   });
 
-  it('снятая отметка о выполнении возвращает задачу в работу', () => {
+  it('cleared completion mark returns the task to work', () => {
     const root = spaceOf().root(TasksModel);
     writeTask(root.tasks(FULL.id), FULL);
 
@@ -90,7 +90,7 @@ describe('модели задач на @sync/core', () => {
     expect(Object.hasOwn(readTask(FULL.id, root.tasks(FULL.id)), 'doneAt')).toBeFalsy();
   });
 
-  it('ключи каталогов видны и удаляются', () => {
+  it('catalog keys are visible and deletable', () => {
     const root = spaceOf().root(TasksModel);
     writeTask(root.tasks('a'), { ...BARE, id: 'a' });
     writeTask(root.tasks('b'), { ...BARE, id: 'b', title: 'Полить цветы' });
@@ -101,14 +101,14 @@ describe('модели задач на @sync/core', () => {
     expect(root.tasks.has('a')).toBeFalsy();
   });
 
-  it('«обычный» приоритет в снимке не появляется: он и есть значение по умолчанию', () => {
+  it('"normal" priority does not appear in the snapshot: it is the default value', () => {
     const root = spaceOf().root(TasksModel);
     writeTask(root.tasks(BARE.id), { ...BARE, priority: 'normal' });
 
     expect(Object.hasOwn(readTask(BARE.id, root.tasks(BARE.id)), 'priority')).toBeFalsy();
   });
 
-  it('чек-лист переживает круг и приезжает в своём порядке', () => {
+  it('checklist survives the round-trip and arrives in its order', () => {
     const root = spaceOf().root(TasksModel);
     writeTask(root.tasks(BARE.id), {
       ...BARE,
@@ -124,7 +124,7 @@ describe('модели задач на @sync/core', () => {
     ]);
   });
 
-  it('стёртый в форме пункт исчезает и из ленда', () => {
+  it('item erased in the form disappears from the land too', () => {
     const root = spaceOf().root(TasksModel);
     const doc = root.tasks(FULL.id);
     writeTask(doc, FULL);
@@ -138,7 +138,7 @@ describe('модели задач на @sync/core', () => {
     expect(Object.hasOwn(readTask(FULL.id, doc), 'steps')).toBeFalsy();
   });
 
-  it('надгробие на ключе каталога поддерево НЕ уносит — чек-лист чистится отдельно', () => {
+  it('tombstone on a catalog key does NOT take the subtree — the checklist is cleaned separately', () => {
     // Свойство ядра, а не недосмотр: `Land.remove` сохраняет `lead` детей, иначе
     // надгробие утащило бы за собой всё поддерево и слияние потеряло бы чужие
     // правки внутри него. Отсюда явная очистка в `useActions().remove`.
@@ -154,7 +154,7 @@ describe('модели задач на @sync/core', () => {
     expect(doc.steps.size()).toBe(0);
   });
 
-  it('две вкладки отмечают РАЗНЫЕ пункты — и обе отметки выживают', () => {
+  it('two tabs check DIFFERENT items — both marks survive', () => {
     // Ради этого чек-лист и сделан каталогом документов, а не списком строк: у
     // списка обе вкладки переписали бы один элемент, и LWW унёс бы чужую отметку.
     const clock = fixedClock(1_700_000);
@@ -183,7 +183,7 @@ describe('модели задач на @sync/core', () => {
     }
   });
 
-  it('проект переживает круг документ → снимок', () => {
+  it('project survives the document → snapshot round-trip', () => {
     const root = spaceOf().root(TasksModel);
     const project: Project = { id: 'p1', name: 'Дом', createdAt: 1_700_000 };
     writeProject(root.projects(project.id), project);
@@ -191,7 +191,7 @@ describe('модели задач на @sync/core', () => {
     expect(readProject(project.id, root.projects(project.id))).toEqual(project);
   });
 
-  it('две вкладки сходятся: запись из одной видна в другой', () => {
+  it('two tabs converge: a record from one is visible in the other', () => {
     const clock = fixedClock(1_700_000);
     const peer = Link.peer(new Uint8Array(8).fill(0x77));
     const tabA = new Land(peer, clock, { session: 0x000100 });

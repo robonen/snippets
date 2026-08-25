@@ -47,7 +47,7 @@ export interface ReservedFieldName<Why extends string> {
  */
 type NoReserved<S> = {
   readonly [K in keyof S]: K extends '$'
-    ? ReservedFieldName<'$ занят под операции документа'>
+    ? ReservedFieldName<'$ is reserved for document operations'>
     : S[K]
 }
 
@@ -104,7 +104,7 @@ function enlist(name: string, model: AnyModel): void {
   // тестовый файл в том же процессе), и она законна. Два РАЗНЫХ объекта на одно
   // имя — нет: имя лежит в данных и обязано быть уникальным вечно (docs/05 §7.2).
   if (found !== undefined && found !== model) {
-    throw new TypeError(`модель «${name}» уже объявлена: имена моделей глобальны (docs/05 §7.2)`)
+    throw new TypeError(`model «${name}» is already declared: model names are global (docs/05 §7.2)`)
   }
   known.set(name, model)
 }

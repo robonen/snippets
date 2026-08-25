@@ -114,7 +114,7 @@ export function atom<T>(type: Type<T>): AtomField<T> {
   // без `blank` превратила бы чтение непрочитанного поля в `undefined` — то
   // самое значение, которого в этом слое не существует (правило 3 горячего пути).
   if ((type as { blank?: unknown }).blank === undefined) {
-    throw new TypeError(`atom(${type.name}): у линзы нет blank — нужен .or(значение) или t.maybe(...)`)
+    throw new TypeError(`atom(${type.name}): the lens has no blank — .or(value) or t.maybe(...) is needed`)
   }
   return Object.freeze({ kind: 'atom', type })
 }

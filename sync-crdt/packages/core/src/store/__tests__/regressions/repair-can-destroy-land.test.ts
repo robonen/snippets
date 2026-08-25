@@ -36,7 +36,7 @@ class TornVolume extends RamVolume {
   }
 
   override wrote(at: number, size: number): void {
-    if (this.#left <= 0) throw new Error('обрыв записи')
+    if (this.#left <= 0) throw new Error('write interruption')
     this.#left -= 1
     super.wrote(at, size)
   }
@@ -49,7 +49,7 @@ function filled(): Uint8Array {
   return image.raw()
 }
 
-test('недописанная копия не выглядит целой', () => {
+test('an unfinished copy does not look intact', () => {
   const raw = filled()
 
   // Обрыв ровно в окне между «пометил целой» и «скопировал данные».
@@ -62,7 +62,7 @@ test('недописанная копия не выглядит целой', () 
   expect(PackImage.clean(torn)).toBe(false)
 })
 
-test('негодная сторона не роняет открытие, если исправна другая', () => {
+test('a bad side does not fail the open if the other is sound', () => {
   const good = new RamVolume()
   const first = PackImage.create(good, LAND)
   first.seal()

@@ -24,7 +24,7 @@ function pump(read: () => unknown): Promise<unknown> | null {
   }
 }
 
-test('probe: не считает и не подписывается', () => {
+test('probe: neither computes nor subscribes', () => {
   let runs = 0
   const source = ref(1)
   const view = computed(function view() {
@@ -54,7 +54,7 @@ test('probe: не считает и не подписывается', () => {
   stop()
 })
 
-test('probe: приостановленный узел отдаёт undefined, а не бросает', () => {
+test('probe: a suspended node yields undefined instead of throwing', () => {
   const gate = new Promise<string>(() => {})
   const load = (): Promise<string> => gate
   const view = computed(function view() {
@@ -65,7 +65,7 @@ test('probe: приостановленный узел отдаёт undefined, �
   expect(probe(() => view())).toBeUndefined()
 })
 
-test('stale: файбер отдаёт своё прошлое значение, пока грузится новое', async () => {
+test('stale: the fiber yields its previous value while the new one loads', async () => {
   const page = ref(0)
   let release!: (value: string) => void
   let gate = new Promise<string>((resolve) => {
@@ -100,7 +100,7 @@ test('stale: файбер отдаёт своё прошлое значение,
   expect(view()).toBe('страница 1')
 })
 
-test('race: независимые ожидания идут параллельно', async () => {
+test('race: independent waits run in parallel', async () => {
   const releases: Array<(value: number) => void> = []
   const gates = [0, 1].map(
     (i) =>
@@ -136,7 +136,7 @@ test('race: независимые ожидания идут параллель�
   expect(view()).toBe(5)
 })
 
-test('race: без него ожидания последовательны', async () => {
+test('race: without it waits are sequential', async () => {
   const releases: Array<(value: number) => void> = []
   const gates = [0, 1].map(
     (i) =>
@@ -160,7 +160,7 @@ test('race: без него ожидания последовательны', as
   expect(secondStarted).toBe(false)
 })
 
-test('untracked: читает значение, но не заводит зависимость', () => {
+test('untracked: reads the value without creating a dependency', () => {
   const tracked = ref(1)
   const hidden = ref(10)
 
@@ -184,7 +184,7 @@ test('untracked: читает значение, но не заводит зав�
   expect(runs).toBe(2)
 })
 
-test('pin: узел переживает потерю подписчиков', () => {
+test('pin: the node survives losing its subscribers', () => {
   const on = ref(true)
 
   const pinned = computed(function pinned() {
@@ -211,7 +211,7 @@ test('pin: узел переживает потерю подписчиков', (
   stop()
 })
 
-test('async: выводит файберное вычисление в промис', async () => {
+test('async: exposes a fiber computation as a promise', async () => {
   let release!: (value: string) => void
   const gate = new Promise<string>((resolve) => {
     release = resolve
@@ -228,15 +228,15 @@ test('async: выводит файберное вычисление в пром�
   await expect(promise).resolves.toBe('значение: готово')
 })
 
-test('async: ошибка внутри превращается в отказ промиса', async () => {
+test('async: an inner error becomes a promise rejection', async () => {
   const boom = computed(function boom(): number {
-    throw new Error('взорвалось')
+    throw new Error('boom')
   })
 
-  await expect(async(() => boom())).rejects.toThrow('взорвалось')
+  await expect(async(() => boom())).rejects.toThrow('boom')
 })
 
-test('async: не оставляет наблюдателя после разрешения', async () => {
+test('async: leaves no watcher behind after resolution', async () => {
   const source = ref(1)
   const view = computed(function view() {
     return source() * 2

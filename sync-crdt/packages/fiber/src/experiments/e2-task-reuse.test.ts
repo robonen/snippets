@@ -21,7 +21,7 @@ function pump(read: () => unknown): Promise<unknown> | null {
   }
 }
 
-test('E2: act() выполняется один раз, обычный вызов — на каждом прогоне', async () => {
+test('E2: act() runs once, a plain call runs on every pass', async () => {
   let idempotent = 0
   let plain = 0
   let runs = 0
@@ -77,7 +77,7 @@ test('E2: act() выполняется один раз, обычный вызо�
   expect(idempotent).toBe(1)
 })
 
-test('E2: sync() не перезапускает уже выполненную асинхронную операцию', async () => {
+test('E2: sync() does not restart an already completed async operation', async () => {
   let calls = 0
 
   let release!: (value: string) => void
@@ -108,7 +108,7 @@ test('E2: sync() не перезапускает уже выполненную �
   expect(calls).toBe(1)
 })
 
-test('E2: расхождение при перезапуске диагностируется, а не проглатывается', async () => {
+test('E2: divergence on restart is diagnosed, not swallowed', async () => {
   const mismatches: Array<{ sub: string; found: string; wanted: string }> = []
   setTaskMismatchHandler((info) => mismatches.push(info))
 

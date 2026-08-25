@@ -9,7 +9,7 @@ import { useTheme } from './theme';
  * бы следовать за системной, причём в консоли об этом не сказали бы ни слова.
  */
 
-test('тема переживает уход того, кто спросил её первым', () => {
+test('Theme survives the departure of whoever asked for it first', () => {
   const caller = effectScope();
   const seen = caller.run(() => useTheme());
   caller.stop(); // компонент ушёл со сцены
@@ -20,6 +20,6 @@ test('тема переживает уход того, кто спросил е�
   expect(useTheme().choice.value).toMatch(/^(system|light|dark)$/);
 });
 
-test('состояние общее: второй вызов не заводит вторую тему', () => {
+test('State is shared: a second call does not create a second theme', () => {
   expect(useTheme().choice).toBe(useTheme().choice);
 });

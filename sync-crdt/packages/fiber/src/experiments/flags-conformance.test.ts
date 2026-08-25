@@ -10,7 +10,7 @@ import { Flags } from '../graph'
  * обновлении версии — молча разъехавшиеся флаги сломали бы граф самым неотлаживаемым
  * образом.
  */
-test('флаги совпадают с рантаймом alien-signals/system', async () => {
+test('Flags match the alien-signals/system runtime', async () => {
   const module = (await import('alien-signals/system')) as unknown as {
     ReactiveFlags: Record<string, number>
   }

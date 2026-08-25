@@ -29,7 +29,7 @@ import { readAll } from '../harness'
  * сирот в хвост и потеря не видна. Наш обход сирот не собирает, поэтому дефект
  * виден сразу — и чинить его надо в `move`, а не в `order`.
  */
-test('move за собственного потомка теряет узел с двумя lead-детьми', () => {
+test('move past its own descendant loses a node with two lead children', () => {
   const clock = fixedClock(1000)
   const replica = new Replica('p1', clock)
 

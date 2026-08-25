@@ -39,8 +39,8 @@ function chain(land: Land, count: number): LocalId[] {
   return nodes
 }
 
-describe('поузловая гранулярность под нагрузкой', () => {
-  test('правка одного узла из 10 000 пересчитывает ровно один канал значения', () => {
+describe('per-node granularity under load', () => {
+  test('editing one node out of 10 000 recomputes exactly one value channel', () => {
     const land = makeLand(0x11)
     const nodes = chain(land, 10_000)
 
@@ -83,7 +83,7 @@ describe('поузловая гранулярность под нагрузко�
     expect(orderCh()).toBe(10_000)
   })
 
-  test('заведомо проигравший юнит не будит ни узел, ни порядок — только size', () => {
+  test('a unit doomed to lose wakes neither node nor order — only size', () => {
     const land = makeLand(0x11)
     const seed = land.post(ROOT, ROOT, 'свежее')
 
@@ -118,7 +118,7 @@ describe('поузловая гранулярность под нагрузко�
     expect(sizeCh()).toBe(2)
   })
 
-  test('переезд узла к другой голове будит ОБЕ головы', () => {
+  test('a node moving to another head wakes BOTH heads', () => {
     const a = makeLand(0x11)
     const first = a.post(ROOT, ROOT, 'первая')
     const second = a.post(ROOT, ROOT, 'вторая')
@@ -145,7 +145,7 @@ describe('поузловая гранулярность под нагрузко�
     expect(secondRuns).toBe(1)
   })
 
-  test('правка ЗНАЧЕНИЯ конкурента меняет порядок — потому сигнал головы и бьётся на любой смене победителя', () => {
+  test('editing the VALUE of a competitor changes the order — hence the head signal fires on any winner change', () => {
     // Сторож самого решения, а не поведения. Соблазн «бить сигнал головы только
     // при смене состава» разбивается об это: два юнита конкурируют за одну
     // позицию, и порядок между ними решает их СОБСТВЕННАЯ метка. Правка значения
@@ -171,7 +171,7 @@ describe('поузловая гранулярность под нагрузко�
     expect([...all.nodes(ROOT)]).not.toEqual(before)
   })
 
-  test('остановленный наблюдатель отпускает сигнал ленда на том же flush', () => {
+  test('a stopped observer releases the land signal on the same flush', () => {
     const land = makeLand(0x11)
     const view = land.post(ROOT, ROOT, 'раз')
 
@@ -194,8 +194,8 @@ describe('поузловая гранулярность под нагрузко�
   })
 })
 
-describe('ленивость не ломается записью', () => {
-  test('move не заводит видов на детей головы', () => {
+describe('laziness is not broken by writes', () => {
+  test('move does not create views for the children of the head', () => {
     // Регрессия: `move` брал раскладку ВИДАМИ, и один вызов на голове из 10 000
     // детей поднимал `views()` с 0 до 10 000 — те самые +194 Б/юнит, ради отказа
     // от которых источником истины и сделаны байты (ADR-016).
@@ -218,7 +218,7 @@ describe('ленивость не ломается записью', () => {
     expect(order).toHaveLength(1000)
   })
 
-  test('remove и units не заводят видов', () => {
+  test('remove and units do not create views', () => {
     const from = makeLand(0x11)
     const ids = chain(from, 100)
     const to = makeLand(0x22)
@@ -233,7 +233,7 @@ describe('ленивость не ломается записью', () => {
     expect(to.views()).toBe(0)
   })
 
-  test('кэш видов не растёт на перекрытиях', () => {
+  test('the view cache does not grow on overrides', () => {
     const land = makeLand(0x11)
     const view = land.post(ROOT, ROOT, 'раз')
     expect(land.read(view.self)).toBe('раз')
@@ -247,7 +247,7 @@ describe('ленивость не ломается записью', () => {
     expect(land.read(view.self)).toBe('значение 499')
   })
 
-  test('nodes() отдаёт порядок, не материализуя видов; order() материализует', () => {
+  test('nodes() returns the order without materializing views; order() does', () => {
     const from = makeLand(0x11)
     chain(from, 100)
     const to = makeLand(0x22)
@@ -263,8 +263,8 @@ describe('ленивость не ломается записью', () => {
   })
 })
 
-describe('adopt не удерживает того, что не пригодилось', () => {
-  test('пачка, из которой не взят ни один юнит, отпускается целиком', () => {
+describe('adopt does not retain what was not used', () => {
+  test('a pack from which no unit was taken is released entirely', () => {
     // Регрессия: `adopt` регистрировал буфер главами ДО того, как выяснится,
     // пригодился ли хоть один юнит. Повторная доставка известной пачки — штатный
     // исход досылки, и каждая стоила +56 КБ навсегда (замер: 200 доставок →
@@ -288,7 +288,7 @@ describe('adopt не удерживает того, что не пригодил
     expect(to.order(ROOT)).toHaveLength(500)
   })
 
-  test('пачка с одним новым юнитом удерживается — это заявленная плата за отказ от копии', () => {
+  test('a pack with one new unit is retained — the declared price of avoiding a copy', () => {
     const from = makeLand(0x11)
     chain(from, 100)
     const owner = Link.land(peerOf(0x11), new Uint8Array(8))

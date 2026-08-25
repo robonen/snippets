@@ -7,29 +7,29 @@ import { hasHints, parseQuickTask } from './quick';
  */
 const MONDAY = '2026-08-24';
 
-describe('быстрый ввод: заголовок', () => {
-  it('строка без меток целиком становится заголовком', () => {
+describe('quick input: title', () => {
+  it('string without markers becomes the title entirely', () => {
     expect(parseQuickTask('купить молока', MONDAY)).toEqual({ title: 'купить молока' });
   });
 
-  it('пустая строка и пробелы дают пустой заголовок, а не мусор', () => {
+  it('empty string and spaces yield an empty title, not garbage', () => {
     expect(parseQuickTask('', MONDAY)).toEqual({ title: '' });
     expect(parseQuickTask('    ', MONDAY)).toEqual({ title: '' });
     expect(parseQuickTask('\n\t ', MONDAY)).toEqual({ title: '' });
   });
 
-  it('лишние пробелы схлопываются', () => {
+  it('extra spaces collapse', () => {
     expect(parseQuickTask('  купить   молока  ', MONDAY).title).toBe('купить молока');
   });
 
-  it('разбор ничего не понял — так и говорит', () => {
+  it('parser understood nothing — and says so', () => {
     expect(hasHints(parseQuickTask('купить молока', MONDAY))).toBeFalsy();
     expect(hasHints(parseQuickTask('завтра', MONDAY))).toBeTruthy();
   });
 });
 
-describe('быстрый ввод: пример из ТЗ', () => {
-  it('«завтра купить молока #дом !высокий» разбирается целиком', () => {
+describe('quick input: the spec example', () => {
+  it('"завтра купить молока #дом !высокий" parses entirely', () => {
     expect(parseQuickTask('завтра купить молока #дом !высокий', MONDAY)).toEqual({
       title: 'купить молока',
       dueAt: '2026-08-25',
@@ -38,7 +38,7 @@ describe('быстрый ввод: пример из ТЗ', () => {
     });
   });
 
-  it('порядок меток не важен: та же строка задом наперёд даёт то же самое', () => {
+  it('marker order does not matter: the same string reversed parses the same', () => {
     expect(parseQuickTask('!высокий #дом купить молока завтра', MONDAY)).toEqual({
       title: 'купить молока',
       dueAt: '2026-08-25',
@@ -48,19 +48,19 @@ describe('быстрый ввод: пример из ТЗ', () => {
   });
 });
 
-describe('быстрый ввод: относительные даты', () => {
-  it('сегодня, завтра, послезавтра', () => {
+describe('quick input: relative dates', () => {
+  it('today, tomorrow, day after tomorrow', () => {
     expect(parseQuickTask('сегодня отчёт', MONDAY).dueAt).toBe('2026-08-24');
     expect(parseQuickTask('завтра отчёт', MONDAY).dueAt).toBe('2026-08-25');
     expect(parseQuickTask('послезавтра отчёт', MONDAY).dueAt).toBe('2026-08-26');
   });
 
-  it('регистр не важен', () => {
+  it('case does not matter', () => {
     expect(parseQuickTask('Завтра отчёт', MONDAY).dueAt).toBe('2026-08-25');
     expect(parseQuickTask('ЗАВТРА отчёт', MONDAY).dueAt).toBe('2026-08-25');
   });
 
-  it('день недели — ближайший такой день, считая сегодняшний', () => {
+  it('weekday — the nearest such day, counting today', () => {
     // Понедельник 24-го: «пн» — сегодня, «вт» — завтра, «вс» — через шесть дней.
     expect(parseQuickTask('пн планёрка', MONDAY).dueAt).toBe('2026-08-24');
     expect(parseQuickTask('вт планёрка', MONDAY).dueAt).toBe('2026-08-25');
@@ -68,23 +68,23 @@ describe('быстрый ввод: относительные даты', () => {
     expect(parseQuickTask('пятница планёрка', MONDAY).dueAt).toBe('2026-08-28');
   });
 
-  it('«выходные» — ближайшая суббота', () => {
+  it('"выходные" — the nearest Saturday', () => {
     expect(parseQuickTask('выходные дача', MONDAY).dueAt).toBe('2026-08-29');
     expect(parseQuickTask('выхи дача', MONDAY).dueAt).toBe('2026-08-29');
     // В само воскресенье выходные — это сегодня, а не суббота через шесть дней.
     expect(parseQuickTask('выходные дача', '2026-08-30').dueAt).toBe('2026-08-30');
   });
 
-  it('«следнеделя» — ближайший понедельник после сегодня', () => {
+  it('"следнеделя" — the nearest Monday after today', () => {
     expect(parseQuickTask('следнеделя ретро', MONDAY).dueAt).toBe('2026-08-31');
   });
 
-  it('«+N» — через N дней', () => {
+  it('"+N" — in N days', () => {
     expect(parseQuickTask('+3 напомнить', MONDAY).dueAt).toBe('2026-08-27');
     expect(parseQuickTask('+0 напомнить', MONDAY).dueAt).toBe('2026-08-24');
   });
 
-  it('дата в ISO берётся как есть, а невозможная — не берётся вовсе', () => {
+  it('ISO date is taken as is, an impossible one is not taken at all', () => {
     expect(parseQuickTask('2026-09-05 отчёт', MONDAY)).toEqual({
       title: 'отчёт',
       dueAt: '2026-09-05',
@@ -92,7 +92,7 @@ describe('быстрый ввод: относительные даты', () => {
     expect(parseQuickTask('2026-13-40 отчёт', MONDAY)).toEqual({ title: '2026-13-40 отчёт' });
   });
 
-  it('«5.09» — ближайшее такое число не в прошлом', () => {
+  it('"5.09" — the nearest such date not in the past', () => {
     expect(parseQuickTask('5.09 отчёт', MONDAY).dueAt).toBe('2026-09-05');
     // 5 августа уже прошло — значит, речь про следующий год.
     expect(parseQuickTask('5.08 отчёт', MONDAY).dueAt).toBe('2027-08-05');
@@ -100,30 +100,30 @@ describe('быстрый ввод: относительные даты', () => {
     expect(parseQuickTask('24.08 отчёт', MONDAY).dueAt).toBe('2026-08-24');
   });
 
-  it('«05.09.2026» — с годом берётся год', () => {
+  it('"05.09.2026" — with a year the year is taken', () => {
     expect(parseQuickTask('05.09.2027 отчёт', MONDAY).dueAt).toBe('2027-09-05');
   });
 
-  it('несуществующего дня не бывает: «31.02» остаётся текстом', () => {
+  it('nonexistent day does not happen: "31.02" stays text', () => {
     expect(parseQuickTask('31.02 отчёт', MONDAY)).toEqual({ title: '31.02 отчёт' });
     expect(parseQuickTask('99.99 отчёт', MONDAY)).toEqual({ title: '99.99 отчёт' });
   });
 
-  it('слово опознаётся целиком: «завтрашний» — не дата', () => {
+  it('the word must match whole: "завтрашний" is not a date', () => {
     expect(parseQuickTask('обсудить завтрашний план', MONDAY)).toEqual({
       title: 'обсудить завтрашний план',
     });
     expect(parseQuickTask('сегодняшняя сводка', MONDAY)).toEqual({ title: 'сегодняшняя сводка' });
   });
 
-  it('хвостовая запятая разбору не мешает и в заголовок не едет', () => {
+  it('trailing comma does not break parsing and does not ride into the title', () => {
     expect(parseQuickTask('завтра, купить молока', MONDAY)).toEqual({
       title: 'купить молока',
       dueAt: '2026-08-25',
     });
   });
 
-  it('срок один: вторая дата остаётся текстом', () => {
+  it('one due date only: the second date stays text', () => {
     expect(parseQuickTask('сегодня завтра отчёт', MONDAY)).toEqual({
       title: 'завтра отчёт',
       dueAt: '2026-08-24',
@@ -131,29 +131,29 @@ describe('быстрый ввод: относительные даты', () => {
   });
 });
 
-describe('быстрый ввод: проект', () => {
-  it('«#имя» уезжает в проект, а не в заголовок', () => {
+describe('quick input: project', () => {
+  it('"#имя" goes to the project, not to the title', () => {
     expect(parseQuickTask('починить кран #дом', MONDAY)).toEqual({
       title: 'починить кран',
       project: 'дом',
     });
   });
 
-  it('проект — это НАЗВАНИЕ, регистр сохраняется', () => {
+  it('project is a NAME, case is preserved', () => {
     expect(parseQuickTask('отчёт #Работа', MONDAY).project).toBe('Работа');
   });
 
-  it('одинокая решётка — просто текст', () => {
+  it('lone hash is just text', () => {
     expect(parseQuickTask('# купить', MONDAY)).toEqual({ title: '# купить' });
   });
 
-  it('решётка в середине слова не считается меткой', () => {
+  it('hash in the middle of a word is not a marker', () => {
     expect(parseQuickTask('канал c#-разработчиков', MONDAY)).toEqual({
       title: 'канал c#-разработчиков',
     });
   });
 
-  it('второй проект НЕ теряется: он остаётся в заголовке', () => {
+  it('second project is NOT lost: it stays in the title', () => {
     // Иначе «купить #молока #хлеба» молча потеряло бы половину покупок.
     expect(parseQuickTask('купить #молока #хлеба', MONDAY)).toEqual({
       title: 'купить #хлеба',
@@ -161,13 +161,13 @@ describe('быстрый ввод: проект', () => {
     });
   });
 
-  it('строка из одной метки даёт пустой заголовок', () => {
+  it('string of a single marker yields an empty title', () => {
     expect(parseQuickTask('#дом', MONDAY)).toEqual({ title: '', project: 'дом' });
   });
 });
 
-describe('быстрый ввод: приоритет', () => {
-  it('русские слова', () => {
+describe('quick input: priority', () => {
+  it('Russian words', () => {
     expect(parseQuickTask('отчёт !срочный', MONDAY).priority).toBe('urgent');
     expect(parseQuickTask('отчёт !срочно', MONDAY).priority).toBe('urgent');
     expect(parseQuickTask('отчёт !высокий', MONDAY).priority).toBe('high');
@@ -176,24 +176,24 @@ describe('быстрый ввод: приоритет', () => {
     expect(parseQuickTask('отчёт !низкий', MONDAY).priority).toBe('low');
   });
 
-  it('цифры и латиница — для тех, кто не переключает раскладку', () => {
+  it('digits and Latin — for those who do not switch layouts', () => {
     expect(parseQuickTask('отчёт !1', MONDAY).priority).toBe('low');
     expect(parseQuickTask('отчёт !4', MONDAY).priority).toBe('urgent');
     expect(parseQuickTask('отчёт !high', MONDAY).priority).toBe('high');
     expect(parseQuickTask('отчёт !urgent', MONDAY).priority).toBe('urgent');
   });
 
-  it('регистр не важен', () => {
+  it('case does not matter', () => {
     expect(parseQuickTask('отчёт !Срочный', MONDAY).priority).toBe('urgent');
   });
 
-  it('незнакомое слово после «!» остаётся текстом', () => {
+  it('unknown word after "!" stays text', () => {
     expect(parseQuickTask('отчёт !ассап', MONDAY)).toEqual({ title: 'отчёт !ассап' });
     expect(parseQuickTask('ура!', MONDAY)).toEqual({ title: 'ура!' });
     expect(parseQuickTask('!', MONDAY)).toEqual({ title: '!' });
   });
 
-  it('приоритет один: второй остаётся текстом', () => {
+  it('one priority only: the second stays text', () => {
     expect(parseQuickTask('отчёт !высокий !низкий', MONDAY)).toEqual({
       title: 'отчёт !низкий',
       priority: 'high',
@@ -201,23 +201,23 @@ describe('быстрый ввод: приоритет', () => {
   });
 });
 
-describe('быстрый ввод: экранирование', () => {
-  it('косая снимает разбор с метки', () => {
+describe('quick input: escaping', () => {
+  it('backslash disables parsing of a marker', () => {
     expect(parseQuickTask('\\#дом это тег', MONDAY)).toEqual({ title: '#дом это тег' });
     expect(parseQuickTask('\\!высокий — это слово', MONDAY)).toEqual({
       title: '!высокий — это слово',
     });
   });
 
-  it('косая снимает разбор и с даты', () => {
+  it('backslash disables parsing of a date too', () => {
     expect(parseQuickTask('песня \\завтра', MONDAY)).toEqual({ title: 'песня завтра' });
   });
 
-  it('снимается ровно одна косая: остальные — текст', () => {
+  it('exactly one backslash is consumed: the rest is text', () => {
     expect(parseQuickTask('\\\\#дом', MONDAY)).toEqual({ title: '\\#дом' });
   });
 
-  it('экранирование не мешает соседям разбираться', () => {
+  it('escaping does not stop neighbors from parsing', () => {
     expect(parseQuickTask('\\#дом купить #продукты завтра', MONDAY)).toEqual({
       title: '#дом купить',
       project: 'продукты',
@@ -226,8 +226,8 @@ describe('быстрый ввод: экранирование', () => {
   });
 });
 
-describe('быстрый ввод: мусор и границы', () => {
-  it('строка из одних меток даёт пустой заголовок и полный разбор', () => {
+describe('quick input: garbage and boundaries', () => {
+  it('string of only markers yields an empty title and a full parse', () => {
     expect(parseQuickTask('завтра #дом !срочно', MONDAY)).toEqual({
       title: '',
       dueAt: '2026-08-25',
@@ -236,14 +236,14 @@ describe('быстрый ввод: мусор и границы', () => {
     });
   });
 
-  it('метки не появляются в ответе, если их не было', () => {
+  it('markers do not appear in the result if they were absent', () => {
     const parsed = parseQuickTask('просто задача', MONDAY);
     for (const field of ['dueAt', 'project', 'priority']) {
       expect(Object.hasOwn(parsed, field)).toBeFalsy();
     }
   });
 
-  it('свойство: заголовок никогда не содержит ведущих или хвостовых пробелов', () => {
+  it('property: the title never has leading or trailing spaces', () => {
     const inputs = [
       '  завтра  ',
       '#дом   ',
@@ -256,7 +256,7 @@ describe('быстрый ввод: мусор и границы', () => {
     }
   });
 
-  it('свойство: разбор не выдумывает слов — всё, что осталось, было во вводе', () => {
+  it('property: the parser invents no words — everything left was in the input', () => {
     const input = 'завтра купить молока #дом !высокий и #хлеба';
     const { title } = parseQuickTask(input, MONDAY);
     for (const word of title.split(' ')) {

@@ -15,7 +15,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-test('дата переезжает через полночь без перезагрузки', () => {
+test('Date moves across midnight without a reload', () => {
   vi.setSystemTime(new Date(2026, 7, 24, 23, 58));
 
   const today = useToday();
@@ -26,7 +26,7 @@ test('дата переезжает через полночь без перез�
   expect(today.value).toBe('2026-08-25');
 });
 
-test('часы одни на приложение', () => {
+test('One clock per application', () => {
   // Иначе каждый открытый экран заводил бы свой таймер ради одного числа.
   expect(useToday()).toBe(useToday());
 });

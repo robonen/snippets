@@ -160,7 +160,7 @@ export function flush(): void {
     // Пересчёт может добавить в очередь новые узлы, а сборка — освободить ещё узлы,
     // поэтому крутимся до неподвижной точки. Ограничитель ловит расходящиеся графы
     // в тестах, вместо того чтобы вешать процесс.
-    if (++guard > 1000) throw new Error('flush: граф не сходится за 1000 проходов')
+    if (++guard > 1000) throw new Error('flush: the graph does not converge within 1000 passes')
 
     for (const node of planning) {
       planning.delete(node)

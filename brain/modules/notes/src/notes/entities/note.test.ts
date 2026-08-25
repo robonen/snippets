@@ -28,7 +28,7 @@ function note(patch: Partial<Note> & { id: string }): Note {
 }
 
 describe(sortNotes, () => {
-  it('закреплённые сверху, дальше по свежести правки', () => {
+  it('pinned first, then by edit freshness', () => {
     const list = [
       note({ id: 'a', updatedAt: 30 }),
       note({ id: 'b', updatedAt: 10, pinned: true }),
@@ -37,7 +37,7 @@ describe(sortNotes, () => {
     expect(sortNotes(list).map(item => item.id)).toEqual(['b', 'a', 'c']);
   });
 
-  it('закреплённые между собой тоже по свежести', () => {
+  it('pinned notes are ordered by freshness among themselves', () => {
     const list = [
       note({ id: 'a', updatedAt: 10, pinned: true }),
       note({ id: 'b', updatedAt: 40, pinned: true }),
@@ -45,7 +45,7 @@ describe(sortNotes, () => {
     expect(sortNotes(list).map(item => item.id)).toEqual(['b', 'a']);
   });
 
-  it('одинаковые метки разводятся по id, а не по порядку прихода', () => {
+  it('equal stamps are split by id, not by arrival order', () => {
     const straight = sortNotes([
       note({ id: 'b', updatedAt: 10, createdAt: 1 }),
       note({ id: 'a', updatedAt: 10, createdAt: 1 }),
@@ -58,13 +58,13 @@ describe(sortNotes, () => {
     expect(reversed.map(item => item.id)).toEqual(straight.map(item => item.id));
   });
 
-  it('исходный массив не трогает', () => {
+  it('does not touch the source array', () => {
     const list = [note({ id: 'a', updatedAt: 1 }), note({ id: 'b', updatedAt: 2 })];
     sortNotes(list);
     expect(list.map(item => item.id)).toEqual(['a', 'b']);
   });
 
-  it('по созданию — свежесозданные сверху, свежесть правки не считается', () => {
+  it('by creation — newest created first, edit freshness ignored', () => {
     const list = [
       note({ id: 'a', createdAt: 10, updatedAt: 90 }),
       note({ id: 'b', createdAt: 30, updatedAt: 30 }),
@@ -73,7 +73,7 @@ describe(sortNotes, () => {
     expect(sortNotes(list, 'created').map(item => item.id)).toEqual(['b', 'c', 'a']);
   });
 
-  it('по названию — по алфавиту без учёта регистра', () => {
+  it('by name — alphabetical, case-insensitive', () => {
     const list = [
       note({ id: 'a', title: 'Ремонт' }),
       note({ id: 'b', title: 'дневник' }),
@@ -82,12 +82,12 @@ describe(sortNotes, () => {
     expect(sortNotes(list, 'title').map(item => item.id)).toEqual(['b', 'c', 'a']);
   });
 
-  it('по названию безымянные уезжают в конец, а не в начало', () => {
+  it('by name the untitled go to the end, not the beginning', () => {
     const list = [note({ id: 'a' }), note({ id: 'b', title: 'Ремонт' })];
     expect(sortNotes(list, 'title').map(item => item.id)).toEqual(['b', 'a']);
   });
 
-  it('закрепление сильнее любого порядка', () => {
+  it('pin beats any ordering', () => {
     const list = [
       note({ id: 'a', title: 'Ананас' }),
       note({ id: 'b', title: 'Яблоко', pinned: true }),
@@ -103,17 +103,17 @@ describe(inScope, () => {
   const archived = note({ id: 'c', archived: true });
   const both = note({ id: 'd', pinned: true, archived: true });
 
-  it('обычный срез показывает всё, кроме архива', () => {
+  it('ordinary slice shows everything except the archive', () => {
     expect([active, pinned, archived].filter(item => inScope(item, 'active')).map(item => item.id))
       .toEqual(['a', 'b']);
   });
 
-  it('закреплённые — только они, и только вне архива', () => {
+  it('pinned — only them, and only outside the archive', () => {
     expect([active, pinned, both].filter(item => inScope(item, 'pinned')).map(item => item.id))
       .toEqual(['b']);
   });
 
-  it('архив показывает только архивное', () => {
+  it('archive shows only the archived', () => {
     expect([active, pinned, archived, both].filter(item => inScope(item, 'archived')).map(item => item.id))
       .toEqual(['c', 'd']);
   });
@@ -122,11 +122,11 @@ describe(inScope, () => {
 describe(hasTags, () => {
   const item = note({ id: 'n', tags: ['работа', 'идеи'] });
 
-  it('без выбранных тегов подходит любая заметка', () => {
+  it('with no tags selected any note matches', () => {
     expect(hasTags(note({ id: 'x' }), [])).toBeTruthy();
   });
 
-  it('несколько тегов сужают: нужны ВСЕ', () => {
+  it('several tags narrow: ALL are required', () => {
     expect(hasTags(item, ['работа'])).toBeTruthy();
     expect(hasTags(item, ['работа', 'идеи'])).toBeTruthy();
     expect(hasTags(item, ['работа', 'чтение'])).toBeFalsy();
@@ -136,30 +136,30 @@ describe(hasTags, () => {
 describe(matchesQuery, () => {
   const item = note({ id: 'n', title: 'Планы на неделю', tags: ['работа', 'идеи'] });
 
-  it('пустой запрос подходит всем', () => {
+  it('empty query matches everything', () => {
     expect(matchesQuery(item, '   ')).toBeTruthy();
   });
 
-  it('ищет по куску заголовка без учёта регистра', () => {
+  it('searches by a title fragment, case-insensitive', () => {
     expect(matchesQuery(item, 'НЕДЕЛ')).toBeTruthy();
   });
 
-  it('ищет по тегу', () => {
+  it('searches by tag', () => {
     expect(matchesQuery(item, 'идеи')).toBeTruthy();
   });
 
-  it('решётка ищет только по тегам', () => {
+  it('hash searches tags only', () => {
     expect(matchesQuery(item, '#работа')).toBeTruthy();
     expect(matchesQuery(item, '#планы')).toBeFalsy();
   });
 
-  it('тело в поиск не входит', () => {
+  it('body is not searched', () => {
     expect(matchesQuery(note({ id: 'n', body: 'секретное слово' }), 'секретное')).toBeFalsy();
   });
 });
 
 describe(searchNotes, () => {
-  it('фильтрует и сортирует одним проходом', () => {
+  it('filters and sorts in one pass', () => {
     const list = [
       note({ id: 'a', title: 'Планы', updatedAt: 10 }),
       note({ id: 'b', title: 'Покупки', updatedAt: 20 }),
@@ -168,7 +168,7 @@ describe(searchNotes, () => {
     expect(searchNotes(list, 'план').map(item => item.id)).toEqual(['c', 'a']);
   });
 
-  it('архивная заметка в выдачу не попадает, даже если подходит слово в слово', () => {
+  it('archived note does not enter the result even on an exact match', () => {
     const list = [
       note({ id: 'a', title: 'Планы' }),
       note({ id: 'b', title: 'Планы', archived: true }),
@@ -185,29 +185,29 @@ describe(selectNotes, () => {
     note({ id: 'd', title: 'Дневник', updatedAt: 40, pinned: true }),
   ];
 
-  it('без фильтров отдаёт активные заметки в обычном порядке', () => {
+  it('without filters returns active notes in the default order', () => {
     expect(selectNotes(list).map(item => item.id)).toEqual(['d', 'b', 'a']);
   });
 
-  it('срез архива достаёт то, что скрыто от остальных', () => {
+  it('archive slice retrieves what is hidden from the rest', () => {
     expect(selectNotes(list, { scope: 'archived' }).map(item => item.id)).toEqual(['c']);
   });
 
-  it('теги сужают выдачу и не вытаскивают архив', () => {
+  it('tags narrow the result and do not pull out the archive', () => {
     expect(selectNotes(list, { tags: ['дом'] }).map(item => item.id)).toEqual(['b']);
     expect(selectNotes(list, { tags: ['дом'], scope: 'archived' }).map(item => item.id)).toEqual(['c']);
   });
 
-  it('запрос и теги применяются вместе', () => {
+  it('query and tags apply together', () => {
     expect(selectNotes(list, { tags: ['работа'], query: 'рем' }).map(item => item.id)).toEqual(['b']);
     expect(selectNotes(list, { tags: ['дом'], query: 'планы' })).toEqual([]);
   });
 
-  it('срез закреплённых не смотрит на порядок сортировки', () => {
+  it('pinned slice ignores the sort order', () => {
     expect(selectNotes(list, { scope: 'pinned', sort: 'title' }).map(item => item.id)).toEqual(['d']);
   });
 
-  it('сортировка применяется после фильтрации', () => {
+  it('sorting applies after filtering', () => {
     expect(selectNotes(list, { sort: 'title' }).map(item => item.id)).toEqual(['d', 'a', 'b']);
   });
 });
@@ -215,11 +215,11 @@ describe(selectNotes, () => {
 describe(sameContent, () => {
   const base = note({ id: 'n', title: 'Тема', body: 'текст', tags: ['a', 'b'] });
 
-  it('снимок равен себе, даже если метки правки разошлись', () => {
+  it('snapshot equals itself even when edit stamps diverge', () => {
     expect(sameContent(base, { ...base, updatedAt: base.updatedAt + 1000 })).toBeTruthy();
   });
 
-  it('видит правку тела, заголовка, закрепления, архива и тегов', () => {
+  it('sees edits to body, title, pin, archive, and tags', () => {
     expect(sameContent(base, { ...base, body: 'другой' })).toBeFalsy();
     expect(sameContent(base, { ...base, title: 'Другая' })).toBeFalsy();
     expect(sameContent(base, { ...base, pinned: true })).toBeFalsy();
@@ -230,59 +230,59 @@ describe(sameContent, () => {
 });
 
 describe(noteLabel, () => {
-  it('заметка без заголовка подписана явно', () => {
+  it('untitled note is labeled explicitly', () => {
     expect(noteLabel(note({ id: 'n' }))).toBe(UNTITLED);
   });
 
-  it('обычная заметка подписана своим заголовком', () => {
+  it('ordinary note is labeled with its own title', () => {
     expect(noteLabel(note({ id: 'n', title: 'Тема' }))).toBe('Тема');
   });
 
-  it('заметке дня дату показывает по-человечески', () => {
+  it('daily note shows its date in human form', () => {
     const daily = note({ id: 'd', title: '2026-08-24', daily: '2026-08-24' });
     expect(noteLabel(daily, '2026-08-24')).toBe('Сегодня');
     expect(noteLabel(daily, '2026-08-25')).toBe('Вчера');
   });
 
-  it('переименованная заметка дня остаётся под своим заголовком', () => {
+  it('renamed daily note keeps its own title', () => {
     const renamed = note({ id: 'd', title: 'Отпуск', daily: '2026-08-24' });
     expect(noteLabel(renamed, '2026-08-24')).toBe('Отпуск');
   });
 });
 
 describe(noteSnippet, () => {
-  it('берёт первую содержательную строку без разметки', () => {
+  it('takes the first meaningful line without markup', () => {
     expect(noteSnippet('\n\n# Заголовок\nвторая строка')).toBe('Заголовок');
   });
 
-  it('снимает скобки ссылок', () => {
+  it('strips link brackets', () => {
     expect(noteSnippet('- см. [[Планы]]')).toBe('см. Планы');
   });
 
-  it('обрезает длинную строку многоточием', () => {
+  it('truncates a long line with an ellipsis', () => {
     expect(noteSnippet('а'.repeat(50), 10)).toBe(`${'а'.repeat(10)}…`);
   });
 
-  it('у пустого тела подписи нет', () => {
+  it('empty body has no label', () => {
     expect(noteSnippet('\n  \n')).toBe('');
   });
 });
 
 describe(noteStats, () => {
-  it('считает слова между любыми пробелами', () => {
+  it('counts words between any whitespace', () => {
     expect(noteStats('раз два\nтри\tчетыре')).toMatchObject({ words: 4 });
   });
 
-  it('пустое тело — ноль и ноль', () => {
+  it('empty body — zero and zero', () => {
     expect(noteStats('')).toEqual({ words: 0, chars: 0 });
     expect(noteStats('   \n  ')).toMatchObject({ words: 0 });
   });
 
-  it('символы считаются кодовыми точками, а не единицами UTF-16', () => {
+  it('characters count as code points, not UTF-16 units', () => {
     expect(noteStats('🙂').chars).toBe(1);
   });
 
-  it('пробелы по краям слов не добавляют', () => {
+  it('edge spaces add no words', () => {
     expect(noteStats('  одно  ')).toMatchObject({ words: 1 });
   });
 });

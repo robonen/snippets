@@ -117,7 +117,7 @@ export interface TabSync {
  */
 export function syncTabs(options: SyncTabsOptions): TabSync {
   const { land, id } = options
-  const report = options.report ?? ((error: unknown) => console.error('[@sync/core] канал вкладок:', error))
+  const report = options.report ?? ((error: unknown) => console.error('[@sync/core] tabs channel:', error))
   const port = options.port ?? bcPort(`sync:land:${id.str}`)
   const ours = id.str
 

@@ -28,7 +28,7 @@ export function hex(bin: Uint8Array): string {
 
 /** Hex в байты. Длина обязана быть чётной — иначе вектор в фикстуре опечатан. */
 export function unhex(text: string): Uint8Array {
-  if (text.length % 2 !== 0) throw new Error(`нечётная длина hex: «${text}»`)
+  if (text.length % 2 !== 0) throw new Error(`odd hex length: "${text}"`)
   const out = new Uint8Array(text.length / 2)
   for (let i = 0; i < out.length; i++) out[i] = Number.parseInt(text.slice(i * 2, i * 2 + 2), 16)
   return out
@@ -153,11 +153,11 @@ export function reviveVary(node: VaryNode): Vary {
     }
     case 'special': {
       const value = SPECIAL[node.v as string]
-      if (value === undefined) throw new Error(`в фикстуре неизвестное спецзначение «${String(node.v)}»`)
+      if (value === undefined) throw new Error(`unknown special value "${String(node.v)}" in fixture`)
       return value
     }
     default:
-      throw new Error(`в фикстуре неизвестный вид узла «${node.k}»`)
+      throw new Error(`unknown node kind "${node.k}" in fixture`)
   }
 }
 
@@ -221,6 +221,6 @@ export function makeUnit(kind: string, fields: Record<string, unknown>): Unit {
         key: unhex(fields.key as string),
       })
     default:
-      throw new Error(`в фикстуре неизвестный вид юнита «${kind}»`)
+      throw new Error(`unknown unit kind "${kind}" in fixture`)
   }
 }

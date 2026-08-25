@@ -60,8 +60,8 @@ function sand(over: Partial<Parameters<typeof SandUnit.make>[0]> = {}): SandUnit
 
 // ── Раскладка ────────────────────────────────────────────────────────────────
 
-describe('раскладка', () => {
-  test('офсеты совпадают с таблицей спецификации (docs/03 §2)', () => {
+describe('layout', () => {
+  test('offsets match the specification table (docs/03 §2)', () => {
     expect(UNIT_AT).toEqual({ kind: 0, meta: 1, time: 2, tick: 6, peer: 8, body: 16 })
     expect(SAND_AT).toEqual({ self: 16, head: 22, lead: 28, size: 34, shot: 36, payload: 48 })
     expect(GIFT_AT).toEqual({ mate: 16, rank: 24, code: 32 })
@@ -71,7 +71,7 @@ describe('раскладка', () => {
     expect(SHOT_BYTES).toBe(12)
   })
 
-  test('каждое поле санда читается со своего офсета из собранных руками байт', () => {
+  test('each sand field reads from its offset in hand-built bytes', () => {
     // Байты выписаны здесь, а не получены фабрикой: иначе тест проверял бы
     // согласие кода с самим собой, а не с таблицей офсетов.
     const bin = new Uint8Array(56)
@@ -103,13 +103,13 @@ describe('раскладка', () => {
     expect(unit.value()).toBe('hi')
   })
 
-  test('time и tick лежат в big-endian', () => {
+  test('time and tick are stored big-endian', () => {
     const unit = sand({ time: 0x01020304, tick: 0x0506 })
     expect(hex(unit.bin.subarray(UNIT_AT.time, UNIT_AT.time + 4))).toBe('01020304')
     expect(hex(unit.bin.subarray(UNIT_AT.tick, UNIT_AT.tick + 2))).toBe('0506')
   })
 
-  test('сдвиг одного байта меняет ровно одно поле', () => {
+  test('changing one byte changes exactly one field', () => {
     const base = sand({ time: 0x01020304, tick: 0x0506 })
 
     const shifted = base.bin.slice()
@@ -120,7 +120,7 @@ describe('раскладка', () => {
     expect(hex(other.peer().bin)).toBe(hex(PEER))
   })
 
-  test('длины видов выровнены на 8 байт', () => {
+  test('kind lengths are aligned to 8 bytes', () => {
     expect(SandUnit.lengthOf(0)).toBe(48)
     expect(SandUnit.lengthOf(3)).toBe(56)
     expect(SandUnit.lengthOf(UNIT_BYTES.inlineMax)).toBe(112)
@@ -137,7 +137,7 @@ describe('раскладка', () => {
     }
   })
 
-  test('inline-санд оставляет байты 34…48 нулевыми — там место sizeBig и shot', () => {
+  test('inline sand leaves bytes 34…48 zero — the spot for sizeBig and shot', () => {
     // Это не украшение теста, а зафиксированная цена раскладки: 14 байт на
     // каждый санд со значением внутри. См. отчёт по S2.
     const unit = sand()
@@ -147,8 +147,8 @@ describe('раскладка', () => {
 
 // ── Иммутабельность ──────────────────────────────────────────────────────────
 
-describe('иммутабельность', () => {
-  test('юнит заморожен: присваивание в поле бросает', () => {
+describe('immutability', () => {
+  test('unit is frozen: assigning to a field throws', () => {
     const unit = sand()
     expect(Object.isFrozen(unit)).toBe(true)
     expect(() => {
@@ -159,7 +159,7 @@ describe('иммутабельность', () => {
     }).toThrow(TypeError)
   })
 
-  test('сеттеров нет: у аксессоров нулевая арность', () => {
+  test('no setters: accessors have zero arity', () => {
     // В baza каждый аксессор принимал `next` и писал в буфер. Здесь запись
     // невозможна по сигнатуре, а не по договорённости.
     const unit = sand()
@@ -168,7 +168,7 @@ describe('иммутабельность', () => {
     }
   })
 
-  test('фабрика копирует входные байты: правка источника юнита не меняет', () => {
+  test('factory copies input bytes: editing the source does not change the unit', () => {
     const shot = bytes('0102030405060708090a0b0c')
     const unit = SandUnit.makeBig({ peer, time: 1, tick: 0, self, head, lead, size: 100, shot })
     shot.fill(0xff)
@@ -180,7 +180,7 @@ describe('иммутабельность', () => {
     expect(hex(seal.sign())).toBe('01'.repeat(64))
   })
 
-  test('аксессоры отдают копии: правка результата юнита не меняет', () => {
+  test('accessors return copies: editing the result does not change the unit', () => {
     const unit = sand()
     const first = unit.bytes()
     first.fill(0xff)
@@ -191,7 +191,7 @@ describe('иммутабельность', () => {
     expect(gift.coded()).toBe(true)
   })
 
-  test('кэш ссылки переживает заморозку и отдаёт тот же объект', () => {
+  test('link cache survives freezing and returns the same object', () => {
     // Ленивый разбор живёт в приватных полях: `Object.freeze` до них не достаёт.
     const unit = sand()
     expect(unit.self()).toBe(unit.self())
@@ -269,7 +269,7 @@ function sandOf(stamp: Stamp): Sand {
 const sign = (n: number): number => (n < 0 ? -1 : n > 0 ? 1 : 0)
 
 describe('compare', () => {
-  test('порядок time ↓, peer ↑, tick ↓ (10 000 прогонов)', () => {
+  test('order is time ↓, peer ↑, tick ↓ (10,000 runs)', () => {
     fc.assert(
       fc.property(stampArb, stampArb, (left, right) => {
         const got = sign(Unit.compare(unitOf(left), unitOf(right)))
@@ -287,7 +287,7 @@ describe('compare', () => {
     )
   })
 
-  test('совпадает с compare из land/lww на тех же входах (10 000 прогонов)', () => {
+  test('matches compare from land/lww on the same inputs (10,000 runs)', () => {
     fc.assert(
       fc.property(stampArb, stampArb, (left, right) => {
         expect(sign(Unit.compare(unitOf(left), unitOf(right)))).toBe(sign(compareSand(sandOf(left), sandOf(right))))
@@ -296,7 +296,7 @@ describe('compare', () => {
     )
   })
 
-  test('на широком диапазоне тоже совпадает с land/lww (10 000 прогонов)', () => {
+  test('matches land/lww on a wide range too (10,000 runs)', () => {
     fc.assert(
       fc.property(wideStampArb, wideStampArb, (left, right) => {
         expect(sign(Unit.compare(unitOf(left), unitOf(right)))).toBe(sign(compareSand(sandOf(left), sandOf(right))))
@@ -305,7 +305,7 @@ describe('compare', () => {
     )
   })
 
-  test('строгий полный порядок: ноль только при полном совпадении меток', () => {
+  test('strict total order: zero only when stamps fully match', () => {
     fc.assert(
       fc.property(stampArb, stampArb, (left, right) => {
         const same = left.time === right.time && left.tick === right.tick && hex(left.peer) === hex(right.peer)
@@ -315,7 +315,7 @@ describe('compare', () => {
     )
   })
 
-  test('антисимметричность и транзитивность сортировки', () => {
+  test('sort antisymmetry and transitivity', () => {
     fc.assert(
       fc.property(fc.array(stampArb, { minLength: 2, maxLength: 12 }), (stamps) => {
         const units = stamps.map(unitOf)
@@ -335,7 +335,7 @@ describe('compare', () => {
     )
   })
 
-  test('арбитраж по пиру: старшее слово беззнаковое, младшее тоже решает', () => {
+  test('peer tiebreak: the high word is unsigned, the low word matters too', () => {
     // Пир читается двумя словами; оба места легко испортить. Знаковое сравнение
     // старшего слова перевернуло бы порядок на пирах с байтом ≥ 0x80, а забытое
     // младшее слово сделало бы половину пиров неразличимыми.
@@ -352,20 +352,20 @@ describe('compare', () => {
     expect(cmp('a0a1a2a3a4a5a6a7', 'a0a1a2a3a4a5a6a7')).toBe(0)
   })
 
-  test('порядок не зависит от вида юнита', () => {
+  test('order does not depend on unit kind', () => {
     const older = GiftUnit.make({ ...giftFields(), time: 1 })
     const newer = SealUnit.make({ ...sealFields(), time: 2 })
     expect(Unit.compare(newer, older)).toBeLessThan(0)
   })
 
-  test('отсутствующий юнит уходит в конец', () => {
+  test('a missing unit goes last', () => {
     const unit = sand()
     expect(Unit.compare(undefined, undefined)).toBe(0)
     expect(Unit.compare(unit, undefined)).toBeLessThan(0)
     expect(Unit.compare(undefined, unit)).toBeGreaterThan(0)
   })
 
-  test('обещание спецификации про memcmp 14 байт НЕ выполняется', () => {
+  test('the specification promise of a 14-byte memcmp does NOT hold', () => {
     // §2 обещает: «поля лежат в этом порядке и в big-endian, поэтому сравнение
     // сводится к memcmp 14 байт». Ниже — контрпример на каждое из трёх
     // расхождений. Тест держит обещание опровергнутым: если кто-нибудь заменит
@@ -413,7 +413,7 @@ describe('compare', () => {
     expect(sign(-memcmp(smallPeer, bigPeer))).toBe(1) // обратный — против
   })
 
-  test('арбитр по пиру идёт по байтам, а не по тексту ссылки', () => {
+  test('peer tiebreak goes by bytes, not by link text', () => {
     // base64url ставит цифры ПОСЛЕ букв и `-`, поэтому текстовый порядок ссылок
     // не совпадает с байтовым. Слою ленда, когда он переедет на бинарный юнит,
     // это меняет исход конкурентных правок — расхождение задокументировано в
@@ -444,7 +444,7 @@ const valueArb = fc.oneof(
 const idArb = fc.uint8Array({ minLength: 6, maxLength: 6 })
 
 describe('round-trip', () => {
-  test('поля собранного санда читаются обратно (10 000 прогонов)', () => {
+  test('built sand fields read back (10,000 runs)', () => {
     fc.assert(
       fc.property(
         wideStampArb,
@@ -485,14 +485,14 @@ describe('round-trip', () => {
     )
   })
 
-  test('нулевой id читается как ROOT слоя ленда', () => {
+  test('zero id reads as the land layer ROOT', () => {
     const unit = sand({ head: Link.hole, lead: Link.hole })
     expect(unit.head().str).toBe(ROOT)
     expect(unit.lead().str).toBe(ROOT)
     expect(unit.self().str).not.toBe(ROOT)
   })
 
-  test('gift, seal и pass читаются обратно', () => {
+  test('gift, seal, and pass read back', () => {
     const gift = GiftUnit.make(giftFields())
     const giftBack = parseUnit(gift.bin)
     expect(giftBack.kind()).toBe('gift')
@@ -524,7 +524,7 @@ describe('round-trip', () => {
     }
   })
 
-  test('пустая ссылка на месте mate означает «всем»', () => {
+  test('an empty link in mate means "for everyone"', () => {
     const gift = GiftUnit.make({ ...giftFields(), mate: Link.hole })
     expect(gift.mate().str).toBe('')
     expect(gift.path()).toBe('gift:')
@@ -533,8 +533,8 @@ describe('round-trip', () => {
 
 // ── Значение ─────────────────────────────────────────────────────────────────
 
-describe('значение', () => {
-  test('надгробие — это один байт vary-null', () => {
+describe('value', () => {
+  test('a tombstone is a single vary-null byte', () => {
     expect(hex(varyEncode(null))).toBe('00')
     const grave = sand({ value: null })
     expect(grave.dead()).toBe(true)
@@ -546,7 +546,7 @@ describe('значение', () => {
     expect(sand({ value: 0 }).dead()).toBe(false)
   })
 
-  test('значение до 62 байт лежит внутри юнита', () => {
+  test('a value up to 62 bytes lives inside the unit', () => {
     const text = 'x'.repeat(60) // vary: тег(1) + varint(1) + 60 байт = 62
     const unit = sand({ value: text })
     expect(varyEncode(text).length).toBe(UNIT_BYTES.inlineMax)
@@ -557,13 +557,13 @@ describe('значение', () => {
     expect(() => unit.shot()).toThrow(UnitError)
   })
 
-  test('значение длиннее 62 байт требует ball', () => {
+  test('a value longer than 62 bytes requires a ball', () => {
     const text = 'x'.repeat(61)
     expect(varyEncode(text).length).toBe(63)
     expect(() => sand({ value: text })).toThrow(UnitError)
   })
 
-  test('makeAuto уносит длинное значение в ball и кладёт в юнит хэш', async () => {
+  test('makeAuto moves a long value to a ball and puts the hash in the unit', async () => {
     const text = 'y'.repeat(1000)
     const { unit, ball } = await SandUnit.makeAuto({ peer, time: 1, tick: 0, self, head, lead, value: text })
 
@@ -581,14 +581,14 @@ describe('значение', () => {
     expect(unit.dead()).toBe(false)
   })
 
-  test('makeAuto оставляет короткое значение внутри', async () => {
+  test('makeAuto keeps a short value inline', async () => {
     const { unit, ball } = await SandUnit.makeAuto({ peer, time: 1, tick: 0, self, head, lead, value: 'hi' })
     expect(ball).toBeNull()
     expect(unit.big()).toBe(false)
     expect(unit.value()).toBe('hi')
   })
 
-  test('пустое значение представимо: inlineSize = 0 — это не маркер', () => {
+  test('an empty value is representable: inlineSize = 0 is not a marker', () => {
     // В baza `size()` у пустого санда возвращала 2¹⁶: маркером выносного
     // значения там был 0. У нас маркер — 63, и ноль остаётся нулём.
     const bin = new Uint8Array(48)
@@ -609,7 +609,7 @@ describe('значение', () => {
 // ── Диспетчер ────────────────────────────────────────────────────────────────
 
 describe('parseUnit', () => {
-  test('разбирает все четыре вида по первому байту', () => {
+  test('parses all four kinds by the first byte', () => {
     const cases: Array<[number, string]> = [
       [UNIT_KIND.sand, 'sand'],
       [UNIT_KIND.gift, 'gift'],
@@ -627,7 +627,7 @@ describe('parseUnit', () => {
     }
   })
 
-  test('не копирует байты — юнит остаётся окном в буфер пачки', () => {
+  test('does not copy bytes — the unit stays a window into the pack buffer', () => {
     const built = sand()
     const arena = new Uint8Array(built.bin.length + 16)
     arena.set(built.bin, 8)
@@ -636,14 +636,14 @@ describe('parseUnit', () => {
     expect(unit.bin.buffer).toBe(arena.buffer)
   })
 
-  test('неизвестный вид, обрезанный заголовок и не та длина отвергаются', () => {
+  test('unknown kind, truncated header, and wrong length are rejected', () => {
     expect(() => parseUnit(new Uint8Array(48))).toThrow(UnitError) // kind = 0, свободный слот
     expect(() => parseUnit(new Uint8Array(8))).toThrow(UnitError)
     const short = sand().bin.slice(0, 40)
     expect(() => parseUnit(short)).toThrow(UnitError)
   })
 
-  test('выносное значение короче потолка inline отвергается', () => {
+  test('an external value shorter than the inline cap is rejected', () => {
     // Иначе у одного значения было бы два представления и два разных хэша.
     const unit = SandUnit.makeBig({ peer, time: 1, tick: 0, self, head, lead, size: 100, shot: new Uint8Array(12) })
     const broken = unit.bin.slice()
@@ -652,12 +652,12 @@ describe('parseUnit', () => {
     expect(() => parseUnit(broken)).toThrow(UnitError)
   })
 
-  test('wrap проверяет вид: чужие байты не притворятся сандом', () => {
+  test('wrap checks the kind: foreign bytes cannot pose as a sand', () => {
     const gift = GiftUnit.make(giftFields())
     expect(() => SandUnit.wrap(gift.bin)).toThrow(UnitError)
   })
 
-  test('фабрики отвергают ссылку не того уровня', () => {
+  test('factories reject a link of the wrong level', () => {
     const absolute = Link.pawn(Link.land(peer, new Uint8Array(8).fill(1)), SELF)
     expect(() => sand({ self: absolute })).toThrow(UnitError)
     expect(() => sand({ peer: Link.hole })).toThrow(UnitError)
@@ -665,7 +665,7 @@ describe('parseUnit', () => {
     expect(() => sand({ tick: 0x10000 })).toThrow(UnitError)
   })
 
-  test('тип сужается по kind()', () => {
+  test('type narrows by kind()', () => {
     const unit: AnyUnit = parseUnit(sand().bin)
     if (unit instanceof SandUnit) {
       expectTypeOf(unit).toEqualTypeOf<SandUnit>()
@@ -678,15 +678,15 @@ describe('parseUnit', () => {
 
 // ── Хэш и путь ───────────────────────────────────────────────────────────────
 
-describe('хэш и путь', () => {
-  test('хэш — первые 12 байт SHA-256 от всего буфера', async () => {
+describe('hash and path', () => {
+  test('hash is the first 12 bytes of SHA-256 over the whole buffer', async () => {
     const unit = sand()
     const want = new Uint8Array(await crypto.subtle.digest('SHA-256', unit.bin)).slice(0, SHOT_BYTES)
     expect(hex(await unit.hash())).toBe(hex(want))
     expect(shotKey(await unit.hash())).toBe(hex(want))
   })
 
-  test('хэш отдаётся копией: правка результата кэш не портит', async () => {
+  test('hash is returned as a copy: editing the result does not corrupt the cache', async () => {
     const unit = sand()
     const first = await unit.hash()
     first.fill(0)
@@ -694,17 +694,17 @@ describe('хэш и путь', () => {
     expect(hex(second)).not.toBe('00'.repeat(SHOT_BYTES))
   })
 
-  test('путь: sand:head/peer/self', () => {
+  test('path: sand:head/peer/self', () => {
     expect(sand().path()).toBe(`sand:${head.str}/${peer.str}/${self.str}`)
     expect(sand({ head: Link.hole }).path()).toBe(`sand:/${peer.str}/${self.str}`)
   })
 
-  test('путь печати опирается на peer/time.tick, а не на хэш', () => {
+  test('seal path relies on peer/time.tick, not on the hash', () => {
     const seal = SealUnit.make(sealFields())
     expect(seal.path()).toBe(`seal:${peer.str}/${seal.time()}.${seal.tick()}`)
   })
 
-  test('паспорт проверяет, что объявленный peer выведен из ключа', async () => {
+  test('pass verifies the declared peer is derived from the key', async () => {
     const key = new Uint8Array(32).fill(0xc0)
     const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', key))
     const honest = PassUnit.make({ peer: Link.peer(digest.slice(0, 8)), time: 1, tick: 0, algo: 'ed25519', key })
@@ -721,7 +721,7 @@ describe('хэш и путь', () => {
 // гоняются в Chromium (`cross-runtime.test.ts`), а туда `node:fs` не едет.
 
 describe('golden', () => {
-  test('эталонные байты разбираются в объявленные поля', () => {
+  test('golden bytes parse into the declared fields', () => {
     for (const vector of golden.vectors) {
       const unit = parseUnit(bytes(vector.hex))
       const at = `${vector.kind}: ${vector.note}`
@@ -763,7 +763,7 @@ describe('golden', () => {
     }
   })
 
-  test('фабрики собирают ровно эталонные байты', () => {
+  test('factories build exactly the golden bytes', () => {
     for (const vector of golden.vectors) {
       expect(hex(makeUnit(vector.kind, vector.fields).bin), vector.note).toBe(vector.hex)
     }

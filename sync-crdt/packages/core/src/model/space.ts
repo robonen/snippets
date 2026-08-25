@@ -245,10 +245,10 @@ export function createSpace(options: SpaceOptions): Space {
         // Форма отказа прежняя и по той же причине: §4 обещает прикладному коду
         // либо значение, либо `Issue`, либо ошибку СВОЕГО слоя, а не `UnitError`
         // бинарного.
-        if (error instanceof UnitError && error.at === 'поле value') {
+        if (error instanceof UnitError && error.at === 'field value') {
           throw new ModelError(
-            `значение не помещается в юнит: ${error.reason}. Такое значение надо резать на части — списком или текстом`,
-            'запись поля',
+            `value does not fit into a unit: ${error.reason}. Such a value must be cut into parts — as a list or text`,
+            'field write',
           )
         }
         throw error
@@ -269,7 +269,7 @@ export function createSpace(options: SpaceOptions): Space {
     of(other: LandId): Space {
       if (open === undefined) {
         throw new ModelError(
-          `соседний ленд «${other.str}» некому открыть: передайте createSpace({open}) — реестр лендов живёт в узле, а не в пространстве`,
+          `no one can open the neighboring land «${other.str}»: pass createSpace({open}) — the land registry lives in the node, not in the space`,
           'Space.of',
         )
       }
@@ -305,7 +305,7 @@ function resolve<N extends ModelName>(model: AnyModel<N> | N): AnyModel<N> {
   const found = modelOf(model)
   if (found === undefined) {
     throw new ModelError(
-      `модель «${model}» не объявлена в этом процессе: импортируйте файл с её model(...)`,
+      `model «${model}» is not declared in this process: import the file with its model(...)`,
       'Space.doc',
     )
   }
@@ -317,7 +317,7 @@ function headOf(land: Land, at: Link | Head): Head {
   if (typeof at === 'number') return at
   const bin = at.bin
   if (bin.length !== 22) {
-    throw new ModelError(`ссылка «${at.str}» — не пешка: у пешки 22 байта, здесь ${bin.length}`, 'Space.doc')
+    throw new ModelError(`link «${at.str}» is not a pawn: a pawn has 22 bytes, here ${bin.length}`, 'Space.doc')
   }
   return land.nodeOf(bin.subarray(16, 22))
 }
@@ -325,6 +325,6 @@ function headOf(land: Land, at: Link | Head): Head {
 /** Внутренняя ручка пространства. Точка входа следующего слоя. */
 export function coreOf(space: Space): SpaceCore {
   const core = space[CORE]
-  if (core === undefined) throw new ModelError('это не пространство @sync/core', 'coreOf')
+  if (core === undefined) throw new ModelError('this is not an @sync/core space', 'coreOf')
   return core
 }

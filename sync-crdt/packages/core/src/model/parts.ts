@@ -53,7 +53,7 @@ function modelAt(core: SpaceCore, name: string, head: Head, at: string): object 
   const model = modelOf(name)
   if (model === undefined) {
     throw new ModelError(
-      `модель «${name}» не объявлена в этом процессе: импортируйте файл с её model(...)`,
+      `model «${name}» is not declared in this process: import the file with its model(...)`,
       at,
     )
   }
@@ -73,7 +73,7 @@ export function readKeys(core: SpaceCore, cell: Cell, slot: Head): unknown {
 /** У `parts` и `index` записи через `cell.value` нет: под ключом лежит документ. */
 export function writeNest(_core: SpaceCore, cell: Cell, _slot: Head, _next: unknown): never {
   throw new ModelError(
-    `поле «${cell.key}» вида «${cell.field.kind}» не пишется целиком: пишите в поля вложенного документа`,
+    `field «${cell.key}» of kind «${cell.field.kind}» cannot be written whole: write into the fields of the nested document`,
     'parts.write',
   )
 }
@@ -98,7 +98,7 @@ export function writeNest(_core: SpaceCore, cell: Cell, _slot: Head, _next: unkn
 function partsBody(core: SpaceCore, cell: Cell, head: Head, key: unknown, next: unknown): unknown {
   if (next !== undefined) {
     throw new ModelError(
-      `поле «${cell.key}»: у части нет записи целиком — пишите в её поля, например x(${String(key)}).title(…)`,
+      `field «${cell.key}»: a part has no whole-value write — write into its fields, e.g. x(${String(key)}).title(…)`,
       'parts.write',
     )
   }
@@ -168,7 +168,7 @@ function pathOf(cell: Cell, path: unknown): readonly Key[] {
   if (!Array.isArray(path) || path.length !== depth) {
     const got = Array.isArray(path) ? `${path.length}` : typeof path
     throw new ModelError(
-      `поле «${cell.key}»: индекс глубины ${depth} ждёт путь из ${depth} ключей, пришло ${got}`,
+      `field «${cell.key}»: an index of depth ${depth} expects a path of ${depth} keys, got ${got}`,
       'index.path',
     )
   }
@@ -190,7 +190,7 @@ function walkTo(core: SpaceCore, cell: Cell, head: Head, path: readonly Key[], u
 function indexBody(core: SpaceCore, cell: Cell, head: Head, path: unknown, next: unknown): unknown {
   if (next !== undefined) {
     throw new ModelError(
-      `поле «${cell.key}»: индекс не пишется целиком — заводите ветку через ensure(path)`,
+      `field «${cell.key}»: an index cannot be written whole — create a branch via ensure(path)`,
       'index.write',
     )
   }
@@ -215,7 +215,7 @@ export const INDEX_METHODS: Readonly<Record<string, unknown>> = Object.freeze({
     const depth = depthOf(cell)
     if (!Array.isArray(prefix) || prefix.length >= depth) {
       throw new ModelError(
-        `поле «${cell.key}»: префикс индекса глубины ${depth} — от 0 до ${depth - 1} ключей`,
+        `field «${cell.key}»: a prefix of a depth-${depth} index is 0 to ${depth - 1} keys`,
         'index.keys',
       )
     }

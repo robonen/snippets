@@ -40,7 +40,7 @@ async function landKey(): Promise<SubtleKey> {
 
 // ── Тождества ────────────────────────────────────────────────────────────────
 
-test('seal → open восстанавливает пачку побайтово: inline, граница, ball, надгробие', async () => {
+test('seal → open restores the pack byte for byte: inline, boundary, ball, tombstone', async () => {
   const land = device(0x11)
   const first = land.post(ROOT, ROOT, 'короткое')
   // 47…62 Б открытого — после метки GCM уезжает в ball и обязано вернуться.
@@ -58,7 +58,7 @@ test('seal → open восстанавливает пачку побайтово
   expect(opened).toEqual(plain)
 })
 
-test('запечатывание детерминировано: две печати одной пачки совпадают побайтово', async () => {
+test('sealing is deterministic: two seals of the same pack match byte for byte', async () => {
   const land = device(0x11)
   land.post(ROOT, ROOT, 'значение')
 
@@ -67,7 +67,7 @@ test('запечатывание детерминировано: две печа
   expect(await sealPack(plain, key)).toEqual(await sealPack(plain, key))
 })
 
-test('одинаковые значения в разных узлах шифруются в разные байты (нонс уникален)', async () => {
+test('identical values on different nodes encrypt to different bytes (the nonce is unique)', async () => {
   // Два сеанса одного пира — худший для нонса случай (ADR-017): одинаковые
   // значения, местами одинаковые метки времени.
   const one = device(0x11, 0x000010)
@@ -94,7 +94,7 @@ test('одинаковые значения в разных узлах шифр�
   expect(payloads.size).toBe(40)
 })
 
-test('открытого текста в запечатанной пачке нет', async () => {
+test('no plaintext in a sealed pack', async () => {
   const land = device(0x11)
   land.post(ROOT, ROOT, 'сугубо личное признание')
 
@@ -108,7 +108,7 @@ test('открытого текста в запечатанной пачке н�
 
 // ── Слепой пир ───────────────────────────────────────────────────────────────
 
-test('пир без ключа сливает и досылает запечатанный ленд', async () => {
+test('a peer without the key merges and relays the sealed land', async () => {
   const key = await landKey()
 
   const one = device(0x11, 0x000010)
@@ -145,7 +145,7 @@ test('пир без ключа сливает и досылает запечат
 
 // ── Отказы ───────────────────────────────────────────────────────────────────
 
-test('порча любого байта payload ловится', async () => {
+test('corruption of any payload byte is caught', async () => {
   const land = device(0x11)
   land.post(ROOT, ROOT, 'целостность')
 
@@ -160,7 +160,7 @@ test('порча любого байта payload ловится', async () => {
   await expect(openPack(sealed, key)).rejects.toThrow(CryptoError)
 })
 
-test('чужой ключ не открывает', async () => {
+test('a foreign key does not open', async () => {
   const land = device(0x11)
   land.post(ROOT, ROOT, 'секрет')
 
@@ -168,7 +168,7 @@ test('чужой ключ не открывает', async () => {
   await expect(openPack(sealed, await landKey())).rejects.toThrow(CryptoError)
 })
 
-test('шифртекст одного ленда не подсунуть под видом другого', async () => {
+test('ciphertext of one land cannot be passed off as another', async () => {
   const land = device(0x11)
   land.post(ROOT, ROOT, 'не переносится')
 
@@ -181,23 +181,23 @@ test('шифртекст одного ленда не подсунуть под 
   await expect(openPack(relabeled, key)).rejects.toThrow(CryptoError)
 })
 
-test('открытая пачка не выдаёт себя за запечатанную', async () => {
+test('a plaintext pack does not pass itself off as sealed', async () => {
   const land = device(0x11)
   land.post(ROOT, ROOT, 'x') // payload короче метки GCM
 
-  await expect(openPack(packOf(land), await landKey())).rejects.toThrow(/не запечатана/)
+  await expect(openPack(packOf(land), await landKey())).rejects.toThrow(/does not look sealed/)
 })
 
-test('значение у потолка ball после шифрования не влезает — честный отказ', async () => {
+test('a value at the ball cap does not fit after encryption — an honest refusal', async () => {
   const land = device(0x11)
   land.post(ROOT, ROOT, 'q'.repeat(65530))
 
-  await expect(sealPack(packOf(land), await landKey())).rejects.toThrow(/потолок/)
+  await expect(sealPack(packOf(land), await landKey())).rejects.toThrow(/cap/)
 })
 
 // ── Хранилище ────────────────────────────────────────────────────────────────
 
-test('sealedStore: на носителе шифртекст, после перезапуска ленд читается', async () => {
+test('sealedStore: ciphertext on the medium, the land reads after restart', async () => {
   const key = await landKey()
   const inner = memoryStore()
   const store = sealedStore(inner, { secretOf: () => key })
@@ -219,7 +219,7 @@ test('sealedStore: на носителе шифртекст, после пере
   expect(valuesOf(next)).toEqual(['переживёт перезапуск'])
 })
 
-test('sealedStore: ленд без секрета едет как есть', async () => {
+test('sealedStore: a land without a secret travels as is', async () => {
   const inner = memoryStore()
   const store = sealedStore(inner, { secretOf: () => null })
 

@@ -5,7 +5,7 @@ import { CryptoError } from '../sealed'
 
 const BIND = new TextEncoder().encode('ленд+датель+получатель+метка')
 
-test('два устройства независимо выводят один взаимный ключ', async () => {
+test('two devices independently derive the same mutual key', async () => {
   const a = await mintExchangePair()
   const b = await mintExchangePair()
   const one = await identityOf(a.algo, a.pair)
@@ -20,7 +20,7 @@ test('два устройства независимо выводят один �
   expect(back).toEqual(secret)
 })
 
-test('третье устройство обёртку не снимает', async () => {
+test('a third device cannot remove the wrapping', async () => {
   const a = await mintExchangePair()
   const b = await mintExchangePair()
   const c = await mintExchangePair()
@@ -34,7 +34,7 @@ test('третье устройство обёртку не снимает', asy
   expect(guess).not.toEqual(secret)
 })
 
-test('чужая связка даёт другой секрет — и он честно не открывает ленд', async () => {
+test('a foreign keyring yields a different secret — and it honestly does not open the land', async () => {
   const a = await mintExchangePair()
   const b = await mintExchangePair()
   const one = await identityOf(a.algo, a.pair)
@@ -50,7 +50,7 @@ test('чужая связка даёт другой секрет — и он ч�
   await expect(secretKey(wrong)).resolves.toBeDefined()
 })
 
-test('секрет не той длины отвергается до WebCrypto', async () => {
+test('a secret of the wrong length is rejected before WebCrypto', async () => {
   const a = await mintExchangePair()
   const b = await mintExchangePair()
   const one = await identityOf(a.algo, a.pair)

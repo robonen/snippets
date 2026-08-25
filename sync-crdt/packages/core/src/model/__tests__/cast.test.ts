@@ -101,8 +101,8 @@ function posted(space: Space, fn: () => void): number {
   return count
 }
 
-describe('1. атом ↔ список (порт baza «Atom <=> List», ожидание исправлено)', () => {
-  test('один слот, два вида, и порядок — часть контракта', () => {
+describe('1. atom ↔ list (port of baza «Atom <=> List», expectation fixed)', () => {
+  test('one slot, two views, and order is part of the contract', () => {
     const { land, space } = stand()
     const note = space.doc(Note, noteAt(land))
     const one = cast(note.tags, AS_ATOM)
@@ -129,8 +129,8 @@ describe('1. атом ↔ список (порт baza «Atom <=> List», ожи�
   })
 })
 
-describe('2. атом ↔ словарь (порт baza «Atom <=> Dict», ожидание исправлено)', () => {
-  test('ключ словаря — обычное значение юнита, и переименование хранит поддерево', () => {
+describe('2. atom ↔ dict (port of baza «Atom <=> Dict», expectation fixed)', () => {
+  test('a dict key is an ordinary unit value, and renaming keeps the subtree', () => {
     const { land, space } = stand()
     const note = space.doc(Note, noteAt(land))
     const key = cast(note.marks, AS_ATOM)
@@ -156,8 +156,8 @@ describe('2. атом ↔ словарь (порт baza «Atom <=> Dict», ож�
   })
 })
 
-describe('3. словарь ↔ список (новое)', () => {
-  test('ключи словаря — это и есть список значений его детей', () => {
+describe('3. dict ↔ list (new)', () => {
+  test('dict keys are exactly the list of values of its children', () => {
     const { land, space } = stand()
     const note = space.doc(Note, noteAt(land))
     const names = cast(note.marks, AS_LIST)
@@ -178,8 +178,8 @@ describe('3. словарь ↔ список (новое)', () => {
   })
 })
 
-describe('4. текст ↔ список (новое)', () => {
-  test('текст — это список абзацев на тех же юнитах', () => {
+describe('4. text ↔ list (new)', () => {
+  test('text is a list of paragraphs over the same units', () => {
     const { land, space } = stand()
     const note = space.doc(Note, noteAt(land))
     note.body('Первый абзац.\nВторой абзац.')
@@ -194,7 +194,7 @@ describe('4. текст ↔ список (новое)', () => {
     expect(note.body.paragraphs().length).toBe(2)
   })
 
-  test('положенное списком текст читает как свой текст', () => {
+  test('what was written as a list, text reads as its own text', () => {
     const { land, space } = stand()
     const note = space.doc(Note, noteAt(land, 77))
 
@@ -207,8 +207,8 @@ describe('4. текст ↔ список (новое)', () => {
   })
 })
 
-describe('5. ссылка ↔ атом ↔ множественная ссылка', () => {
-  test('одна и та же пешка читается адресом, сущностью и списком сущностей', () => {
+describe('5. link ↔ atom ↔ multi-link', () => {
+  test('the same pawn reads as an address, an entity, and a list of entities', () => {
     const { land, space } = stand()
     const note = space.doc(Note, noteAt(land))
     const author = note.author.ensure()
@@ -233,8 +233,8 @@ describe('5. ссылка ↔ атом ↔ множественная ссылк
   })
 })
 
-describe('6. документ ↔ документ и документ ↔ словарь', () => {
-  test('тот же head, другая модель — схема это ЛИНЗА, а не запрет на диске', () => {
+describe('6. document ↔ document and document ↔ dict', () => {
+  test('same head, different model — the schema is a LENS, not an on-disk prohibition', () => {
     const { land, space, issues } = stand()
     const note = space.doc(Note, noteAt(land))
     note.stats().views(5)
@@ -252,7 +252,7 @@ describe('6. документ ↔ документ и документ ↔ сл�
     expect(cast(gauge, Meter).views()).toBe(5)
   })
 
-  test('документ как словарь: его дети и есть ключи', () => {
+  test('a document as a dict: its children are the keys', () => {
     const { land, space } = stand()
     const note = space.doc(Note, noteAt(land))
     note.stats().views(5)
@@ -262,7 +262,7 @@ describe('6. документ ↔ документ и документ ↔ сл�
     expect(fields.keys()).toEqual(['views', 'likes'])
   })
 
-  test('вид на КОРНЕВОЙ документ отвергается громко', () => {
+  test('a view of the ROOT document is rejected loudly', () => {
     const { space } = stand()
     // ROOT служит и головой ленда, и сентинелом «поля ещё нет», поэтому такой
     // вид молча читался бы пустым. Молчание тут хуже отказа.
@@ -270,8 +270,8 @@ describe('6. документ ↔ документ и документ ↔ сл�
   })
 })
 
-describe('инварианты перевода вида', () => {
-  test('перевод вида не пишет НИ ОДНОГО юнита', () => {
+describe('view translation invariants', () => {
+  test('a view translation writes NOT A SINGLE unit', () => {
     const { land, space } = stand()
     const note = space.doc(Note, noteAt(land))
     note.tags(['vue', 'crdt'])
@@ -290,7 +290,7 @@ describe('инварианты перевода вида', () => {
     })).toBe(0)
   })
 
-  test('вид мемоизирован: cast(x, v) === cast(x, v), подписки не размножаются', () => {
+  test('the view is memoized: cast(x, v) === cast(x, v), subscriptions do not multiply', () => {
     const { land, space } = stand()
     const note = space.doc(Note, noteAt(land))
 
@@ -302,7 +302,7 @@ describe('инварианты перевода вида', () => {
     expect(cast(note.stats, Gauge)).toBe(cast(note.stats, Gauge))
   })
 
-  test('сам перевод вида ни на что не подписывается', () => {
+  test('the view translation itself subscribes to nothing', () => {
     const { land, space } = stand()
     const note = space.doc(Note, noteAt(land))
 
@@ -322,7 +322,7 @@ describe('инварианты перевода вида', () => {
     stop()
   })
 
-  test('все виды смотрят в ОДИН узел', () => {
+  test('all views look at ONE node', () => {
     const { land, space } = stand()
     const head = noteAt(land)
     const note = space.doc(Note, head)

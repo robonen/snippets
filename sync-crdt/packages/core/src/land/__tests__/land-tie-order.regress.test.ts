@@ -68,8 +68,8 @@ function readIn(units: readonly SandUnit[]): string[] {
   return land.order(ROOT).map(view => String(view.value))
 }
 
-describe('раскладка не зависит от порядка доставки', () => {
-  test('братья с совпавшей меткой читаются одинаково при любой очерёдности', () => {
+describe('layout does not depend on delivery order', () => {
+  test('siblings with an equal stamp read the same in any delivery order', () => {
     const u1 = sandOf(1, 0, 0, 'v1')
     const u2 = sandOf(2, 0, 0, 'v2')
     const u3 = sandOf(3, 0, 0, 'v3')
@@ -85,7 +85,7 @@ describe('раскладка не зависит от порядка доста�
     expect(straight).toEqual(order(sands, '').map(item => String(item.value)))
   })
 
-  test('сироты (недоехавший lead) с совпавшей меткой тоже ложатся детерминированно', () => {
+  test('orphans (lead not yet arrived) with an equal stamp also land deterministically', () => {
     // `lead` указывает на юнит, которого в наборе нет: такие уходят в хвост
     // через `#strays`, и там сортировка та же самая.
     const u1 = sandOf(1, 0, 900, 'v1')
@@ -98,7 +98,7 @@ describe('раскладка не зависит от порядка доста�
     expect(readIn([u2, u1, u3])).toEqual(straight)
   })
 
-  test('обычный вход не задет: метки различны — арбитр по self не включается', () => {
+  test('the ordinary path is untouched: stamps differ — the self tiebreaker does not kick in', () => {
     const a = sandOf(1, 0, 0, 'a', 1)
     const b = sandOf(2, 0, 1, 'b', 2)
     const c = sandOf(3, 0, 2, 'c', 3)

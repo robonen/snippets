@@ -11,11 +11,11 @@ import { syncHub } from '../../utils/instance';
  */
 export default defineHandler(async (event) => {
   if (!authorized(event.req.headers.get('authorization'), serverConfig().syncToken)) {
-    throw new HTTPError({ status: 401, message: 'нет доступа' });
+    throw new HTTPError({ status: 401, message: 'access denied' });
   }
   const land = event.context.params?.land ?? '';
   if (land === '' || land.length > 32) {
-    throw new HTTPError({ status: 400, message: 'кривой адрес ленда' });
+    throw new HTTPError({ status: 400, message: 'malformed land address' });
   }
   await syncHub().wipe(land);
   return { ok: true };

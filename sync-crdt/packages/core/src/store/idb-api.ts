@@ -85,7 +85,7 @@ function fault(error: IdbFault | null, what: string): Error {
 export function ask<T>(request: IdbRequest<T>): Promise<T> {
   return new Promise((done, fail) => {
     request.onsuccess = (): void => done(request.result)
-    request.onerror = (): void => fail(fault(request.error, 'запрос IndexedDB отклонён'))
+    request.onerror = (): void => fail(fault(request.error, 'IndexedDB request rejected'))
   })
 }
 
@@ -100,8 +100,8 @@ export function ask<T>(request: IdbRequest<T>): Promise<T> {
 export function ended(tx: IdbTransaction): Promise<void> {
   return new Promise((done, fail) => {
     tx.oncomplete = (): void => done()
-    tx.onerror = (): void => fail(fault(tx.error, 'транзакция IndexedDB отклонена'))
-    tx.onabort = (): void => fail(fault(tx.error, 'транзакция IndexedDB отменена'))
+    tx.onerror = (): void => fail(fault(tx.error, 'IndexedDB transaction rejected'))
+    tx.onabort = (): void => fail(fault(tx.error, 'IndexedDB transaction aborted'))
   })
 }
 

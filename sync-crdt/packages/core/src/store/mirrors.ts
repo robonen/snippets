@@ -77,7 +77,7 @@ export class Mirrors {
    * непрочитанного выглядел бы как «всё в порядке, просто ничего нет».
    */
   static open(volumes: readonly Volume[], id: LandId): Mirrors {
-    if (volumes.length === 0) throw new StoreError('зеркал ноль', `ленд ${id.str}`)
+    if (volumes.length === 0) throw new StoreError('zero mirrors', `land ${id.str}`)
 
     // Ведущей становится первая сторона, которая не только ПОМЕЧЕНА целой, но и
     // РАЗБИРАЕТСЯ. Разница не теоретическая: метка занимает четыре байта и может
@@ -103,8 +103,8 @@ export class Mirrors {
 
     if (source < 0 && refused !== null) {
       throw new StoreError(
-        `ни одну помеченную сторону не удалось разобрать: ${String(refused)}`,
-        `ленд ${id.str}`,
+        `no marked side could be parsed: ${String(refused)}`,
+        `land ${id.str}`,
       )
     }
 
@@ -112,8 +112,8 @@ export class Mirrors {
       const fresh = volumes.every(volume => volume.bin().length === 0)
       if (!fresh) {
         throw new StoreError(
-          'ни одно зеркало не дописано — обрыв случился до того, как хоть одна сторона стала целой',
-          `ленд ${id.str}`,
+          'no mirror was fully written — the interruption happened before any side became whole',
+          `land ${id.str}`,
         )
       }
       return new Mirrors(volumes.map(volume => PackImage.create(volume, id)))
@@ -122,7 +122,7 @@ export class Mirrors {
     // К этой строке `master` заведомо не null: `source >= 0` ставится только
     // вместе с ним. Сужаем проверкой, а не приведением — приведение здесь
     // молчало бы, если инвариант когда-нибудь сломают правкой выше.
-    if (master === null) throw new StoreError('ведущая сторона не открыта', `ленд ${id.str}`)
+    if (master === null) throw new StoreError('the master side is not open', `land ${id.str}`)
     const raw = master.raw()
     const sides: PackImage[] = []
 

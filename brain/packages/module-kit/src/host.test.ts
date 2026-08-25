@@ -93,7 +93,7 @@ async function boot(): Promise<{ spaces: Spaces; visit: (path: string) => Promis
   return { spaces, visit };
 }
 
-test('экран модуля получает пространство своего ленда', async () => {
+test('Module screen receives the space of its own land', async () => {
   const { spaces, visit } = await boot();
   spaces.space('notes').root(Notes).note('из заметок');
   spaces.space('kcal').root(Foods).food('из дневника');
@@ -104,7 +104,7 @@ test('экран модуля получает пространство свое
   spaces.close();
 });
 
-test('переход между модулями подменяет пространство, а не оставляет прежнее', async () => {
+test('Navigating between modules swaps the space instead of keeping the old one', async () => {
   const { spaces, visit } = await boot();
   spaces.space('notes').root(Notes).note('из заметок');
   spaces.space('kcal').root(Foods).food('из дневника');
@@ -124,7 +124,7 @@ test('переход между модулями подменяет простр
   spaces.close();
 });
 
-test('маршрут модуля помечен его именем — по этому navигация подсвечивает вкладку', async () => {
+test('Module route is tagged with its name — navigation highlights the tab by it', async () => {
   const registry = createRegistry(modules);
   const router = createRouter({ history: createMemoryHistory(), routes: registry.routes() });
 

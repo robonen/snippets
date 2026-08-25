@@ -21,14 +21,14 @@ import { Note } from '../blog'
  * значением НИГДЕ, и попытка когда-нибудь «починить» это в кодеке обязана
  * покраснеть здесь, а не всплыть расхождением реплик.
  */
-describe('регрессия: -0 не отдельное значение', () => {
+describe('regression: -0 is not a distinct value', () => {
   function peerOf(byte: number): Link {
     const bin = new Uint8Array(8)
     bin[0] = byte
     return Link.peer(bin)
   }
 
-  test('кодек сводит -0 к +0, и модель читает +0 без единой жалобы', () => {
+  test('the codec folds -0 into +0, and the model reads +0 without a single complaint', () => {
     expect(Object.is(varyDecode(varyEncode(-0)), 0)).toBe(true)
 
     const land = new Land(peerOf(0x11), fixedClock(1000))
@@ -49,7 +49,7 @@ describe('регрессия: -0 не отдельное значение', () =
     expect(issues).toHaveLength(0)
   })
 
-  test('своя запись -0 идемпотентна против последующего 0', () => {
+  test('an own write of -0 is idempotent against a subsequent 0', () => {
     const land = new Land(peerOf(0x11), fixedClock(1000))
     const space = createSpace({ land, salt: new Uint8Array([1]), report: () => {} })
     const note = space.root(Note)

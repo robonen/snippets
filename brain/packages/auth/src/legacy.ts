@@ -22,7 +22,7 @@ export function unwrapLegacyDek(wrapped: WrappedDek, kek: Uint8Array | CryptoKey
 /** Распечатать кусок старого сундука: `nonce ‖ cipher` под AAD адреса ленда. */
 export function openLegacyChunk(dek: Uint8Array, land: string, chunk: Uint8Array): Promise<Uint8Array> {
   if (chunk.length < NONCE_BYTES + 16) {
-    throw new Error(`кусок ${chunk.length} Б короче нонса с меткой GCM — это не кусок сундука`);
+    throw new Error(`chunk of ${chunk.length} B is shorter than a nonce with a GCM tag — this is not a chest chunk`);
   }
   return open(
     dek,

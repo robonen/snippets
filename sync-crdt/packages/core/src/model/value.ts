@@ -120,7 +120,7 @@ export const t = {
     0,
     raw => (typeof raw === 'number' && Number.isInteger(raw) ? raw : null),
     value => {
-      if (!Number.isInteger(value)) throw new TypeError(`t.int: ${value} — не целое`)
+      if (!Number.isInteger(value)) throw new TypeError(`t.int: ${value} is not an integer`)
       return value
     },
   ) as Type<number>,
@@ -219,7 +219,7 @@ export const t = {
       undefined,
       raw => (typeof raw === 'string' && fixed.test(raw) ? raw : null),
       value => {
-        if (!fixed.test(value)) throw new TypeError(`t.${label}: «${value}» не подходит под ${re.source}`)
+        if (!fixed.test(value)) throw new TypeError(`t.${label}: «${value}» does not match ${re.source}`)
         return value
       },
     ) as Cast<string>
@@ -232,7 +232,7 @@ export const t = {
       undefined,
       raw => (typeof raw === 'number' && raw >= min && raw <= max ? raw : null),
       value => {
-        if (!(value >= min && value <= max)) throw new RangeError(`t.range: ${value} вне [${min}, ${max}]`)
+        if (!(value >= min && value <= max)) throw new RangeError(`t.range: ${value} outside [${min}, ${max}]`)
         return value
       },
     ) as Cast<number>

@@ -39,13 +39,13 @@ function pump(read: () => unknown): Promise<unknown> | null {
  *
  * Тест оставлен падающим намеренно: чинить надо реализацию, а не ожидание.
  */
-test('Sync execution: act вне файбера просто выполняет тело и отдаёт результат', () => {
+test('Sync execution: act outside a fiber just runs the body and returns the result', () => {
   const calc = act((a: number, b: number) => a + b)
 
   expect(calc(1, 2)).toBe(3)
 })
 
-test('async <=> sync: синхронное сложение двух ожиданий внутри промиса', async () => {
+test('async <=> sync: synchronous addition of two waits inside a promise', async () => {
   const val = (a: number): Promise<number> => Promise.resolve(a)
 
   const sum = (a: number, b: number): number => sync(val, a) + sync(val, b)
@@ -53,7 +53,7 @@ test('async <=> sync: синхронное сложение двух ожида�
   expect(5 + (await async(() => sum(1, 2)))).toBe(8)
 })
 
-test('Error handling: отказ промиса приходит как ошибка, а не как приостановка', async () => {
+test('Error handling: a promise rejection arrives as an error, not a suspension', async () => {
   const failing = (a: number, b: number): Promise<number> =>
     Promise.reject(new Error(`test error ${a + b}`))
 
@@ -81,7 +81,7 @@ test('Error handling: отказ промиса приходит как ошиб
   expect(messages).toEqual(['test error 3'])
 })
 
-test('Error handling: непойманный отказ доезжает до промиса async()', async () => {
+test('Error handling: an uncaught rejection reaches the async() promise', async () => {
   const failing = (): Promise<number> => Promise.reject(new Error('test error 3'))
 
   await expect(async(() => sync(failing))).rejects.toThrow('test error 3')

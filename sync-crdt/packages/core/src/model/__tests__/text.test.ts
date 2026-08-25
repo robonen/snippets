@@ -21,7 +21,7 @@ import { born, deliver, headAt, stand, sync, type Stand } from './shelf-stand'
 
 /** Каретка найденной точки. Тест обязан упасть, если точка не нашлась. */
 function caretOf(point: Point): Caret {
-  if (!point.found) throw new Error(`точка не найдена, остаток ${point.rest}`)
+  if (!point.found) throw new Error(`point not found, remainder ${point.rest}`)
   return point.caret
 }
 
@@ -36,7 +36,7 @@ function caretOf(point: Point): Caret {
  */
 function spoil(at: Stand, node: Head, value: Vary): void {
   const view = at.land.peek(node)
-  if (view === null) throw new Error('узла нет')
+  if (view === null) throw new Error('no node')
 
   const other = stand(0x99, 9000)
   const head = other.land.nodeOf(at.land.idOf(view.head))
@@ -45,8 +45,8 @@ function spoil(at: Stand, node: Head, value: Vary): void {
   deliver(at, other)
 }
 
-describe('текст: правки последовательностей (порт «Change sequences»)', () => {
-  test('семь правок подряд дают те же токены, что у baza', () => {
+describe('text: sequence edits (port of «Change sequences»)', () => {
+  test('seven edits in a row yield the same tokens as baza', () => {
     const at = stand()
     const paper = at.space.root(Paper)
 
@@ -85,7 +85,7 @@ describe('текст: правки последовательностей (по�
     expect(paper.body.tokens()).toEqual(['foo', ' ', ' Bar', 'Bar'])
   })
 
-  test('правка одного слова из десяти рождает ОДИН юнит', () => {
+  test('editing one word out of ten births ONE unit', () => {
     const at = stand()
     const paper = at.space.root(Paper)
     paper.body('раз два три четыре пять шесть семь восемь девять десять')
@@ -98,8 +98,8 @@ describe('текст: правки последовательностей (по�
   })
 })
 
-describe('текст: смещение ↔ каретка на одном уровне (порт «str: Offset <=> Point»)', () => {
-  test('границы токена включительны, а несуществующая точка не имеет смещения', () => {
+describe('text: offset ↔ caret at one level (port of «str: Offset <=> Point»)', () => {
+  test('token bounds are inclusive, and a nonexistent point has no offset', () => {
     const at = stand()
     const paper = at.space.root(Paper)
 
@@ -139,7 +139,7 @@ describe('текст: смещение ↔ каретка на одном уро
     expect(paper.body.pointAt(7)).toEqual({ found: false, rest: 1 })
   })
 
-  test('каретка на чужом узле — `null`, а не выдуманное смещение', () => {
+  test('a caret on a foreign node is `null`, not a made-up offset', () => {
     const at = stand()
     const paper = at.space.root(Paper)
     paper.body('fooBar')
@@ -147,7 +147,7 @@ describe('текст: смещение ↔ каретка на одном уро
     expect(paper.body.offsetAt({ token: headAt(at, 0x7f_0000), at: 1 })).toBe(null)
   })
 
-  test('каретка переживает правку СЛЕВА от себя', () => {
+  test('the caret survives an edit to its LEFT', () => {
     const at = stand()
     const paper = at.space.root(Paper)
     paper.body('foo bar baz')
@@ -162,8 +162,8 @@ describe('текст: смещение ↔ каретка на одном уро
   })
 })
 
-describe('текст: смещение ↔ каретка на двух уровнях (порт «text: Offset <=> Point»)', () => {
-  test('спуск идёт через абзац, а граница абзаца принадлежит его последнему токену', () => {
+describe('text: offset ↔ caret at two levels (port of «text: Offset <=> Point»)', () => {
+  test('the descent goes through the paragraph, and the paragraph boundary belongs to its last token', () => {
     const at = stand()
     const paper = at.space.root(Paper)
 
@@ -187,8 +187,8 @@ describe('текст: смещение ↔ каретка на двух уров
   })
 })
 
-describe('текст: слияние', () => {
-  test('разные последовательности сходятся и не теряют ни одной (порт «Merge different sequences»)', () => {
+describe('text: merging', () => {
+  test('different sequences converge and lose none (port of «Merge different sequences»)', () => {
     // Часы обеих реплик стоят на одной секунде: LWW разводит их арбитром по
     // `peer`, и это самый интересный вход.
     const left = stand(0x11, 1000)
@@ -209,7 +209,7 @@ describe('текст: слияние', () => {
     expect(one).toBe('foo bar.xxx yyy.')
   })
 
-  test('абзацы разных реплик не переплетаются словами', () => {
+  test('paragraphs of different replicas do not interleave word by word', () => {
     const left = stand(0x11, 1000)
     const right = stand(0x22, 1000)
 
@@ -226,7 +226,7 @@ describe('текст: слияние', () => {
     expect(left.space.root(Paper).body.paragraphs()).toEqual(['первая строка\n', 'вторая строка\n'])
   })
 
-  test('одинаковые вставки схлопываются, расхождение решает LWW (порт «Merge same insertions»)', () => {
+  test('identical inserts collapse, divergence is settled by LWW (port of «Merge same insertions»)', () => {
     const base = stand(0x11, 1000)
     base.space.root(Paper).body('( )')
 
@@ -261,7 +261,7 @@ describe('текст: слияние', () => {
     expect(one).toBe('( [ fu ] )')
   })
 
-  test('повторная доставка ничего не меняет', () => {
+  test('redelivery changes nothing', () => {
     const left = stand(0x11, 1000)
     const right = stand(0x22, 1000)
     left.space.root(Paper).body('раз два\nтри четыре')
@@ -275,8 +275,8 @@ describe('текст: слияние', () => {
   })
 })
 
-describe('текст: правка диапазона', () => {
-  test('вставка буквы в конец слова не плодит токен', () => {
+describe('text: range edits', () => {
+  test('inserting a letter at the end of a word does not multiply tokens', () => {
     const at = stand()
     const paper = at.space.root(Paper)
     paper.body('foo bar')
@@ -289,7 +289,7 @@ describe('текст: правка диапазона', () => {
     expect(units).toBe(1)
   })
 
-  test('вставка в конец текста', () => {
+  test('insert at the end of text', () => {
     const at = stand()
     const paper = at.space.root(Paper)
     paper.body('foo')
@@ -299,7 +299,7 @@ describe('текст: правка диапазона', () => {
     expect(units).toBe(1)
   })
 
-  test('удаление диапазона', () => {
+  test('range deletion', () => {
     const at = stand()
     const paper = at.space.root(Paper)
     paper.body('foo bar baz')
@@ -308,7 +308,7 @@ describe('текст: правка диапазона', () => {
     expect(paper.body()).toBe('bar baz')
   })
 
-  test('замена диапазона внутри слова', () => {
+  test('range replacement inside a word', () => {
     const at = stand()
     const paper = at.space.root(Paper)
     paper.body('привет мир')
@@ -317,7 +317,7 @@ describe('текст: правка диапазона', () => {
     expect(paper.body()).toBe('привЕТ мир')
   })
 
-  test('правка, задевшая перевод строки, пересобирает разбиение', () => {
+  test('an edit touching a newline rebuilds the split', () => {
     const at = stand()
     const paper = at.space.root(Paper)
     paper.body('раз\nдва')
@@ -328,7 +328,7 @@ describe('текст: правка диапазона', () => {
     expect(paper.body.paragraphs()).toEqual(['раздва'])
   })
 
-  test('вставка перевода строки делит абзац', () => {
+  test('inserting a newline splits the paragraph', () => {
     const at = stand()
     const paper = at.space.root(Paper)
     paper.body('раздва')
@@ -338,7 +338,7 @@ describe('текст: правка диапазона', () => {
     expect(paper.body.paragraphs()).toEqual(['раз\n', 'два'])
   })
 
-  test('запись в начало строки идёт в СВОЮ строку, а не в хвост предыдущей', () => {
+  test('a write at the start of a line goes into ITS OWN line, not the tail of the previous one', () => {
     const at = stand()
     const paper = at.space.root(Paper)
     paper.body('раз\nдва')
@@ -351,7 +351,7 @@ describe('текст: правка диапазона', () => {
     expect(units).toBe(1)
   })
 
-  test('дописывание после последнего перевода строки заводит новый абзац', () => {
+  test('appending after the last newline starts a new paragraph', () => {
     const at = stand()
     const paper = at.space.root(Paper)
     paper.body('раз\n')
@@ -364,7 +364,7 @@ describe('текст: правка диапазона', () => {
     expect(paper.body.paragraphs()).toEqual(['раз\n', 'X'])
   })
 
-  test('правка ровно на границе абзацев идёт во второй', () => {
+  test('an edit exactly on the paragraph boundary goes into the second one', () => {
     const at = stand()
     const paper = at.space.root(Paper)
     paper.body('аа\nбб\nвв')
@@ -377,7 +377,7 @@ describe('текст: правка диапазона', () => {
     expect(paper.body.paragraphs()).toEqual(['аа\n', '1бб\n', '2вв'])
   })
 
-  test('смещения за концом текста не бросают', () => {
+  test('offsets past the end of text do not throw', () => {
     const at = stand()
     const paper = at.space.root(Paper)
     paper.body('раз')
@@ -389,7 +389,7 @@ describe('текст: правка диапазона', () => {
     expect(paper.body()).toBe('?раз!')
   })
 
-  test('правка пустого поля создаёт текст, а не падает', () => {
+  test('editing an empty field creates text instead of crashing', () => {
     const at = stand()
     const paper = at.space.root(Paper)
 
@@ -397,15 +397,15 @@ describe('текст: правка диапазона', () => {
     expect(paper.body()).toBe('свежий')
   })
 
-  test('пустая правка пустого поля не рождает ни одного юнита', () => {
+  test('an empty edit of an empty field births not a single unit', () => {
     const at = stand()
     const paper = at.space.root(Paper)
     expect(born(at, () => paper.body.write('', 0, 0))).toBe(0)
   })
 })
 
-describe('текст: гранулярность', () => {
-  test('правка одного абзаца не трогает юниты и узлы остальных', () => {
+describe('text: granularity', () => {
+  test('editing one paragraph does not touch the units and nodes of the others', () => {
     const at = stand()
     const paper = at.space.root(Paper)
     paper.body('ааа\nббб\nввв')
@@ -421,7 +421,7 @@ describe('текст: гранулярность', () => {
     expect(caretOf(paper.body.pointAt(10)).token).toBe(third)
   })
 
-  test('появление СОСЕДНЕГО поля не пересчитывает текст (решение Р3)', () => {
+  test('a NEIGHBORING field appearing does not recompute the text (decision R3)', () => {
     const at = stand()
     const paper = at.space.root(Paper)
     paper.body('раз два')
@@ -445,7 +445,7 @@ describe('текст: гранулярность', () => {
     stop()
   })
 
-  test('два текстовых поля одного документа независимы', () => {
+  test('two text fields of one document are independent', () => {
     const at = stand()
     const paper = at.space.root(Paper)
 
@@ -459,8 +459,8 @@ describe('текст: гранулярность', () => {
   })
 })
 
-describe('текст: идемпотентность', () => {
-  test('`body(body())` не рождает ни одного юнита', () => {
+describe('text: idempotence', () => {
+  test('`body(body())` births not a single unit', () => {
     const at = stand()
     const paper = at.space.root(Paper)
     paper.body('раз два\nтри четыре')
@@ -469,7 +469,7 @@ describe('текст: идемпотентность', () => {
     expect(born(at, () => paper.body(paper.body()))).toBe(0)
   })
 
-  test('повторная запись того же значения — ноль юнитов', () => {
+  test('rewriting the same value is zero units', () => {
     const at = stand()
     const paper = at.space.root(Paper)
 
@@ -478,7 +478,7 @@ describe('текст: идемпотентность', () => {
     expect(born(at, () => paper.body('раз два'))).toBe(0)
   })
 
-  test('запись возвращает победителя LWW, а не то, что записали', () => {
+  test('a write returns the LWW winner, not what was written', () => {
     const at = stand()
     const paper = at.space.root(Paper)
     expect(paper.body('раз два')).toBe('раз два')
@@ -486,8 +486,8 @@ describe('текст: идемпотентность', () => {
   })
 })
 
-describe('текст: чтение НИКОГДА не бросает', () => {
-  test('число вместо токена даёт пропуск и один Issue, а не исключение', () => {
+describe('text: reads NEVER throw', () => {
+  test('a number instead of a token yields a skip and one Issue, not an exception', () => {
     const at = stand()
     const paper = at.space.root(Paper)
     paper.body('раз два')
@@ -507,7 +507,7 @@ describe('текст: чтение НИКОГДА не бросает', () => {
     expect(issue.peer).not.toBe(null)
   })
 
-  test('мусор не ломает ни каретку, ни токены, ни абзацы', () => {
+  test('garbage breaks neither caret, nor tokens, nor paragraphs', () => {
     const at = stand()
     const paper = at.space.root(Paper)
     paper.body('раз два\nтри')
@@ -522,8 +522,8 @@ describe('текст: чтение НИКОГДА не бросает', () => {
   })
 })
 
-describe('текст: границы формата', () => {
-  test('слово длиннее юнита пишется и читается целиком', () => {
+describe('text: format bounds', () => {
+  test('a word longer than a unit writes and reads whole', () => {
     const at = stand()
     const paper = at.space.root(Paper)
 
@@ -535,7 +535,7 @@ describe('текст: границы формата', () => {
     expect(paper.body.tokens().length).toBeGreaterThan(1)
   })
 
-  test('правка внутри эмодзи не разрезает суррогатную пару', () => {
+  test('an edit inside an emoji does not cut a surrogate pair', () => {
     const at = stand()
     const paper = at.space.root(Paper)
     paper.body('a😀b')
@@ -546,7 +546,7 @@ describe('текст: границы формата', () => {
     expect(paper.body()).toBe('aX😀b')
   })
 
-  test('составное эмодзи остаётся одним токеном и в ленде', () => {
+  test('a compound emoji stays one token in the land too', () => {
     const at = stand()
     const paper = at.space.root(Paper)
     paper.body('привет 👩🏿‍🤝‍🧑🏿 мир')
@@ -555,8 +555,8 @@ describe('текст: границы формата', () => {
   })
 })
 
-describe('текст: длина, абзацы, стирание', () => {
-  test('size совпадает с длиной строки', () => {
+describe('text: length, paragraphs, erasure', () => {
+  test('size matches the string length', () => {
     const at = stand()
     const paper = at.space.root(Paper)
     expect(paper.body.size()).toBe(0)
@@ -564,14 +564,14 @@ describe('текст: длина, абзацы, стирание', () => {
     expect(paper.body.size()).toBe(7)
   })
 
-  test('paragraphs у пустого поля — пусто, а не один пустой абзац', () => {
+  test('paragraphs of an empty field is empty, not one empty paragraph', () => {
     const at = stand()
     const paper = at.space.root(Paper)
     expect(paper.body.paragraphs()).toEqual([])
     expect(paper.body.tokens()).toEqual([])
   })
 
-  test('clear стирает текст надгробиями на абзацы', () => {
+  test('clear erases the text with tombstones on paragraphs', () => {
     const at = stand()
     const paper = at.space.root(Paper)
     paper.body('раз\nдва\nтри')
@@ -583,7 +583,7 @@ describe('текст: длина, абзацы, стирание', () => {
     expect(paper.body.paragraphs()).toEqual([])
   })
 
-  test('запись пустой строки стирает так же, как clear', () => {
+  test('writing an empty string erases the same as clear', () => {
     const at = stand()
     const paper = at.space.root(Paper)
     paper.body('раз\nдва')
@@ -591,15 +591,15 @@ describe('текст: длина, абзацы, стирание', () => {
     expect(paper.body()).toBe('')
   })
 
-  test('clear пустого поля не рождает юнитов', () => {
+  test('clear of an empty field births no units', () => {
     const at = stand()
     const paper = at.space.root(Paper)
     expect(born(at, () => paper.body.clear())).toBe(0)
   })
 })
 
-describe('текст: бюджет вставки в 100 КБ', () => {
-  test('вставка одного символа стоит не больше трёх юнитов', () => {
+describe('text: the 100 KB insert budget', () => {
+  test('inserting one character costs at most three units', () => {
     const at = stand()
     const paper = at.space.root(Paper)
 

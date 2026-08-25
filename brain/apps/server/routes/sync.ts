@@ -22,13 +22,13 @@ export default defineWebSocketHandler({
     // конфигурации, а не с `Host` — ему нельзя верить.
     const origin = request.headers.get('origin');
     if (origin !== config.publicOrigin) {
-      return new Response('чужой origin', { status: 401 });
+      return new Response('foreign origin', { status: 401 });
     }
 
     // Токен — в query: браузерный WebSocket не умеет ставить свои заголовки на
     // рукопожатие.
     if (!authorized(new URL(request.url).searchParams.get('token'), config.syncToken)) {
-      return new Response('нет доступа', { status: 401 });
+      return new Response('access denied', { status: 401 });
     }
     // Явный undefined: «пропустить апгрейд» в crossws — отсутствие ответа.
     return undefined;

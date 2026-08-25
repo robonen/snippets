@@ -107,7 +107,7 @@ const anyVary = fc.letrec<{ node: Vary }>((tie) => ({
 
 describe('round-trip', () => {
   // 10⁵ прогонов — DoD стадии S2 (docs/11-roadmap.md).
-  it('decode(encode(x)) ≡ x на 100 000 значениях', { timeout: 600_000 }, () => {
+  it('decode(encode(x)) ≡ x on 100,000 values', { timeout: 600_000 }, () => {
     fc.assert(
       fc.property(anyVary, (value) => {
         expect(same(varyDecode(varyEncode(value)), value)).toBe(true)
@@ -116,7 +116,7 @@ describe('round-trip', () => {
     )
   })
 
-  it('повторное кодирование даёт те же байты', () => {
+  it('re-encoding gives the same bytes', () => {
     fc.assert(
       fc.property(anyVary, (value) => {
         const once = varyEncode(value)
@@ -129,8 +129,8 @@ describe('round-trip', () => {
 
 // ── 2. Каноничность ──────────────────────────────────────────────────────────
 
-describe('каноничность', () => {
-  it('порядок ключей объекта на байты не влияет', () => {
+describe('canonicity', () => {
+  it('object key order does not affect the bytes', () => {
     fc.assert(
       fc.property(anyVary, (value) => {
         expect(hex(varyEncode(reorder(value)))).toBe(hex(varyEncode(value)))
@@ -139,7 +139,7 @@ describe('каноничность', () => {
     )
   })
 
-  it('ключи сортируются по байтам UTF-8, а не по код-юнитам JS', () => {
+  it('keys sort by UTF-8 bytes, not by JS code units', () => {
     // U+E000 → EE 80 80, U+10000 → F0 90 80 80. По код-юнитам суррогат D800
     // меньше E000, по байтам — наоборот. Порядок обязан быть байтовым, иначе
     // две реализации с «очевидной» сортировкой строк дадут разные хэши.
@@ -149,21 +149,21 @@ describe('каноничность', () => {
     expect('\uE000' < '\u{10000}').toBe(false)
   })
 
-  it('1 и 1.0 — одни байты', () => {
+  it('1 and 1.0 are the same bytes', () => {
     expect(hex(varyEncode(1))).toBe(hex(varyEncode(1.0)))
     expect(hex(varyEncode(1.0))).toBe('21')
   })
 
-  it('-0 кодируется как 0', () => {
+  it('-0 encodes as 0', () => {
     expect(hex(varyEncode(-0))).toBe(hex(varyEncode(0)))
     expect(Object.is(varyDecode(varyEncode(-0)), 0)).toBe(true)
   })
 
-  it('у NaN одна запись', () => {
+  it('NaN has a single encoding', () => {
     expect(hex(varyEncode(Number.NaN))).toBe('037ff8000000000000')
   })
 
-  it('строки не проходят NFC-нормализацию', () => {
+  it('strings do not undergo NFC normalization', () => {
     // «й» составной (U+0439) и разложенный (U+0438 U+0306) — разные строки, и
     // текстовый CRDT считает их разными. Нормализация склеила бы их в одну, и
     // текстовый CRDT потерял бы позиции символов.
@@ -175,7 +175,7 @@ describe('каноничность', () => {
     expect(varyDecode(varyEncode(decomposed))).toBe(decomposed)
   })
 
-  it('длины пишутся минимальным числом байт', () => {
+  it('lengths are written with the minimal number of bytes', () => {
     expect(hex(varyEncode(30))).toBe('3e')
     expect(hex(varyEncode(31))).toBe('3f00')
     expect(hex(varyEncode('x'.repeat(30)))).toBe(`9e${'78'.repeat(30)}`)
@@ -185,8 +185,8 @@ describe('каноничность', () => {
 
 // ── 3. Границы ───────────────────────────────────────────────────────────────
 
-describe('границы', () => {
-  it('пустые строка, массив, объект и буфер', () => {
+describe('boundaries', () => {
+  it('empty string, array, object, and buffer', () => {
     expect(hex(varyEncode(''))).toBe('80')
     expect(hex(varyEncode([]))).toBe('a0')
     expect(hex(varyEncode({}))).toBe('c0')
@@ -198,7 +198,7 @@ describe('границы', () => {
     expect(varyDecode(bin('60'))).toEqual(new Uint8Array(0))
   })
 
-  it('очень длинные строка и буфер', () => {
+  it('very long string and buffer', () => {
     const text = 'ы'.repeat(100_000)
     expect(varyDecode(varyEncode(text))).toBe(text)
 
@@ -207,7 +207,7 @@ describe('границы', () => {
     expect(same(varyDecode(varyEncode(blob)), blob)).toBe(true)
   })
 
-  it('буфер-окно внутри чужого буфера копируется целиком и не тащит соседей', () => {
+  it('a buffer window inside a foreign buffer is copied whole and does not drag neighbors', () => {
     const whole = Uint8Array.from([9, 9, 1, 2, 3, 9, 9])
     const window = whole.subarray(2, 5)
     expect(hex(varyEncode(window))).toBe('63010203')
@@ -218,7 +218,7 @@ describe('границы', () => {
     expect(same(varyDecode(framed.subarray(3, 7)), Uint8Array.from([1, 2, 3]))).toBe(true)
   })
 
-  it('глубокая вложенность держится до 512 уровней', () => {
+  it('deep nesting holds up to 512 levels', () => {
     let deep: Vary = 1
     for (let i = 0; i < 500; i++) deep = [deep]
 
@@ -227,14 +227,14 @@ describe('границы', () => {
     expect(taken).toBe(1)
   })
 
-  it('глубже 512 — отказ, а не переполнение стека', () => {
+  it('deeper than 512 is a refusal, not a stack overflow', () => {
     let deep: Vary = 1
     for (let i = 0; i < 600; i++) deep = [deep]
     expect(() => varyEncode(deep)).toThrow(VaryError)
-    expect(() => varyEncode(deep)).toThrow(/вложенность глубже 512/)
+    expect(() => varyEncode(deep)).toThrow(/nesting deeper than 512/)
   })
 
-  it('целые до границы безопасного и float за ней', () => {
+  it('integers up to the safe boundary and floats beyond it', () => {
     expect(hex(varyEncode(Number.MAX_SAFE_INTEGER))).toBe('3fe0ffffffffffff0f')
     expect(hex(varyEncode(Number.MIN_SAFE_INTEGER))).toBe('5fdfffffffffffff0f')
     expect(varyDecode(varyEncode(Number.MAX_SAFE_INTEGER))).toBe(Number.MAX_SAFE_INTEGER)
@@ -247,20 +247,20 @@ describe('границы', () => {
     expect(varyDecode(varyEncode(overflow))).toBe(overflow)
   })
 
-  it('большие bigint', () => {
+  it('large bigints', () => {
     for (const value of [0n, 1n, -1n, 255n, 256n, -256n, 2n ** 64n, -(2n ** 64n) - 1n, 2n ** 4096n - 1n]) {
       expect(varyDecode(varyEncode(value))).toBe(value)
     }
     expect(hex(varyEncode(2n ** 4096n - 1n))).toBe(`e28004${'ff'.repeat(512)}`)
   })
 
-  it('bigint и число не путаются между собой', () => {
+  it('bigint and number do not get confused', () => {
     expect(varyDecode(varyEncode(1n))).toBe(1n)
     expect(varyDecode(varyEncode(1))).toBe(1)
     expect(hex(varyEncode(1n))).not.toBe(hex(varyEncode(1)))
   })
 
-  it('все спецзначения float', () => {
+  it('all float special values', () => {
     for (const value of [
       Number.NaN,
       Number.POSITIVE_INFINITY,
@@ -278,14 +278,14 @@ describe('границы', () => {
     }
   })
 
-  it('края диапазона Date', () => {
+  it('Date range edges', () => {
     for (const ms of [0, 1, -1, 8.64e15, -8.64e15]) {
       const date = new Date(ms)
       expect(varyDecode(varyEncode(date))).toEqual(date)
     }
   })
 
-  it('ключ __proto__ остаётся полем, а не подменяет прототип', () => {
+  it('__proto__ key stays a field and does not swap the prototype', () => {
     const source: Record<string, Vary> = {}
     Object.defineProperty(source, '__proto__', { value: 1, enumerable: true, writable: true, configurable: true })
 
@@ -298,48 +298,48 @@ describe('границы', () => {
 
 // ── 4. Отказы на входе ───────────────────────────────────────────────────────
 
-describe('неподдержанное на входе', () => {
+describe('unsupported input', () => {
   const bad: Array<[string, unknown, RegExp]> = [
-    ['undefined', undefined, /типа undefined/],
-    ['функция', () => 1, /типа function/],
-    ['символ', Symbol('x'), /типа symbol/],
-    ['Map', new Map(), /вида Map/],
-    ['Set', new Set(), /вида Set/],
-    ['RegExp', /x/, /вида RegExp/],
-    ['Int32Array', new Int32Array([1]), /вида Int32Array/],
-    ['ArrayBuffer', new ArrayBuffer(4), /вида ArrayBuffer/],
-    ['экземпляр класса', new (class Point {})(), /вида Point/],
+    ['undefined', undefined, /type undefined/],
+    ['function', () => 1, /type function/],
+    ['symbol', Symbol('x'), /type symbol/],
+    ['Map', new Map(), /kind Map/],
+    ['Set', new Set(), /kind Set/],
+    ['RegExp', /x/, /kind RegExp/],
+    ['Int32Array', new Int32Array([1]), /kind Int32Array/],
+    ['ArrayBuffer', new ArrayBuffer(4), /kind ArrayBuffer/],
+    ['class instance', new (class Point {})(), /kind Point/],
     ['Invalid Date', new Date(Number.NaN), /Invalid Date/],
-    ['одинокий суррогат', '\uD800', /одинокий суррогат/],
-    ['хвостовой суррогат', 'a\uDC00', /одинокий суррогат/],
+    ['lone surrogate', '\uD800', /lone surrogate/],
+    ['trailing surrogate', 'a\uDC00', /lone surrogate/],
   ]
 
   for (const [name, value, message] of bad) {
-    it(`${name} — отказ`, () => {
+    it(`${name} is refused`, () => {
       expect(() => varyEncode(value as Vary)).toThrow(VaryError)
       expect(() => varyEncode(value as Vary)).toThrow(message)
     })
   }
 
-  it('undefined внутри массива — отказ', () => {
-    expect(() => varyEncode([1, undefined, 3] as unknown as Vary)).toThrow(/массив обязан быть плотным/)
+  it('undefined inside an array is refused', () => {
+    expect(() => varyEncode([1, undefined, 3] as unknown as Vary)).toThrow(/array must be dense/)
   })
 
-  it('дырка в массиве — отказ', () => {
+  it('a hole in an array is refused', () => {
     // eslint-disable-next-line no-sparse-arrays
     const holey = [1, , 3] as unknown as Vary
-    expect(() => varyEncode(holey)).toThrow(/массив обязан быть плотным/)
+    expect(() => varyEncode(holey)).toThrow(/array must be dense/)
   })
 
-  it('undefined в поле объекта — отказ', () => {
-    expect(() => varyEncode({ a: undefined } as unknown as Vary)).toThrow(/пустота выражается через null/)
+  it('undefined in an object field is refused', () => {
+    expect(() => varyEncode({ a: undefined } as unknown as Vary)).toThrow(/absence is expressed with null/)
   })
 
-  it('в сообщении есть путь до плохого узла', () => {
+  it('the message contains the path to the bad node', () => {
     const value = { ok: 1, deep: [0, { bad: () => 1 }] } as unknown as Vary
     try {
       varyEncode(value)
-      expect.unreachable('кодек обязан был отказать')
+      expect.unreachable('the codec must have refused')
     } catch (error) {
       expect(error).toBeInstanceOf(VaryError)
       expect((error as VaryError).at).toBe('$.deep[1].bad')
@@ -350,32 +350,32 @@ describe('неподдержанное на входе', () => {
 
 // ── 5. Строгость разбора ─────────────────────────────────────────────────────
 
-describe('разбор отвергает неканоничное', () => {
+describe('parsing rejects non-canonical input', () => {
   const bad: Array<[string, string, RegExp]> = [
-    ['varint не минимален', '3f8000', /не минимальной длиной/],
-    ['varint шире 53 бит', '3fffffffffffffffffff7f', /шире 53 бит/],
-    ['неизвестный тег', '04', /неизвестен/],
-    ['неизвестное расширение', 'e7', /расширение №7/],
-    ['хвост после значения', '2020', /после значения осталось 1 Б/],
-    ['обрыв длины', '63', /нужно ещё 3 Б/],
-    ['обрыв тела', '6301', /нужно ещё 3 Б/],
-    ['обрыв float', '033ff8', /нужно ещё 8 Б/],
-    ['1.0 в вещественном теге', '033ff0000000000000', /безопасное целое/],
-    ['-0 в вещественном теге', '038000000000000000', /-0 обязан/],
-    ['0 в вещественном теге', '030000000000000000', /безопасное целое/],
-    ['сигнальный NaN', '037ff0000000000001', /NaN записан не канонически/],
-    ['NaN с мусором в мантиссе', '037ff8000000000001', /NaN записан не канонически/],
-    ['ключи словаря не по порядку', 'c2816221816122', /не строго по возрастанию/],
-    ['одинаковые ключи словаря', 'c2816121816122', /не строго по возрастанию/],
-    ['ключ словаря не строка', 'c12020', /ключ словаря обязан быть строкой/],
-    ['ведущий ноль у bigint', 'e2020001', /ведущий нулевой байт/],
-    ['минус ноль у bigint', 'e300', /отрицательного нуля/],
-    ['битый UTF-8', '81ff', /битый UTF-8/],
-    ['обрезанная UTF-8 последовательность', '82d0', /нужно ещё 2 Б/],
-    ['дата вне диапазона', 'e0ffffffffffffff0f', /вне диапазона Date/],
-    ['эпоха с отрицательным знаком', 'e100', /положительным знаком/],
-    ['целое ниже MIN_SAFE_INTEGER', '5fe0ffffffffffff0f', /не представимо числом/],
-    ['пустой вход', '', /нужно ещё 1 Б/],
+    ['non-minimal varint', '3f8000', /not minimal-length/],
+    ['varint wider than 53 bits', '3fffffffffffffffffff7f', /wider than 53 bits/],
+    ['unknown tag', '04', /is unknown/],
+    ['unknown extension', 'e7', /extension #7/],
+    ['tail after the value', '2020', /1 B left after the value/],
+    ['truncated length', '63', /need 3 more B/],
+    ['truncated body', '6301', /need 3 more B/],
+    ['truncated float', '033ff8', /need 8 more B/],
+    ['1.0 in the float tag', '033ff0000000000000', /safe integer/],
+    ['-0 in the float tag', '038000000000000000', /-0 must be encoded/],
+    ['0 in the float tag', '030000000000000000', /safe integer/],
+    ['signaling NaN', '037ff0000000000001', /NaN is not canonical/],
+    ['NaN with garbage in the mantissa', '037ff8000000000001', /NaN is not canonical/],
+    ['dictionary keys out of order', 'c2816221816122', /strictly ascending/],
+    ['duplicate dictionary keys', 'c2816121816122', /strictly ascending/],
+    ['dictionary key is not a string', 'c12020', /dictionary key must be a string/],
+    ['leading zero in bigint', 'e2020001', /leading zero byte/],
+    ['minus zero in bigint', 'e300', /no negative zero/],
+    ['malformed UTF-8', '81ff', /malformed UTF-8/],
+    ['truncated UTF-8 sequence', '82d0', /need 2 more B/],
+    ['date out of range', 'e0ffffffffffffff0f', /outside the Date range/],
+    ['epoch with a negative sign', 'e100', /positive sign/],
+    ['integer below MIN_SAFE_INTEGER', '5fe0ffffffffffff0f', /cannot be represented as a number/],
+    ['empty input', '', /need 1 more B/],
   ]
 
   for (const [name, bytes, message] of bad) {
@@ -385,20 +385,20 @@ describe('разбор отвергает неканоничное', () => {
     })
   }
 
-  it('короткая и расширенная формы аргумента не пересекаются', () => {
+  it('short and extended argument forms do not overlap', () => {
     // Расширенная форма всегда прибавляет 31, поэтому значения 0…30 в ней
     // непредставимы — второй записи у них попросту нет, проверять нечего.
     expect(varyDecode(bin('3f00'))).toBe(31)
     expect(varyDecode(bin('3e'))).toBe(30)
   })
 
-  it('сообщение о разборе указывает байт', () => {
+  it('the parse message points at the byte', () => {
     try {
       // Список из двух: целое 0 в байте 1, а в байте 2 — тег, которого нет.
       varyDecode(bin('a22004'))
-      expect.unreachable('кодек обязан был отказать')
+      expect.unreachable('the codec must have refused')
     } catch (error) {
-      expect((error as VaryError).at).toBe('байт 2')
+      expect((error as VaryError).at).toBe('byte 2')
     }
   })
 })
@@ -408,8 +408,8 @@ describe('разбор отвергает неканоничное', () => {
 // Фикстуру и её разборщик даёт общий `./golden`: те же векторы гоняются в
 // Chromium (`cross-runtime.test.ts`), а туда `node:fs` не едет.
 
-describe(`golden-векторы ${golden.format}`, () => {
-  it('фикстура не пуста', () => {
+describe(`golden vectors ${golden.format}`, () => {
+  it('fixture is not empty', () => {
     expect(golden.vectors.length).toBeGreaterThan(30)
   })
 
@@ -425,7 +425,7 @@ describe(`golden-векторы ${golden.format}`, () => {
 // ── 7. varyEqual ─────────────────────────────────────────────────────────────
 
 describe('varyEqual', () => {
-  it('равенство считается по байтам, а не по ссылкам', () => {
+  it('equality is computed by bytes, not by references', () => {
     expect(varyEqual({ a: 1, b: 2 }, { b: 2, a: 1 })).toBe(true)
     expect(varyEqual(1, 1.0)).toBe(true)
     expect(varyEqual(-0, 0)).toBe(true)
@@ -437,7 +437,7 @@ describe('varyEqual', () => {
     expect(varyEqual('', new Uint8Array(0))).toBe(false)
   })
 
-  it('согласован с кодированием на произвольных значениях', () => {
+  it('consistent with encoding on arbitrary values', () => {
     fc.assert(
       fc.property(anyVary, anyVary, (a, b) => {
         expect(varyEqual(a, b)).toBe(hex(varyEncode(a)) === hex(varyEncode(b)))
@@ -446,22 +446,22 @@ describe('varyEqual', () => {
     )
   })
 
-  it('на неподдержанном значении отказывает, а не врёт', () => {
+  it('refuses on an unsupported value instead of lying', () => {
     expect(() => varyEqual(undefined as unknown as Vary, undefined as unknown as Vary)).toThrow(VaryError)
   })
 })
 
 // ── 8. Типы ──────────────────────────────────────────────────────────────────
 
-describe('типы', () => {
-  it('varyDecode отдаёт Vary, varyEncode берёт Vary', () => {
+describe('types', () => {
+  it('varyDecode returns Vary, varyEncode takes Vary', () => {
     expectTypeOf(varyDecode).returns.toEqualTypeOf<Vary>()
     expectTypeOf(varyEncode).parameter(0).toEqualTypeOf<Vary>()
     expectTypeOf(varyEncode).returns.toEqualTypeOf<Uint8Array>()
     expectTypeOf(varyEqual).returns.toEqualTypeOf<boolean>()
   })
 
-  it('undefined в Vary не пролезает', () => {
+  it('undefined does not sneak into Vary', () => {
     expectTypeOf<undefined>().not.toMatchTypeOf<Vary>()
     expectTypeOf<Map<string, number>>().not.toMatchTypeOf<Vary>()
   })

@@ -11,15 +11,15 @@ import {
 } from './priority';
 import type { Priority } from './priority';
 
-describe('ступени приоритета', () => {
-  it('у каждой ступени есть подпись и тон', () => {
+describe('priority tiers', () => {
+  it('every tier has a label and a tone', () => {
     for (const priority of PRIORITIES) {
       expect(PRIORITY_LABELS[priority]).not.toBe('');
       expect(priorityTone(priority)).not.toBe('');
     }
   });
 
-  it('распознаются только известные ступени', () => {
+  it('only known tiers are recognized', () => {
     expect(isPriority('urgent')).toBeTruthy();
     expect(isPriority('normal')).toBeTruthy();
     expect(isPriority('высокий')).toBeFalsy();
@@ -29,21 +29,21 @@ describe('ступени приоритета', () => {
   });
 });
 
-describe('сравнение приоритетов', () => {
-  it('срочное выше высокого, высокое — обычного, обычное — низкого', () => {
+describe('priority comparison', () => {
+  it('urgent above high, high above normal, normal above low', () => {
     expect(comparePriority('urgent', 'high')).toBeLessThan(0);
     expect(comparePriority('high', 'normal')).toBeLessThan(0);
     expect(comparePriority('normal', 'low')).toBeLessThan(0);
   });
 
-  it('отсутствие приоритета равно «обычному»', () => {
+  it('missing priority equals "normal"', () => {
     expect(comparePriority(undefined, DEFAULT_PRIORITY)).toBe(0);
     expect(priorityRank(undefined)).toBe(priorityRank(DEFAULT_PRIORITY));
     expect(comparePriority(undefined, 'low')).toBeLessThan(0);
     expect(comparePriority(undefined, 'high')).toBeGreaterThan(0);
   });
 
-  it('свойство: сравнение антисимметрично и транзитивно', () => {
+  it('property: comparison is antisymmetric and transitive', () => {
     for (const a of PRIORITIES) {
       for (const b of PRIORITIES) {
         // `+ 0` убирает минус-ноль: `-Math.sign(0)` — это `-0`, и `Object.is`
@@ -56,15 +56,15 @@ describe('сравнение приоритетов', () => {
   });
 });
 
-describe('метка приоритета', () => {
-  it('«обычный» молчит: иначе метка на каждой строке перестаёт быть меткой', () => {
+describe('priority badge', () => {
+  it('"normal" stays silent: otherwise a badge on every row stops being a badge', () => {
     expect(isNotable(undefined)).toBeFalsy();
     expect(isNotable('normal')).toBeFalsy();
     expect(isNotable('low')).toBeTruthy();
     expect(isNotable('urgent')).toBeTruthy();
   });
 
-  it('тон — роль, а не цвет', () => {
+  it('tone is a role, not a color', () => {
     expect(priorityTone('urgent')).toBe('danger');
     expect(priorityTone('high')).toBe('warning');
     expect(priorityTone(undefined)).toBe('neutral');

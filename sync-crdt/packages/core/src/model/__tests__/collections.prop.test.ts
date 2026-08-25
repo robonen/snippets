@@ -36,8 +36,8 @@ function slotOf(at: Stand, field: string): LocalId | undefined {
   return coreOf(at.space).keyIndex(ROOT).get(field)
 }
 
-describe('reconcile против референсной реализации', () => {
-  test('содержимое, число юнитов и порядок self совпадают с наивным планом', () => {
+describe('reconcile against the reference implementation', () => {
+  test('content, unit count, and self order match the naive plan', () => {
     fc.assert(
       fc.property(listArb, listArb, fc.nat(8), fc.nat(8), (prev, next, a, b) => {
         const at = stand()
@@ -85,7 +85,7 @@ describe('reconcile против референсной реализации', (
     )
   })
 
-  test('поменял k позиций — родилось ровно k юнитов', () => {
+  test('changing k positions births exactly k units', () => {
     fc.assert(
       fc.property(
         fc.array(itemArb, { minLength: 1, maxLength: 8 }),
@@ -114,8 +114,8 @@ describe('reconcile против референсной реализации', (
   })
 })
 
-describe('идемпотентность', () => {
-  test('x(x()) и x(k, x(k)) не рождают юнитов', () => {
+describe('idempotence', () => {
+  test('x(x()) and x(k, x(k)) birth no units', () => {
     fc.assert(
       fc.property(listArb, fc.integer({ min: -50, max: 50 }), (items, count) => {
         const at = stand()
@@ -133,8 +133,8 @@ describe('идемпотентность', () => {
   })
 })
 
-describe('сходимость на операциях модели', () => {
-  test('две реплики со случайными правками читают одинаково', () => {
+describe('convergence over model operations', () => {
+  test('two replicas with random edits read the same', () => {
     const opArb = fc.oneof(
       fc.record({ kind: fc.constant('write' as const), items: listArb }),
       fc.record({ kind: fc.constant('push' as const), item: itemArb }),

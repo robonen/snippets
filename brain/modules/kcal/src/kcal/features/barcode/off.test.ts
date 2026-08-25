@@ -30,7 +30,7 @@ describe(normalizeOffProduct, () => {
     });
   });
 
-  it('brands-массив и строковые числа', () => {
+  it('brands array and stringified numbers', () => {
     const product = normalizeOffProduct({
       code: '5900951310935',
       brands: ['Snickers'],
@@ -42,7 +42,7 @@ describe(normalizeOffProduct, () => {
     expect(product?.fat).toBe(20.4);
   });
 
-  it('без kcal, но с кДж — пересчитывает', () => {
+  it('no kcal but kJ present — recalculates', () => {
     const product = normalizeOffProduct({
       code: '123',
       product_name: 'Test',
@@ -51,15 +51,15 @@ describe(normalizeOffProduct, () => {
     expect(product?.kcal).toBe(43); // 180 кДж / 4.184
   });
 
-  it('запись без калорийности отбрасывается', () => {
+  it('record without calories is dropped', () => {
     expect(normalizeOffProduct({ code: '1', product_name: 'X', nutriments: {} })).toBeNull();
   });
 
-  it('запись без имени отбрасывается', () => {
+  it('record without a name is dropped', () => {
     expect(normalizeOffProduct({ code: '1', nutriments: { 'energy-kcal_100g': 100 } })).toBeNull();
   });
 
-  it('нереалистичный вес порции не попадает в servingGrams', () => {
+  it('unrealistic serving weight does not land in servingGrams', () => {
     const product = normalizeOffProduct({
       code: '1',
       product_name: 'X',
@@ -69,7 +69,7 @@ describe(normalizeOffProduct, () => {
     expect(product?.servingGrams).toBeUndefined();
   });
 
-  it('пустое русское имя пропускает вперёд общее', () => {
+  it('empty Russian name yields to the generic one', () => {
     const product = normalizeOffProduct({
       code: '1',
       product_name: 'Oat milk',
@@ -80,12 +80,12 @@ describe(normalizeOffProduct, () => {
   });
 });
 
-describe('цифры штрихкода', () => {
-  it('оставляет только цифры: с упаковки их набирают с пробелами', () => {
+describe('barcode digits', () => {
+  it('keeps digits only: they are typed from the package with spaces', () => {
     expect(digitsOnly('5449 0000 00996')).toBe('5449000000996');
   });
 
-  it('длина EAN/UPC: от восьми до четырнадцати цифр', () => {
+  it('EAN/UPC length: eight to fourteen digits', () => {
     expect(isBarcode('54490000')).toBeTruthy();
     expect(isBarcode('5449000000996')).toBeTruthy();
     expect(isBarcode('5449')).toBeFalsy();
@@ -97,7 +97,7 @@ describe('цифры штрихкода', () => {
 describe(draftFromOff, () => {
   const product = { code: '1', name: 'Сникерс Тройной', brand: 'Snickers', kcal: 435, protein: 8, fat: 20.4, carbs: 53.3 };
 
-  it('бренд дописывается к имени и штрихкод остаётся в карточке', () => {
+  it('brand is appended to the name and the barcode stays on the card', () => {
     expect(draftFromOff({ ...product, servingGrams: 50 })).toEqual({
       name: 'Сникерс Тройной (Snickers)',
       category: 'Упакованное',
@@ -110,11 +110,11 @@ describe(draftFromOff, () => {
     });
   });
 
-  it('бренд уже в имени — второй раз не дописывается', () => {
+  it('brand already in the name is not appended twice', () => {
     expect(draftFromOff({ ...product, name: 'Snickers Тройной' }).name).toBe('Snickers Тройной');
   });
 
-  it('вес порции с этикетки не указан — вес штуки не выдумываем', () => {
+  it('serving weight not on the label — the unit weight is not invented', () => {
     expect(Object.hasOwn(draftFromOff(product), 'pieceGrams')).toBeFalsy();
   });
 });

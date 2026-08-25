@@ -33,8 +33,8 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('действия над задачами', () => {
-  it('добавляет задачу и ставит её в конец ручного порядка', () => {
+describe('task actions', () => {
+  it('adds a task and puts it at the end of the manual order', () => {
     const space = spaceOf();
     const actions = useActions(space);
 
@@ -46,7 +46,7 @@ describe('действия над задачами', () => {
     expect(readTask(first.id, space.root(TasksModel).tasks(first.id))).toEqual(first);
   });
 
-  it('выполнение повторяющейся задачи рождает следующую, а выполненная остаётся', () => {
+  it('completing a recurring task spawns the next one, the completed one remains', () => {
     const space = spaceOf();
     const actions = useActions(space);
 
@@ -70,7 +70,7 @@ describe('действия над задачами', () => {
     expect(Object.hasOwn(next ?? {}, 'doneAt')).toBeFalsy();
   });
 
-  it('обычная задача при выполнении никого не рождает, а возврат снимает отметку', () => {
+  it('completing an ordinary task spawns nothing, reverting clears the mark', () => {
     const space = spaceOf();
     const actions = useActions(space);
 
@@ -82,7 +82,7 @@ describe('действия над задачами', () => {
     expect(Object.hasOwn(tasksOf(space)[0] ?? {}, 'doneAt')).toBeFalsy();
   });
 
-  it('удаление проекта снимает ссылку с его задач', () => {
+  it('deleting a project unlinks its tasks', () => {
     const space = spaceOf();
     const actions = useActions(space);
 
@@ -97,11 +97,11 @@ describe('действия над задачами', () => {
     expect(Object.hasOwn(tasksOf(space)[0] ?? {}, 'project')).toBeFalsy();
   });
 
-  it('проект без имени не заводится', () => {
+  it('project without a name is not created', () => {
     expect(useActions(spaceOf()).addProject('   ')).toBeNull();
   });
 
-  it('удаление возвращает снимок, и им же задача восстанавливается под тем же id', () => {
+  it('deletion returns a snapshot, and it restores the task under the same id', () => {
     const space = spaceOf();
     const actions = useActions(space);
 
@@ -124,11 +124,11 @@ describe('действия над задачами', () => {
     expect(tasksOf(space)).toEqual([task]);
   });
 
-  it('удалять нечего — и возвращать нечего', () => {
+  it('nothing to delete — nothing to return', () => {
     expect(useActions(spaceOf()).remove('нет-такой')).toBeNull();
   });
 
-  it('отметка пункта чек-листа не трогает соседей и не закрывает задачу', () => {
+  it('checking a checklist item touches no siblings and does not close the task', () => {
     const space = spaceOf();
     const actions = useActions(space);
 
@@ -150,7 +150,7 @@ describe('действия над задачами', () => {
     expect(Object.hasOwn(tasksOf(space)[0]?.steps?.[0] ?? {}, 'doneAt')).toBeFalsy();
   });
 
-  it('выполнение повтора с чек-листом рождает задачу с чистыми пунктами и НОВЫМИ ключами', () => {
+  it('completing a repeat with a checklist spawns a task with clean items and NEW keys', () => {
     const space = spaceOf();
     const actions = useActions(space);
 
@@ -172,7 +172,7 @@ describe('действия над задачами', () => {
     expect(next?.steps?.[0]?.id).not.toBe('s1');
   });
 
-  it('проект переименовывается, а пустое имя его не трогает', () => {
+  it('project is renamed, an empty name leaves it alone', () => {
     const space = spaceOf();
     const actions = useActions(space);
 
@@ -184,7 +184,7 @@ describe('действия над задачами', () => {
     expect(space.root(TasksModel).projects(project?.id ?? '').name()).toBe('Квартира');
   });
 
-  it('правка несуществующей задачи ничего не создаёт', () => {
+  it('editing a nonexistent task creates nothing', () => {
     const space = spaceOf();
     const actions = useActions(space);
 

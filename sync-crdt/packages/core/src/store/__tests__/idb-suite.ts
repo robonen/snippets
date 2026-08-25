@@ -54,8 +54,8 @@ export function idbSuite(env: IdbEnv): void {
   storeContract(`IndexedDB (${env.what}, страница 64 Б)`, idbCase(env, { page: 64 }))
   storeContract(`IndexedDB (${env.what}, два зеркала)`, idbCase(env, { mirrors: 2 }))
 
-  describe(`IndexedDB — обрыв записи (${env.what})`, () => {
-    test('на каждой позиции обрыва состояние либо до батча, либо после', async () => {
+  describe(`IndexedDB — write interruption (${env.what})`, () => {
+    test('at every interruption position the state is either before the batch or after', async () => {
       const name = dbName()
       const kill: Kill = { left: Number.MAX_SAFE_INTEGER, done: 0 }
       const torn = tornFactory(env.factory, kill)
@@ -92,7 +92,7 @@ export function idbSuite(env: IdbEnv): void {
           // Каждый оборванный прогон это одна позиция; последний, прошедший, —
           // переход к следующему батчу.
           for (let cut = 0; ; cut++) {
-            if (cut > 4096) throw new Error('обрыв не кончается: сохранение не проходит ни при каком запасе')
+            if (cut > 4096) throw new Error('the interruption never ends: the save does not go through with any margin')
             kill.left = cut
             let broke = false
             try {
@@ -109,7 +109,7 @@ export function idbSuite(env: IdbEnv): void {
             const state = revived(await fresh.load(LAND))
             await fresh.close()
 
-            expect(state, `батч ${batch}, обрыв на ${cut}-м put`).toEqual(before)
+            expect(state, `batch ${batch}, interruption at put #${cut}`).toEqual(before)
           }
 
           before = revived(await store.load(LAND))
@@ -118,7 +118,7 @@ export function idbSuite(env: IdbEnv): void {
         // Сторож самой модели: если бы обрыв ни разу не случился, весь тест был
         // бы двумя сотнями зелёных прогонов ни о чём.
         console.log(`kill9/${env.what}: ${positions} позиций обрыва, ${KILL9_BATCHES} батчей, страница ${KILL9_PAGE} Б`)
-        expect(positions, 'гейт стадии — 1000 позиций обрыва').toBeGreaterThanOrEqual(1000)
+        expect(positions, 'stage gate — 1000 interruption positions').toBeGreaterThanOrEqual(1000)
 
         // И данные целы после всего.
         const last = make(env.factory)
@@ -130,7 +130,7 @@ export function idbSuite(env: IdbEnv): void {
       }
     }, 900_000)
 
-    test('оборванная транзакция не оставляет образ в памяти впереди базы', async () => {
+    test('an interrupted transaction does not leave the in-memory image ahead of the database', async () => {
       // Самый опасный исход из возможных и единственный, которого нет у файла:
       // `Mirrors.save` правит образ СИНХРОННО, а транзакция отваливается потом.
       // Не забудь мы образ — следующее сохранение записало бы только свежие
@@ -145,7 +145,7 @@ export function idbSuite(env: IdbEnv): void {
         const base = revived(await store.load(LAND))
 
         kill.left = 0
-        await expect(store.save(LAND, batchOf(land, 'рвём', 6))).rejects.toThrow(/транзакция/)
+        await expect(store.save(LAND, batchOf(land, 'рвём', 6))).rejects.toThrow(/transaction/)
 
         // Тем же стором: он обязан был забыть образ и поднять его из базы.
         kill.left = Number.MAX_SAFE_INTEGER
@@ -168,11 +168,11 @@ export function idbSuite(env: IdbEnv): void {
     })
   })
 
-  describe(`IndexedDB — гидрация файбером (${env.what})`, () => {
+  describe(`IndexedDB — hydration via fiber (${env.what})`, () => {
     /** 47 букв, 91 байт: тот самый заголовок, который до S5 не сохранялся вовсе. */
     const TITLE = 'Заголовок обычной длины для заметки пользователя'
 
-    test('чтение поля модели остаётся синхронным, хотя под ним база', async () => {
+    test('reading a model field stays synchronous even with a database underneath', async () => {
       const name = dbName()
       const writer = idbStore({ name, factory: env.factory, ranges: env.ranges })
       const reader = idbStore({ name, factory: env.factory, ranges: env.ranges })
@@ -201,7 +201,7 @@ export function idbSuite(env: IdbEnv): void {
       }
     })
 
-    test('правки уезжают в базу батчем из микрозадачи, а не по юниту', async () => {
+    test('edits go to the database as a microtask batch, not per unit', async () => {
       const name = dbName()
       const store = idbStore({ name, factory: env.factory, ranges: env.ranges })
 

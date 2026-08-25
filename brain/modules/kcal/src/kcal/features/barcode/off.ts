@@ -88,10 +88,10 @@ export async function fetchOffByBarcode(barcode: string): Promise<OffProduct | n
     response = await fetch(url);
   }
   catch {
-    throw new Error('Нет соединения с базой — проверьте интернет.');
+    throw new Error('No connection to the database — check your internet.');
   }
   if (response.status === 404) return null;
-  if (!response.ok) throw new Error(`База недоступна (${response.status})`);
+  if (!response.ok) throw new Error(`Database unavailable (${response.status})`);
   const data = await response.json() as { status?: number; product?: OffApiProduct };
   if (data.product === undefined || data.status === 0) return null;
   return normalizeOffProduct({ ...data.product, code: data.product.code ?? barcode });

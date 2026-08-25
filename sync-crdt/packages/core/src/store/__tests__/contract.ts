@@ -90,9 +90,9 @@ export function storeContract(name: string, open: () => Promise<StoreCase>): voi
     return await open()
   }
 
-  describe(`контракт хранилища — ${name}`, () => {
-    describe('пачка, а не юниты', () => {
-      test('save → load даёт те же значения, включая выносные', async () => {
+  describe(`store contract — ${name}`, () => {
+    describe('a pack, not units', () => {
+      test('save → load yields the same values, external ones included', async () => {
         const it = await fresh()
         try {
           const land = landOf()
@@ -110,7 +110,7 @@ export function storeContract(name: string, open: () => Promise<StoreCase>): voi
         }
       })
 
-      test('незнакомый ленд отдаёт пустую пачку, а не отказ', async () => {
+      test('an unknown land returns an empty pack, not a refusal', async () => {
         const it = await fresh()
         try {
           const bin = await it.store().load(LAND)
@@ -122,7 +122,7 @@ export function storeContract(name: string, open: () => Promise<StoreCase>): voi
         }
       })
 
-      test('байты load принадлежат вызывающему: правка образа их не трогает', async () => {
+      test('load bytes belong to the caller: editing the image does not touch them', async () => {
         const it = await fresh()
         try {
           const land = landOf()
@@ -141,8 +141,8 @@ export function storeContract(name: string, open: () => Promise<StoreCase>): voi
       })
     })
 
-    describe('удаление — это замещение по ключу', () => {
-      test('перезапись значения не добавляет юнита в образе', async () => {
+    describe('removal is replacement by key', () => {
+      test('overwriting a value adds no unit to the image', async () => {
         const it = await fresh()
         try {
           const land = landOf()
@@ -162,7 +162,7 @@ export function storeContract(name: string, open: () => Promise<StoreCase>): voi
         }
       })
 
-      test('надгробие замещает живую версию, а не ложится рядом', async () => {
+      test('a tombstone replaces the live version instead of lying beside it', async () => {
         const it = await fresh()
         try {
           const land = landOf()
@@ -177,7 +177,7 @@ export function storeContract(name: string, open: () => Promise<StoreCase>): voi
         }
       })
 
-      test('версии РАЗНЫХ пиров лежат по разным ключам', async () => {
+      test('versions of DIFFERENT peers live under different keys', async () => {
         const it = await fresh()
         try {
           const first = landOf(0x11)
@@ -196,8 +196,8 @@ export function storeContract(name: string, open: () => Promise<StoreCase>): voi
       })
     })
 
-    describe('носитель — валидная пачка и арена одновременно', () => {
-      test('перезапуск восстанавливает и данные, и состояние аллокатора', async () => {
+    describe('the medium is a valid pack and an arena at once', () => {
+      test('a restart restores both the data and the allocator state', async () => {
         const it = await fresh()
         try {
           const land = landOf()
@@ -223,7 +223,7 @@ export function storeContract(name: string, open: () => Promise<StoreCase>): voi
         }
       })
 
-      test('образ разбирается курсором и несёт свободные слоты', async () => {
+      test('the image parses with a cursor and carries free slots', async () => {
         const it = await fresh()
         try {
           const land = landOf()
@@ -246,8 +246,8 @@ export function storeContract(name: string, open: () => Promise<StoreCase>): voi
       })
     })
 
-    describe('порядок и батчи', () => {
-      test('load после save видит сохранённое, порядок вызовов сохраняется', async () => {
+    describe('ordering and batches', () => {
+      test('load after save sees what was saved, call order is preserved', async () => {
         const it = await fresh()
         try {
           const land = landOf()
@@ -262,7 +262,7 @@ export function storeContract(name: string, open: () => Promise<StoreCase>): voi
         }
       })
 
-      test('пустая пачка ничего не меняет', async () => {
+      test('an empty pack changes nothing', async () => {
         const it = await fresh()
         try {
           const land = landOf()
@@ -278,7 +278,7 @@ export function storeContract(name: string, open: () => Promise<StoreCase>): voi
         }
       })
 
-      test('сохранения, поданные подряд без ожидания, применяются по порядку', async () => {
+      test('saves submitted back to back without awaiting apply in order', async () => {
         const it = await fresh()
         try {
           // Ровно то, что делает `vault`: пачка уходит из микрозадачи и никто не
@@ -300,8 +300,8 @@ export function storeContract(name: string, open: () => Promise<StoreCase>): voi
       })
     })
 
-    describe('выносные значения', () => {
-      test('ball отдаётся по хэшу, не поднимая ленд', async () => {
+    describe('external values', () => {
+      test('ball is served by hash without raising the land', async () => {
         const it = await fresh()
         try {
           const land = landOf()
@@ -320,7 +320,7 @@ export function storeContract(name: string, open: () => Promise<StoreCase>): voi
         }
       })
 
-      test('перезапись большого значения не оставляет прежний ball в карте', async () => {
+      test('overwriting a big value does not leave the previous ball in the map', async () => {
         const it = await fresh()
         try {
           const land = landOf()
@@ -338,7 +338,7 @@ export function storeContract(name: string, open: () => Promise<StoreCase>): voi
         }
       })
 
-      test('выносное значение переживает перезапуск', async () => {
+      test('an external value survives a restart', async () => {
         const it = await fresh()
         try {
           const land = landOf()
@@ -356,8 +356,8 @@ export function storeContract(name: string, open: () => Promise<StoreCase>): voi
       })
     })
 
-    describe('ленды', () => {
-      test('lands перечисляет сохранённые, drop забывает ленд', async () => {
+    describe('lands', () => {
+      test('lands lists the saved ones, drop forgets a land', async () => {
         const it = await fresh()
         try {
           const land = landOf()
@@ -375,7 +375,7 @@ export function storeContract(name: string, open: () => Promise<StoreCase>): voi
         }
       })
 
-      test('чтение незнакомого ленда не делает его известным', async () => {
+      test('reading an unknown land does not make it known', async () => {
         const it = await fresh()
         try {
           await it.store().load(LAND)
@@ -387,7 +387,7 @@ export function storeContract(name: string, open: () => Promise<StoreCase>): voi
         }
       })
 
-      test('drop незнакомого ленда — не ошибка', async () => {
+      test('drop of an unknown land is not an error', async () => {
         const it = await fresh()
         try {
           await it.store().drop(LAND)

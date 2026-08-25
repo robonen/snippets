@@ -32,7 +32,7 @@ function pump(read: () => unknown): Promise<unknown> | null {
   }
 }
 
-test('E1: рёбра переиспользуются после приостановки', async () => {
+test('E1: edges are reused after a suspension', async () => {
   const a = ref('a')
   const b = ref('b')
 
@@ -85,7 +85,7 @@ test('E1: рёбра переиспользуются после приоста�
   expect(total()).toBe('a-v1-b-v2')
 })
 
-test('E1-контроль: изменившаяся зависимость даёт НОВОЕ ребро', () => {
+test('E1 control: a changed dependency yields a NEW edge', () => {
   const which = ref(true)
   const a = ref(1)
   const b = ref(2)
@@ -114,7 +114,7 @@ test('E1-контроль: изменившаяся зависимость да�
   expect(after[1]?.dep).toBe(b.node)
 })
 
-test('E1: хвост обрезается после успешного прогона — призрачной подписки не остаётся', async () => {
+test('E1: the tail is trimmed after a successful run — no ghost subscription remains', async () => {
   const on = ref(true)
   const extra = ref('x')
 
@@ -157,7 +157,7 @@ test('E1: хвост обрезается после успешного прог
   expect(extra.node.subs).toBeUndefined()
 })
 
-test('sync() внутри атома — не кэш: пересчёт атома повторяет загрузку', async () => {
+test('sync() inside an atom is not a cache: atom recompute repeats the load', async () => {
   let calls = 0
   const tick = ref(0)
 

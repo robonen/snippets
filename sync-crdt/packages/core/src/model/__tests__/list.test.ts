@@ -31,14 +31,14 @@ function fork(origin: Stand, peer: number): Stand {
   return copy
 }
 
-describe('список: операции и порядок', () => {
-  test('непрочитанное поле — пустой массив, а не null и не undefined', () => {
+describe('list: operations and order', () => {
+  test('an unread field is an empty array, not null and not undefined', () => {
     const { space } = stand()
     expect(space.root(Shelf).tags()).toEqual([])
     expect(space.root(Shelf).sizes()).toEqual([])
   })
 
-  test('push кладёт в КОНЕЦ, unshift — в НАЧАЛО', () => {
+  test('push appends to the END, unshift to the FRONT', () => {
     // Регрессия против baza: там `add` постил с `lead = hole`, то есть в начало,
     // а `splice` в том же классе дописывал в конец — две противоположные
     // семантики без единого слова в документации (реестр, п. 29).
@@ -71,7 +71,7 @@ describe('список: операции и порядок', () => {
     expect(shelf.tags.size()).toBe(0)
   })
 
-  test('remove убирает ВСЕ вхождения — после него has() обязан быть false', () => {
+  test('remove drops ALL occurrences — after it has() must be false', () => {
     const shelf = stand().space.root(Shelf)
     shelf.tags(['a', 'b', 'a', 'c', 'a'])
     shelf.tags.remove('a')
@@ -90,7 +90,7 @@ describe('список: операции и порядок', () => {
     expect(shelf.tags.has('нет')).toBe(false)
   })
 
-  test('splice по умолчанию дописывает в конец, с границами — заменяет отрезок', () => {
+  test('splice appends by default, with bounds it replaces a range', () => {
     const shelf = stand().space.root(Shelf)
     shelf.sizes([1, 2, 3])
     shelf.sizes.splice([9])
@@ -99,7 +99,7 @@ describe('список: операции и порядок', () => {
     expect(shelf.sizes()).toEqual([7, 8, 3, 9])
   })
 
-  test('has не бросает на значении, которое линза даже не кодирует', () => {
+  test('has does not throw on a value the lens cannot even encode', () => {
     // `has` — это ВОПРОС, и единственный честный ответ на «есть ли в списке
     // значение, которое туда не кладётся» — «нет». Бросать имеет право запись.
     const shelf = stand().space.root(Shelf)
@@ -108,7 +108,7 @@ describe('список: операции и порядок', () => {
     expect(() => shelf.mails(['не почта'])).toThrow()
   })
 
-  test('отказ линзы не оставляет за собой ПОЛОВИНУ списка', () => {
+  test('a lens refusal does not leave HALF a list behind', () => {
     const at = stand()
     const shelf = at.space.root(Shelf)
     const before = at.land.size()
@@ -118,8 +118,8 @@ describe('список: операции и порядок', () => {
   })
 })
 
-describe('список: реконсиляция — счётчиком, а не глазами', () => {
-  test('поменял ОДИН элемент — родился РОВНО ОДИН юнит', () => {
+describe('list: reconciliation by counter, not by eye', () => {
+  test('changing ONE element births EXACTLY ONE unit', () => {
     // Требование DoD стадии (docs/05 §2.3 и §8.5, `list/reconcile-1000`).
     const at = stand()
     const shelf = at.space.root(Shelf)
@@ -133,7 +133,7 @@ describe('список: реконсиляция — счётчиком, а не
     expect(shelf.tags()).toEqual(['vue', 'crdt', 'ready'])
   })
 
-  test('идемпотентная запись — НОЛЬ юнитов', () => {
+  test('an idempotent write is ZERO units', () => {
     const at = stand()
     const shelf = at.space.root(Shelf)
     shelf.tags(['vue', 'crdt'])
@@ -141,7 +141,7 @@ describe('список: реконсиляция — счётчиком, а не
     expect(born(at, () => shelf.tags.set(['vue', 'crdt']))).toBe(0)
   })
 
-  test('замена сохраняет ПОДДЕРЕВО элемента: тот же self, другое значение', () => {
+  test('a replacement keeps the SUBTREE of the element: same self, different value', () => {
     // Именно на этом стоит переименование ключа словаря (docs/05 §3.8).
     const at = stand()
     const core = coreOf(at.space)
@@ -160,7 +160,7 @@ describe('список: реконсиляция — счётчиком, а не
     expect(core.order(before[0] as LocalId).map(view => view.value)).toEqual(['вложенное'])
   })
 
-  test('вставка тождественного соседа НЕ схлопывается: занятый адрес пропускается', () => {
+  test('inserting an identical neighbor does NOT collapse: a taken address is skipped', () => {
     // ОЖИДАНИЕ ИСПРАВЛЕНО вместе с `predictItem`. Прежняя редакция этого теста
     // фиксировала эталоном то, что `insert(1, 'b')` в `['a', 'b']` ничего не
     // делает: адрес `H(соль ‖ head ‖ lead ‖ значение)` совпадал с адресом уже
@@ -183,7 +183,7 @@ describe('список: реконсиляция — счётчиком, а не
     expect(shelf.tags()).toEqual(['x', 'x', 'x'])
   })
 
-  test('«Insert before removed before changed» — приоритет ветвей', () => {
+  test('«Insert before removed before changed» — branch priority', () => {
     // Порт baza как есть: смена приоритета ветвей ломает именно этот кейс.
     const shelf = stand().space.root(Shelf)
     shelf.tags(['foo', 'bar'])
@@ -192,7 +192,7 @@ describe('список: реконсиляция — счётчиком, а не
     expect(shelf.tags()).toEqual(['xxx', 'bars'])
   })
 
-  test('«Many moves» — серия перестановок', () => {
+  test('«Many moves» — a series of reorderings', () => {
     const shelf = stand().space.root(Shelf)
     shelf.tags(['foo', 'bar', 'lol'])
     shelf.tags.move(2, 1)
@@ -202,7 +202,7 @@ describe('список: реконсиляция — счётчиком, а не
     expect(shelf.tags()).toEqual(['bar', 'foo', 'lol'])
   })
 
-  test('«Reorder separated sublists» — две независимые перестановки', () => {
+  test('«Reorder separated sublists» — two independent reorderings', () => {
     const shelf = stand().space.root(Shelf)
     shelf.sizes([1, 2, 3, 4, 5, 6])
 
@@ -217,7 +217,7 @@ describe('список: реконсиляция — счётчиком, а не
     expect(shelf.sizes()).toEqual([1, 3, 2, 4, 6, 5])
   })
 
-  test('запись НЕ реентерантна: сеттер не перевычисляет канал изнутри себя', () => {
+  test('writes are NOT reentrant: the setter does not recompute the channel from within itself', () => {
     // У baza `items_vary` заканчивался на `return this.items_vary()` — канал
     // считался из самого себя (реестр, п. 37). Здесь значение приходит обычным
     // распространением, поэтому эффект перезапускается ровно один раз на правку,
@@ -249,8 +249,8 @@ describe('список: реконсиляция — счётчиком, а не
   })
 })
 
-describe('список: мусор от чужой версии', () => {
-  test('чтение не бросает, негодный элемент даёт Issue и пропускается', () => {
+describe('list: garbage from a foreign version', () => {
+  test('the read does not throw, a bad element yields an Issue and is skipped', () => {
     const at = stand()
     const shelf = at.space.root(Shelf)
     shelf.tags(['a', 'b'])
@@ -269,8 +269,8 @@ describe('список: мусор от чужой версии', () => {
   })
 })
 
-describe('список: слияние двух реплик', () => {
-  test('одинаковые вставки схлопываются, разные — расходятся', () => {
+describe('list: merging two replicas', () => {
+  test('identical inserts collapse, different ones diverge', () => {
     const left = stand(0x22)
     const right = stand(0x33)
     left.space.root(Shelf).tags(['foo', 'xxx'])
@@ -287,7 +287,7 @@ describe('список: слияние двух реплик', () => {
     expect(seenLeft).toContain('yyy')
   })
 
-  test('«Insert after wiped» — надгробие остаётся якорем', () => {
+  test('«Insert after wiped» — the tombstone remains an anchor', () => {
     const origin = quartet()
     const left = fork(origin, 0x22)
     const right = fork(origin, 0x33)
@@ -301,7 +301,7 @@ describe('список: слияние двух реплик', () => {
     expect(right.space.root(Shelf).sizes()).toEqual([1, 7, 3, 4])
   })
 
-  test('«Wiped before inserted» — тот же итог при обратном порядке правок', () => {
+  test('«Wiped before inserted» — the same outcome with edits in reverse order', () => {
     const origin = quartet()
     const left = fork(origin, 0x22)
     const right = fork(origin, 0x33)
@@ -315,7 +315,7 @@ describe('список: слияние двух реплик', () => {
     expect(right.space.root(Shelf).sizes()).toEqual([1, 7, 3, 4])
   })
 
-  test('«Insert before wiped» — удалённый сосед не утаскивает вставку', () => {
+  test('«Insert before wiped» — a removed neighbor does not drag the insert away', () => {
     const origin = quartet()
     const left = fork(origin, 0x22)
     const right = fork(origin, 0x33)
@@ -329,7 +329,7 @@ describe('список: слияние двух реплик', () => {
     expect(right.space.root(Shelf).sizes()).toEqual([1, 2, 7, 4])
   })
 
-  test('«Wiped after inserted» — реплики сходятся и ничего не теряют', () => {
+  test('«Wiped after inserted» — replicas converge and lose nothing', () => {
     const { left, right } = wipedAfterInserted()
     const seen = left.space.root(Shelf).sizes()
     expect(right.space.root(Shelf).sizes()).toEqual(seen)
@@ -353,7 +353,7 @@ describe('список: слияние двух реплик', () => {
    *
    * Лечится в S3 — рангом по метке первой версии узла, а не победителя.
    */
-  test.fails('«Wiped after inserted» — надгробие не должно переупорядочивать соседей', () => {
+  test.fails('«Wiped after inserted» — a tombstone must not reorder neighbors', () => {
     const { left, right } = wipedAfterInserted()
     expect(left.space.root(Shelf).sizes()).toEqual([1, 2, 7, 4])
     expect(right.space.root(Shelf).sizes()).toEqual([1, 2, 7, 4])
@@ -372,7 +372,7 @@ describe('список: слияние двух реплик', () => {
     return { left, right }
   }
 
-  test('«Insert before changed» / «Change after inserted» — обе реплики сходятся', () => {
+  test('«Insert before changed» / «Change after inserted» — both replicas converge', () => {
     const origin = quartet()
     const left = fork(origin, 0x22)
     const right = fork(origin, 0x33)
@@ -386,7 +386,7 @@ describe('список: слияние двух реплик', () => {
     expect(right.space.root(Shelf).sizes()).toEqual([1, 2, 13, 7, 4])
   })
 
-  test('вставка рядом с перестановкой — реплики сходятся в обе стороны', () => {
+  test('an insert next to a reordering — replicas converge both ways', () => {
     const origin = quartet()
     const left = fork(origin, 0x22)
     const right = fork(origin, 0x33)
@@ -403,7 +403,7 @@ describe('список: слияние двух реплик', () => {
     expect([...seen].sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 7])
   })
 
-  test('порядок доставки не влияет на итог', () => {
+  test('delivery order does not affect the outcome', () => {
     const origin = quartet()
     const left = fork(origin, 0x22)
     const right = fork(origin, 0x33)

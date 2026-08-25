@@ -16,7 +16,7 @@ function note(patch: Partial<Note> & { id: string }): Note {
 }
 
 describe(countTags, () => {
-  it('считает заметки на тег и ставит частые сверху', () => {
+  it('counts notes per tag and puts frequent ones first', () => {
     const list = [
       note({ id: 'a', tags: ['работа', 'идеи'] }),
       note({ id: 'b', tags: ['работа'] }),
@@ -29,20 +29,20 @@ describe(countTags, () => {
     ]);
   });
 
-  it('одинаково частые разводятся алфавитом, а не порядком прихода', () => {
+  it('equally frequent are split alphabetically, not by arrival order', () => {
     const straight = countTags([note({ id: 'a', tags: ['ремонт', 'дом'] })]);
     const reversed = countTags([note({ id: 'a', tags: ['дом', 'ремонт'] })]);
     expect(straight.map(item => item.tag)).toEqual(['дом', 'ремонт']);
     expect(reversed).toEqual(straight);
   });
 
-  it('повтор тега внутри одной заметки её дважды не считает', () => {
+  it('tag repeated within one note does not count it twice', () => {
     // Такого набора парсер не отдаёт, но снимок приезжает и с другого
     // устройства — счётчик обязан оставаться числом ЗАМЕТОК.
     expect(countTags([note({ id: 'a', tags: ['дом', 'дом'] })])).toEqual([{ tag: 'дом', count: 1 }]);
   });
 
-  it('без заметок и без тегов список пуст', () => {
+  it('no notes and no tags — empty list', () => {
     expect(countTags([])).toEqual([]);
     expect(countTags([note({ id: 'a' })])).toEqual([]);
   });
@@ -51,11 +51,11 @@ describe(countTags, () => {
 describe(countOf, () => {
   const counts = countTags([note({ id: 'a', tags: ['дом'] })]);
 
-  it('находит число по тегу', () => {
+  it('finds the count by tag', () => {
     expect(countOf(counts, 'дом')).toBe(1);
   });
 
-  it('у исчезнувшего тега ноль, а не пусто', () => {
+  it('vanished tag gives zero, not nothing', () => {
     expect(countOf(counts, 'работа')).toBe(0);
   });
 });

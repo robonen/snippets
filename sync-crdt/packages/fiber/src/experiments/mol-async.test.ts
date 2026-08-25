@@ -17,7 +17,7 @@ import { act, async, computed, flush, ref, sync } from '../index'
  * Отсутствие вытеснения у самого `async()` зафиксировано отдельным тестом ниже.
  */
 
-test('test types: async заворачивает результат в Promise', () => {
+test('test types: async wraps the result in a Promise', () => {
   const compute = (): string => 'x'
   const read = () => async(compute)
 
@@ -25,7 +25,7 @@ test('test types: async заворачивает результат в Promise',
   expect(typeof read).toBe('function')
 })
 
-test('Latest calls wins: новая запись отменяет незавершённый прогон', async () => {
+test('Latest calls wins: a new write cancels an unfinished run', async () => {
   const first: string[] = []
   const last: string[] = []
 
@@ -63,7 +63,7 @@ test('Latest calls wins: новая запись отменяет незавер
   expect(last).toEqual(['jin'])
 })
 
-test('расхождение: async() не канал — вызовы не вытесняют друг друга', async () => {
+test('Divergence: async() is not a channel — calls do not preempt each other', async () => {
   const log: number[] = []
   let count = 0
   const step = (): Promise<number> => Promise.resolve(++count)

@@ -67,7 +67,7 @@ const SEPARATOR = '.'
 const EMPTY = new Uint8Array(0)
 
 function fail(str: string, why: string): never {
-  throw new SyntaxError(`Неверная ссылка «${str}»: ${why}`)
+  throw new SyntaxError(`Invalid link "${str}": ${why}`)
 }
 
 /** Все ли байты секции нулевые. */
@@ -93,7 +93,7 @@ function tighten(bin: Uint8Array): Uint8Array {
   const len = bin.length
   if (len !== 0 && len !== LORD_BYTES && len !== LAND_BYTES && len !== PAWN_BYTES) {
     throw new RangeError(
-      `Длина ссылки ${len} Б: допустимы 0, ${LORD_BYTES}, ${LAND_BYTES}, ${PAWN_BYTES}`,
+      `Link length ${len} B: allowed are 0, ${LORD_BYTES}, ${LAND_BYTES}, ${PAWN_BYTES}`,
     )
   }
 
@@ -145,7 +145,7 @@ function decodeSection(
 
   const width = chars(size)
   if (part.length !== width) {
-    fail(str, `секция ${name}: символов ${part.length}, ожидалось ${width}`)
+    fail(str, `section ${name}: ${part.length} characters, expected ${width}`)
   }
 
   let acc = 0
@@ -155,7 +155,7 @@ function decodeSection(
   for (let i = 0; i < part.length; i++) {
     const code = part.charCodeAt(i)
     const digit = code < 128 ? CODES[code]! : -1
-    if (digit < 0) fail(str, `секция ${name}: символ «${part[i]}» вне алфавита`)
+    if (digit < 0) fail(str, `section ${name}: character "${part[i]}" outside the alphabet`)
 
     acc = (acc << 6) | digit
     bits += 6
@@ -168,11 +168,11 @@ function decodeSection(
   // Хвостовые биты последнего символа обязаны быть нулевыми: иначе у одних и тех
   // же байт появляется несколько текстов, и хэш от текста перестаёт быть функцией.
   if (bits > 0 && (acc & ((1 << bits) - 1)) !== 0) {
-    fail(str, `секция ${name}: хвостовые биты не нулевые`)
+    fail(str, `section ${name}: trailing bits are not zero`)
   }
 
   if (zeroes(bin, at, size)) {
-    fail(str, `секция ${name} нулевая — такие секции опускаются`)
+    fail(str, `section ${name} is zero — such sections are omitted`)
   }
 }
 
@@ -197,12 +197,12 @@ function unformat(str: string): Uint8Array {
 
   const parts = str.split(SEPARATOR)
   const count = parts.length
-  if (count > 3) fail(str, `секций ${count}, допустимо не больше 3`)
+  if (count > 3) fail(str, `${count} sections, at most 3 allowed`)
 
   // Хвостовая пустая секция — не «ноль», а невыполненное правило «нулевые
   // секции опускаются вместе с разделителем». Принять её значило бы отдать два
   // текста на один `bin`.
-  if (parts[count - 1] === '') fail(str, 'хвостовая секция пуста — её надо опустить вместе с разделителем')
+  if (parts[count - 1] === '') fail(str, 'trailing section is empty — omit it along with its separator')
 
   const size = count === 1 ? LORD_BYTES : count === 2 ? LAND_BYTES : PAWN_BYTES
   const bin = new Uint8Array(size)
@@ -271,7 +271,7 @@ export class Link {
   /** Лорд из 8 байт хэша публичного ключа. */
   static peer(bin: Uint8Array): Link {
     if (bin.length !== PEER_BYTES) {
-      throw new RangeError(`peer — ${PEER_BYTES} Б, получено ${bin.length}`)
+      throw new RangeError(`peer is ${PEER_BYTES} B, got ${bin.length}`)
     }
     return new Link(tighten(bin), null)
   }
@@ -279,7 +279,7 @@ export class Link {
   /** Ленд лорда: `peer` + 8 байт под-ленда. Нулевой `area` даёт домашний ленд, то есть самого лорда. */
   static land(peer: Link, area: Uint8Array): Link {
     if (area.length !== AREA_BYTES) {
-      throw new RangeError(`area — ${AREA_BYTES} Б, получено ${area.length}`)
+      throw new RangeError(`area is ${AREA_BYTES} B, got ${area.length}`)
     }
     const bin = new Uint8Array(LAND_BYTES)
     bin.set(peer.bin.subarray(0, Math.min(peer.bin.length, LORD_BYTES)))
@@ -290,7 +290,7 @@ export class Link {
   /** Пешка в ленде: `land` + 6 байт локального id. */
   static pawn(land: Link, head: Uint8Array): Link {
     if (head.length !== HEAD_BYTES) {
-      throw new RangeError(`head — ${HEAD_BYTES} Б, получено ${head.length}`)
+      throw new RangeError(`head is ${HEAD_BYTES} B, got ${head.length}`)
     }
     const bin = new Uint8Array(PAWN_BYTES)
     bin.set(land.bin.subarray(0, Math.min(land.bin.length, LAND_BYTES)))

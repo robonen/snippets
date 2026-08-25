@@ -268,21 +268,21 @@ function openDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
     };
     request.onsuccess = (): void => done(request.result);
-    request.onerror = (): void => fail(request.error ?? new Error('IndexedDB отклонил открытие'));
+    request.onerror = (): void => fail(request.error ?? new Error('IndexedDB rejected opening'));
   });
 }
 
 function ask<T>(request: IDBRequest<T>): Promise<T> {
   return new Promise((done, fail) => {
     request.onsuccess = (): void => done(request.result);
-    request.onerror = (): void => fail(request.error ?? new Error('запрос IndexedDB отклонён'));
+    request.onerror = (): void => fail(request.error ?? new Error('IndexedDB request rejected'));
   });
 }
 
 function ended(tx: IDBTransaction): Promise<void> {
   return new Promise((done, fail) => {
     tx.oncomplete = (): void => done();
-    tx.onerror = (): void => fail(tx.error ?? new Error('транзакция IndexedDB отклонена'));
-    tx.onabort = (): void => fail(tx.error ?? new Error('транзакция IndexedDB отменена'));
+    tx.onerror = (): void => fail(tx.error ?? new Error('IndexedDB transaction rejected'));
+    tx.onabort = (): void => fail(tx.error ?? new Error('IndexedDB transaction aborted'));
   });
 }

@@ -7,7 +7,7 @@ import { devicePeer, landBytes, landId } from './land';
  * стерегут именно ЭТО: не «функция работает», а «байты те же самые».
  */
 
-test('адрес ленда kcal совпадает с тем, с которым дневник уже живёт', () => {
+test('kcal land address matches the one the journal already lives with', () => {
   // Ровно те байты, что зашиты в kcal/src/db/space.ts: «kcal» по кругу до
   // восьми. Разойдись они — переезд дневника стал бы переливкой данных.
   const expected = new Uint8Array([0x6B, 0x63, 0x61, 0x6C, 0x6B, 0x63, 0x61, 0x6C]);
@@ -17,29 +17,29 @@ test('адрес ленда kcal совпадает с тем, с которым
   expect(landId('kcal').str).toBe(legacy.str);
 });
 
-test('имя короче восьми повторяется по кругу, длиннее — обрезается', () => {
+test('Name shorter than eight repeats cyclically, a longer one is truncated', () => {
   expect(new TextDecoder().decode(landBytes('notes'))).toBe('notesnot');
   expect(new TextDecoder().decode(landBytes('a'))).toBe('aaaaaaaa');
   expect(new TextDecoder().decode(landBytes('bookmarks'))).toBe('bookmark');
 });
 
-test('адрес детерминирован: два вызова дают одни байты', () => {
+test('Address is deterministic: two calls yield the same bytes', () => {
   expect(landId('notes').str).toBe(landId('notes').str);
   expect(landId('notes').str).not.toBe(landId('tasks').str);
 });
 
-test('период имени даёт столкновение — оно ловится реестром, но начинается здесь', () => {
+test('Name periodicity causes a collision — the registry catches it, but it starts here', () => {
   // Документируем цену схемы: обрезка до восьми байт делает эти имена
   // неразличимыми. Проверка набора живёт в createRegistry.
   expect(landId('ab').str).toBe(landId('abab').str);
 });
 
-test('не-ASCII и пустое имя отвергаются', () => {
-  expect(() => landBytes('заметки')).toThrow(/не ASCII/);
-  expect(() => landBytes('')).toThrow(/пуст/);
+test('Non-ASCII and empty names are rejected', () => {
+  expect(() => landBytes('заметки')).toThrow(/not ASCII/);
+  expect(() => landBytes('')).toThrow(/empty/);
 });
 
-test('пир устройства чеканится один раз и переживает перезапуск', () => {
+test('Device peer is minted once and survives a restart', () => {
   const store = new Map<string, string>();
   const storage = {
     getItem: (key: string) => store.get(key) ?? null,

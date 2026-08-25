@@ -36,7 +36,7 @@ function pump(read: () => unknown): Promise<unknown> | null {
   }
 }
 
-test('Memoize by single simple key: каждый ключ считается сам по себе', () => {
+test('Memoize by single simple key: each key is computed independently', () => {
   const overrides = new ReactiveMap<string, string>()
 
   const names = computed.keyed({
@@ -55,7 +55,7 @@ test('Memoize by single simple key: каждый ключ считается с�
   expect(listed()).toEqual(['JIN', 'john'])
 })
 
-test('Deep deps: рекурсия по ключам и инвалидация вглубь', () => {
+test('Deep deps: recursion over keys and invalidation in depth', () => {
   let sums = 0
   const overrides = new ReactiveMap<number, number>()
 
@@ -80,7 +80,7 @@ test('Deep deps: рекурсия по ключам и инвалидация в
   expect(sums).toBe(6)
 })
 
-test('Error caching: значение, пришедшее снаружи, доводит ожидание до конца', async () => {
+test('Error caching: a value arriving from outside completes the wait', async () => {
   const stored = new ReactiveMap<string, number>()
   // Ожидание, которое само по себе никогда не разрешится: значение придёт записью.
   const never = new Promise<never>(() => {})
@@ -101,7 +101,7 @@ test('Error caching: значение, пришедшее снаружи, дов
   expect(await waiting).toBe(123)
 })
 
-test('ключевой канал: приостановка на одном ключе не блокирует остальные', async () => {
+test('Keyed channel: suspension on one key does not block the others', async () => {
   const gates = new Map<string, { promise: Promise<string>; release: (v: string) => void }>()
 
   const gateFor = (id: string) => {
@@ -149,7 +149,7 @@ test('ключевой канал: приостановка на одном кл
   expect(item('a')).toBe('A')
 })
 
-test('нестабильная ссылка в sync(): значение не доезжает никогда', async () => {
+test('Unstable reference in sync(): the value never arrives', async () => {
   const mismatches: Array<{ sub: string; found: string; wanted: string }> = []
   setTaskMismatchHandler((info) => mismatches.push(info))
 

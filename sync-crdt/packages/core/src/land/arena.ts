@@ -142,7 +142,7 @@ export class Arena {
     // байтами, и глава выбрана вдвое больше именно поэтому. Молчать здесь нельзя —
     // запись за границу `Uint8Array` не бросает, она пропадает.
     if (len > CHUNK) {
-      throw new RangeError(`слот в ${len} Б не помещается в главу ${CHUNK} Б`)
+      throw new RangeError(`slot of ${len} B does not fit into a ${CHUNK} B chunk`)
     }
 
     let at = this.#fill
@@ -197,7 +197,7 @@ export class Arena {
     const span = Math.max(1, Math.ceil(bin.length / CHUNK))
     const base = this.#chunks.length
     if (base + span > CHUNKS_MAX) {
-      throw new RangeError(`арена вмещает ${CHUNKS_MAX} глав по ${CHUNK} Б, а нужна ещё ${span}`)
+      throw new RangeError(`arena holds ${CHUNKS_MAX} chunks of ${CHUNK} B, and ${span} more is needed`)
     }
 
     for (let k = 0; k < span; k++) {
@@ -246,7 +246,7 @@ export class Arena {
 
   #fresh(): void {
     if (this.#chunks.length >= CHUNKS_MAX) {
-      throw new RangeError(`арена вмещает ${CHUNKS_MAX} глав по ${CHUNK} Б`)
+      throw new RangeError(`arena holds ${CHUNKS_MAX} chunks of ${CHUNK} B`)
     }
     this.#head = this.#chunks.length
     this.#chunks.push(new Uint8Array(CHUNK))

@@ -75,7 +75,7 @@ export function cast(from: CastFrom, as: Field | AnyModel<ModelName> | ModelName
     // бы пустым. Молчание тут — то же, за что в реестре числятся пп. 27 и 35,
     // поэтому отказ громкий.
     throw new ModelError(
-      'cast: вид на корневой документ ленда неотличим от пустого слота — ROOT занят сентинелом. Переводите поле, а не корень',
+      'cast: a view of the land root document is indistinguishable from an empty slot — ROOT is taken by a sentinel. Translate a field, not the root',
       'cast',
     )
   }
@@ -106,7 +106,7 @@ function siteOf(from: CastFrom): Site {
   const ops = (from as { readonly $?: Handle }).$
   if (ops === undefined) {
     throw new ModelError(
-      'cast: `$` не несёт ни ячейки, ни ядра — переводите сам документ (cast(post, …)), а не post.$',
+      'cast: `$` carries neither a cell nor a core — translate the document itself (cast(post, …)), not post.$',
       'cast',
     )
   }
@@ -130,7 +130,7 @@ function coreOfDoc(doc: object): SpaceCore {
       : undefined
     if (cell !== undefined) return cell.core
   }
-  throw new ModelError('cast: у документа нет ни одного канала — ленд брать неоткуда', 'cast')
+  throw new ModelError('cast: the document has not a single channel — nowhere to take the land from', 'cast')
 }
 
 /**
@@ -209,7 +209,7 @@ function modelFor(name: ModelName): AnyModel {
   const found = modelOf(name)
   if (found === undefined) {
     throw new ModelError(
-      `модель «${name}» не объявлена в этом процессе: импортируйте файл с её model(...)`,
+      `model «${name}» is not declared in this process: import the file with its model(...)`,
       'cast',
     )
   }

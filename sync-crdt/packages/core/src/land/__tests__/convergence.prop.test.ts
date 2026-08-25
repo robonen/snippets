@@ -109,8 +109,8 @@ function run(scenario: Scenario): World {
   return { replicas, clock }
 }
 
-describe('свойства сходимости наивного порядка', () => {
-  test('convergence — после схождения все реплики читаются одинаково', () => {
+describe('convergence properties of the naive order', () => {
+  test('convergence — after syncing all replicas read the same', () => {
     fc.assert(
       fc.property(scenarioArb, scenario => {
         const { replicas } = run(scenario)
@@ -123,7 +123,7 @@ describe('свойства сходимости наивного порядка'
     )
   })
 
-  test('idempotence — повторная доставка того же набора ничего не меняет', () => {
+  test('idempotence — redelivering the same set changes nothing', () => {
     fc.assert(
       fc.property(scenarioArb, scenario => {
         const { replicas } = run(scenario)
@@ -146,7 +146,7 @@ describe('свойства сходимости наивного порядка'
     )
   })
 
-  test('commutativity — порядок применения дельт не влияет на результат', () => {
+  test('commutativity — the order of applying deltas does not affect the result', () => {
     fc.assert(
       fc.property(scenarioArb, fc.array(fc.nat(4096), { maxLength: 64 }), (scenario, keys) => {
         const { replicas, clock } = run(scenario)
@@ -171,7 +171,7 @@ describe('свойства сходимости наивного порядка'
     )
   })
 
-  test('tombstone — удалённое не воскресает от старого юнита', () => {
+  test('tombstone — the removed is not resurrected by an old unit', () => {
     fc.assert(
       fc.property(scenarioArb, fc.array(fc.nat(4096), { maxLength: 64 }), (scenario, keys) => {
         const { replicas } = run(scenario)
@@ -192,7 +192,7 @@ describe('свойства сходимости наивного порядка'
     )
   })
 
-  test('interleaving-free — параллельные блоки не чередуются', () => {
+  test('interleaving-free — concurrent blocks do not interleave', () => {
     fc.assert(
       fc.property(
         fc.record({
@@ -231,7 +231,7 @@ describe('свойства сходимости наивного порядка'
     )
   })
 
-  test('reachability — живой по LWW элемент виден в порядке чтения', () => {
+  test('reachability — an element alive by LWW is visible in the read order', () => {
     fc.assert(
       fc.property(scenarioArb, scenario => {
         const { replicas } = run(scenario)

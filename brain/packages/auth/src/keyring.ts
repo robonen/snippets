@@ -7,12 +7,12 @@ import type { Sealed, WrappedDek } from './crypto';
  *
  * ─── Конверт из двух этажей ──────────────────────────────────────────────────
  *
- * Способы доступа (passkey, фраза, ключ устройства) заворачивают НЕ связку, а
- * **мастер-ключ** — случайные 32 байта, которые не меняются никогда. Связка
- * лежит рядом, запечатанная мастером, и потому может меняться СВОБОДНО: новый
- * модуль получает секрет без перевыпуска passkey-обёртки. Заворачивай способы
- * доступа саму связку — добавление ленда требовало бы KEK каждого способа, а
- * KEK passkey без живого прикосновения пальцем не выводится вовсе.
+ * Способы доступа (passkey, фраза, ключ устройства) заворачивают не связку, а
+ * **мастер-ключ** — случайные 32 байта, которые никогда не меняются. Связка
+ * хранится рядом, зашифрованная мастером, и потому может меняться свободно:
+ * новый модуль получает секрет без перевыпуска passkey-обёртки. Если бы
+ * способы доступа заворачивали саму связку, добавление ленда требовало бы KEK
+ * каждого способа — а KEK passkey нельзя вывести без живого прикосновения.
  *
  * ─── Что где лежит ───────────────────────────────────────────────────────────
  *
@@ -95,7 +95,7 @@ function encodeSecrets(entries: ReadonlyMap<string, Entry | Uint8Array>): Uint8A
 
 export function decodeSecrets(blob: Uint8Array): Map<string, Uint8Array> {
   const parsed = JSON.parse(new TextDecoder().decode(blob)) as { v: number; lands: Record<string, string> };
-  if (parsed.v !== 1) throw new Error(`связка версии ${parsed.v}: эта сборка понимает только v1`);
+  if (parsed.v !== 1) throw new Error(`keyring version ${parsed.v}: this build understands only v1`);
   const out = new Map<string, Uint8Array>();
   for (const [land, encoded] of Object.entries(parsed.lands)) {
     const padded = encoded.replaceAll('-', '+').replaceAll('_', '/');
@@ -113,7 +113,7 @@ async function ringOf(master: Uint8Array, store: RingStore, entries: Map<string,
   let key: Uint8Array | null = master;
 
   const need = (): Uint8Array => {
-    if (key === null) throw new Error('связка заперта: мастер забыт, откройте заново');
+    if (key === null) throw new Error('keyring is locked: master key forgotten, unlock again');
     return key;
   };
 
@@ -151,7 +151,7 @@ async function ringOf(master: Uint8Array, store: RingStore, entries: Map<string,
           // Один ленд — один секрет: расхождение означает две независимые
           // истории шифрования, и молча выбрать одну значило бы потерять другую.
           if (known.raw.length === raw.length && known.raw.every((byte, i) => byte === raw[i])) continue;
-          throw new Error(`секрет ленда «${land}» расходится с местным: присоединение прервано`);
+          throw new Error(`secret of land «${land}» diverges from the local one: adoption aborted`);
         }
         entries.set(land, { raw: raw.slice(), key: await importSecret(raw) });
       }

@@ -44,12 +44,12 @@ export function createRegistry(modules: readonly BrainModule[]): Registry {
   for (const module of modules) {
     if (!ID_SHAPE.test(module.id)) {
       throw new Error(
-        `имя модуля «${module.id}» не годится: строчная латиница, цифры и дефис, до 16 символов — `
-        + 'из имени чеканится адрес ленда и строятся пути маршрутов',
+        `module name «${module.id}» is not valid: lowercase Latin, digits and hyphen, up to 16 characters — `
+        + 'the land address and route paths are minted from the name',
       );
     }
     if (byId.has(module.id)) {
-      throw new Error(`модуль «${module.id}» объявлен дважды`);
+      throw new Error(`module «${module.id}» declared twice`);
     }
     const at = landId(module.id).str;
     const owner = byLand.get(at);
@@ -58,7 +58,7 @@ export function createRegistry(modules: readonly BrainModule[]): Registry {
       // столкновение — это период: `ab` и `abab` дают один адрес. Разойтись
       // молча они не могут: два модуля писали бы в один ленд.
       throw new Error(
-        `модули «${owner}» и «${module.id}» чеканят один адрес ленда «${at}»: переименуйте один из них`,
+        `modules «${owner}» and «${module.id}» mint the same land address «${at}»: rename one of them`,
       );
     }
     byId.set(module.id, module);
@@ -71,7 +71,7 @@ export function createRegistry(modules: readonly BrainModule[]): Registry {
     modules: list,
     get(id) {
       const found = byId.get(id);
-      if (found === undefined) throw new Error(`модуль «${id}» не зарегистрирован`);
+      if (found === undefined) throw new Error(`module «${id}» is not registered`);
       return found;
     },
     routes: () => list.map(moduleRoute),

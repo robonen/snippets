@@ -27,16 +27,16 @@ function values(sands: readonly Sand[]): unknown[] {
 }
 
 describe('orderNaive', () => {
-  test('пустой набор читается пустым списком', () => {
+  test('an empty set reads as an empty list', () => {
     expect(orderNaive([], ROOT)).toEqual([])
   })
 
-  test('единственный элемент', () => {
+  test('a single element', () => {
     const a = sand('a', ROOT, 'A')
     expect(values(orderNaive([a], ROOT))).toEqual(['A'])
   })
 
-  test('цепочка lead выкладывается по порядку', () => {
+  test('a lead chain lays out in order', () => {
     const a = sand('a', ROOT, 'A')
     const b = sand('b', 'a', 'B')
     const c = sand('c', 'b', 'C')
@@ -44,7 +44,7 @@ describe('orderNaive', () => {
     expect(values(orderNaive([a, b, c], ROOT))).toEqual(['A', 'B', 'C'])
   })
 
-  test('порядок входного массива не влияет на результат', () => {
+  test('input array order does not affect the result', () => {
     const a = sand('a', ROOT, 'A')
     const b = sand('b', 'a', 'B')
     const c = sand('c', 'b', 'C')
@@ -55,7 +55,7 @@ describe('orderNaive', () => {
     expect(values(orderNaive([a, c, b], ROOT))).toEqual(expected)
   })
 
-  test('два конкурента на одном lead: свежий встаёт первым', () => {
+  test('two competitors on one lead: the fresher one goes first', () => {
     const base = sand('a', ROOT, 'A', { time: 1 })
     const older = sand('x', 'a', 'X', { time: 2, peer: 'p1' })
     const newer = sand('y', 'a', 'Y', { time: 3, peer: 'p1' })
@@ -63,7 +63,7 @@ describe('orderNaive', () => {
     expect(values(orderNaive([base, older, newer], ROOT))).toEqual(['A', 'Y', 'X'])
   })
 
-  test('два конкурента на одном lead в одну секунду: арбитр — меньший peer', () => {
+  test('two competitors on one lead in the same second: the smaller peer is the tiebreaker', () => {
     const base = sand('a', ROOT, 'A', { time: 1 })
     const fromP1 = sand('x', 'a', 'X', { time: 2, peer: 'p1' })
     const fromP2 = sand('y', 'a', 'Y', { time: 2, peer: 'p2' })
@@ -72,7 +72,7 @@ describe('orderNaive', () => {
     expect(values(orderNaive([base, fromP1, fromP2], ROOT))).toEqual(['A', 'X', 'Y'])
   })
 
-  test('надгробие в середине цепочки не рвёт её', () => {
+  test('a tombstone in the middle of a chain does not break it', () => {
     const a = sand('a', ROOT, 'A')
     const b = sand('b', 'a', 'B')
     const c = sand('c', 'b', 'C')
@@ -81,7 +81,7 @@ describe('orderNaive', () => {
     expect(values(orderNaive([a, b, c, grave], ROOT))).toEqual(['A', 'C'])
   })
 
-  test('потомок удалённого узла по lead остаётся видимым', () => {
+  test('a descendant of a removed node via lead stays visible', () => {
     // Вставка «за b» доехала после удаления b: узел-надгробие обязан остаться
     // точкой привязки, иначе живой d исчезнет вместе с мёртвым b.
     const a = sand('a', ROOT, 'A')
@@ -91,7 +91,7 @@ describe('orderNaive', () => {
     expect(values(orderNaive([a, grave, d], ROOT))).toEqual(['A', 'D'])
   })
 
-  test('потомок удалённого узла по head остаётся видимым', () => {
+  test('a descendant of a removed node via head stays visible', () => {
     // Здесь d — не сосед, а ребёнок b по вертикали: чтение поддерева мёртвого
     // узла не должно зависеть от того, жив ли сам узел.
     const grave = sand('b', ROOT, null, { time: 5 })
@@ -101,7 +101,7 @@ describe('orderNaive', () => {
     expect(values(orderNaive([grave, d], 'b'))).toEqual(['D'])
   })
 
-  test('несколько уровней вложенности через head читаются независимо', () => {
+  test('several nesting levels via head read independently', () => {
     const root1 = sand('r1', ROOT, 'R1')
     const root2 = sand('r2', 'r1', 'R2')
 
@@ -118,7 +118,7 @@ describe('orderNaive', () => {
     expect(values(orderNaive(all, 'r2'))).toEqual([])
   })
 
-  test('юнит с недоехавшим lead виден в хвосте, а не теряется', () => {
+  test('a unit whose lead has not arrived shows in the tail instead of being lost', () => {
     // Недостижимое от корня дописывается в хвост, а не выпадает: причинность
     // восстановится с доставкой юнита `a`, но потери нет ни на одном шаге.
     // Так же поступает `sand_ordered` в baza — там очередь разбирается до конца.
@@ -131,7 +131,7 @@ describe('orderNaive', () => {
 })
 
 describe('resolveNaive', () => {
-  test('свёртка по self не зависит от порядка обхода', () => {
+  test('folding by self does not depend on traversal order', () => {
     const old = sand('a', ROOT, 'старое', { time: 1 })
     const fresh = sand('a', ROOT, 'новое', { time: 9 })
 
@@ -139,7 +139,7 @@ describe('resolveNaive', () => {
     expect(resolveNaive([fresh, old], ROOT).get('a')).toBe(fresh)
   })
 
-  test('юниты чужого head в свёртку не попадают', () => {
+  test('units of a foreign head do not enter the fold', () => {
     const mine = sand('a', ROOT, 'моё')
     const alien = sand('a', ROOT, 'чужое', { head: 'other', time: 9 })
 

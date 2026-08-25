@@ -17,14 +17,14 @@ function spaceOf(): Space {
   return createSpace({ land })
 }
 
-test('useDoc: тот же хендл, что у space.doc, — безопасен для проброса пропом', () => {
+test('useDoc: the same handle as space.doc — safe to pass as a prop', () => {
   const space = spaceOf()
   const root = useDoc(Note, undefined, space)
   expect(root).toBe(space.root(Note))
   expect(useDoc(Note, undefined, space)).toBe(root)
 })
 
-test('useModel: чтение через мост, запись прямым вызовом канала', async () => {
+test('useModel: reads through the bridge, writes via a direct channel call', async () => {
   const space = spaceOf()
   const note = space.root(Note)
   note.title('до')
@@ -42,7 +42,7 @@ test('useModel: чтение через мост, запись прямым вы
   expect(note.title()).toBe('после')
 })
 
-test('provideSpace/useSpace: пространство доезжает по дереву компонентов', async () => {
+test('provideSpace/useSpace: the space travels down the component tree', async () => {
   const space = spaceOf()
   space.root(Note).title('из контекста')
 
@@ -66,7 +66,7 @@ test('provideSpace/useSpace: пространство доезжает по де
   expect(html).toContain('из контекста')
 })
 
-test('useSpace без провайдера отказывает громко', async () => {
+test('useSpace without a provider fails loudly', async () => {
   const Lone = defineComponent({
     setup() {
       expect(() => useSpace()).toThrow(/provideSpace/)
@@ -76,7 +76,7 @@ test('useSpace без провайдера отказывает громко', a
   await renderToString(createSSRApp(Lone))
 })
 
-test('useDoc по строке адреса — для маршрутов', () => {
+test('useDoc by address string — for routes', () => {
   const space = spaceOf()
   const root = space.root(Note)
   root.title('заголовок')
@@ -86,7 +86,7 @@ test('useDoc по строке адреса — для маршрутов', () =
   // адрес берём у ключевого юнита поля.
   const core = coreOf(space)
   const head = core.keyIndex(ROOT_HEAD).get('title')
-  if (head === undefined) throw new Error('ключ поля не найден')
+  if (head === undefined) throw new Error('field key not found')
 
   const doc = space.doc(Note, head)
   const link = doc.$.link()
@@ -94,7 +94,7 @@ test('useDoc по строке адреса — для маршрутов', () =
   expect(useDoc(Note, link.str, space)).toBe(doc)
 })
 
-test('installSpace: провизия на уровне приложения, без setup-контекста', async () => {
+test('installSpace: app-level provision, without setup context', async () => {
   const space = spaceOf()
   space.root(Note).title('с уровня приложения')
 

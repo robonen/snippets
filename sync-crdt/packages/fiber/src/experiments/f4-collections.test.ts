@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest'
 import { ReactiveMap, ReactiveSet, computed, flush, ref, watchEffect } from '../index'
 
-test('карта: читатель одного ключа не просыпается от изменения соседнего', () => {
+test('map: a reader of one key does not wake on a neighboring key change', () => {
   const map = new ReactiveMap<string, number>()
   map.set('a', 1)
   map.set('b', 2)
@@ -32,7 +32,7 @@ test('карта: читатель одного ключа не просыпае
   expect(readsB).toBe(2)
 })
 
-test('карта: запись того же значения никого не будит', () => {
+test('map: writing the same value wakes no one', () => {
   const map = new ReactiveMap<string, number>()
   map.set('a', 1)
 
@@ -50,7 +50,7 @@ test('карта: запись того же значения никого не 
   expect(reads).toBe(1)
 })
 
-test('карта: узлы версий заводятся только на читанные ключи', () => {
+test('map: version nodes are created only for keys that were read', () => {
   const map = new ReactiveMap<string, number>()
   for (let i = 0; i < 100; i++) map.set(`k${i}`, i)
 
@@ -64,7 +64,7 @@ test('карта: узлы версий заводятся только на ч�
   expect(map.tracked).toBe(1)
 })
 
-test('карта: удаление ключа убирает его узел версии', () => {
+test('map: deleting a key removes its version node', () => {
   const map = new ReactiveMap<string, number>()
   map.set('a', 1)
 
@@ -88,7 +88,7 @@ test('карта: удаление ключа убирает его узел в�
   expect(map.tracked).toBe(1)
 })
 
-test('карта: обход подписывается на состав ключей, а не на значения', () => {
+test('map: iteration subscribes to the key set, not the values', () => {
   const map = new ReactiveMap<string, number>()
   map.set('a', 1)
 
@@ -113,7 +113,7 @@ test('карта: обход подписывается на состав клю
   expect(reads).toBe(2)
 })
 
-test('карта: peek читает без подписки', () => {
+test('map: peek reads without subscribing', () => {
   const map = new ReactiveMap<string, number>()
   map.set('a', 1)
 
@@ -130,7 +130,7 @@ test('карта: peek читает без подписки', () => {
   expect(reads).toBe(1)
 })
 
-test('множество: та же гранулярность', () => {
+test('set: the same granularity', () => {
   const set = new ReactiveSet<string>()
   set.add('a')
 
@@ -156,7 +156,7 @@ test('множество: та же гранулярность', () => {
   expect(readsB).toBe(2)
 })
 
-test('ячейка: ref покрывает случай одиночного значения', () => {
+test('cell: ref covers the single-value case', () => {
   const cell = ref(1)
 
   let reads = 0

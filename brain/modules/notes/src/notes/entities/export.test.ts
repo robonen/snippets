@@ -21,7 +21,7 @@ function note(patch: Partial<Note> & { id: string }): Note {
 }
 
 describe(noteToMarkdown, () => {
-  it('заголовок первого уровня, метаданные строкой, дальше тело', () => {
+  it('first-level heading, metadata line, then the body', () => {
     const md = noteToMarkdown(note({
       id: 'n',
       title: 'Планы на неделю',
@@ -39,26 +39,26 @@ describe(noteToMarkdown, () => {
     ].join('\n'));
   });
 
-  it('без тегов остаётся только дата', () => {
+  it('without tags only the date remains', () => {
     expect(noteToMarkdown(note({ id: 'n', title: 'Тема' }))).toBe('# Тема\n\n*2026-08-24*');
   });
 
-  it('пустое тело блока не добавляет: хвост из пустых строк не нужен', () => {
+  it('empty body adds no block: no tail of blank lines needed', () => {
     expect(noteToMarkdown(note({ id: 'n', title: 'Тема', body: '\n  \n' })).endsWith('*2026-08-24*')).toBeTruthy();
   });
 
-  it('безымянная заметка подписана явно', () => {
+  it('untitled note is labeled explicitly', () => {
     expect(noteToMarkdown(note({ id: 'n' })).startsWith(`# ${UNTITLED}`)).toBeTruthy();
   });
 
-  it('заметка дня уходит в файл с ISO-датой, а не с «Сегодня»', () => {
+  it('daily note goes to the file with an ISO date, not with "Today"', () => {
     const daily = note({ id: 'daily:2026-08-24', title: '2026-08-24', daily: '2026-08-24' });
     expect(noteToMarkdown(daily).startsWith('# 2026-08-24')).toBeTruthy();
   });
 });
 
 describe(notesToMarkdown, () => {
-  it('склеивает заметки чертой и закрывает файл переводом строки', () => {
+  it('joins notes with a rule and ends the file with a newline', () => {
     const md = notesToMarkdown([
       note({ id: 'a', title: 'Раз' }),
       note({ id: 'b', title: 'Два' }),
@@ -67,19 +67,19 @@ describe(notesToMarkdown, () => {
     expect(md).toBe('# Раз\n\n*2026-08-24*\n\n---\n\n# Два\n\n*2026-08-24*\n');
   });
 
-  it('порядок сохраняется как передали: сортирует вызывающий', () => {
+  it('order is preserved as given: the caller sorts', () => {
     const order = ['Три', 'Раз', 'Два'];
     const md = notesToMarkdown(order.map((title, index) => note({ id: String(index), title })));
     expect(md.match(/^# (.+)$/gmu)).toEqual(order.map(title => `# ${title}`));
   });
 
-  it('пустая выгрузка — пустой файл, а не файл из одной черты', () => {
+  it('empty export — an empty file, not a file of a single rule', () => {
     expect(notesToMarkdown([])).toBe('');
   });
 });
 
 describe(exportName, () => {
-  it('имя латиницей и с датой выгрузки', () => {
+  it('file name is Latin and carries the export date', () => {
     expect(exportName(new Date(2026, 7, 24, 12))).toBe('notes-2026-08-24.md');
   });
 });

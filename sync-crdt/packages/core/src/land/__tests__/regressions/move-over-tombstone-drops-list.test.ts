@@ -21,7 +21,7 @@ import { readAll } from '../harness'
  * переподвешивает последователя **безусловно**, и на этом сценарии сохраняет
  * список. Это расхождение с оригиналом, а не сознательное упрощение.
  */
-test('move поверх надгробия обнуляет весь список', () => {
+test('move over a tombstone wipes the whole list', () => {
   const clock = fixedClock(1000)
   const replica = new Replica('p1', clock)
 

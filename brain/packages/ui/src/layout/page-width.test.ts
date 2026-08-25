@@ -35,11 +35,11 @@ function screens(dir: string, found: string[] = []): string[] {
 
 const files = [join(ROOT, 'modules'), join(ROOT, 'apps')].flatMap(dir => screens(dir));
 
-test('экраны найдены — иначе тест молча проверяет пустоту', () => {
+test('Screens are found — otherwise the test silently checks nothing', () => {
   expect(files.length).toBeGreaterThan(20);
 });
 
-test('у одного экрана одна мера, и она не вычисляется', () => {
+test('One screen has one measure, and it is not computed', () => {
   const offenders: string[] = [];
 
   for (const path of files) {

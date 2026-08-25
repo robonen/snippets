@@ -24,8 +24,8 @@ function hex(bin: Uint8Array): string {
   return [...bin].map(b => b.toString(16).padStart(2, '0')).join('')
 }
 
-describe('SHA-256 совпадает с платформенным', () => {
-  test('векторы FIPS 180-4', async () => {
+describe('SHA-256 matches the platform implementation', () => {
+  test('FIPS 180-4 vectors', async () => {
     // Эталоны из спецификации, а не из собственного прогона: тест, сверяющий код
     // сам с собой, зеленеет и при неверной реализации.
     expect(hex(sha256Of(new Uint8Array(0)))).toBe(
@@ -40,17 +40,17 @@ describe('SHA-256 совпадает с платформенным', () => {
     expect(hex(await oracle(new TextEncoder().encode('abc')))).toBe(hex(sha256Of(new TextEncoder().encode('abc'))))
   })
 
-  test('границы блока: 55, 56, 63, 64, 65 байт — там живёт добивка', async () => {
+  test('block boundaries: 55, 56, 63, 64, 65 bytes — where padding lives', async () => {
     // 55/56 — граница, за которой длина не влезает в тот же блок; 64/65 — граница
     // самого блока. Ровно здесь ошибаются все самописные реализации.
     for (const size of [0, 1, 54, 55, 56, 57, 63, 64, 65, 119, 120, 127, 128, 129]) {
       const bin = new Uint8Array(size)
       for (let i = 0; i < size; i++) bin[i] = (i * 7 + 3) & 0xff
-      expect(hex(sha256Of(bin)), `${size} Б`).toBe(hex(await oracle(bin)))
+      expect(hex(sha256Of(bin)), `${size} B`).toBe(hex(await oracle(bin)))
     }
   })
 
-  test('на случайных входах — 300 прогонов против платформы', async () => {
+  test('random inputs — 300 runs against the platform', async () => {
     const samples: Uint8Array[] = []
     fc.assert(
       fc.property(fc.uint8Array({ minLength: 0, maxLength: 3000 }), bin => {
@@ -61,11 +61,11 @@ describe('SHA-256 совпадает с платформенным', () => {
     )
 
     for (const bin of samples) {
-      expect(hex(sha256Of(bin)), `${bin.length} Б`).toBe(hex(await oracle(bin)))
+      expect(hex(sha256Of(bin)), `${bin.length} B`).toBe(hex(await oracle(bin)))
     }
   })
 
-  test('shotInto кладёт первые 12 байт по офсету и ничего вокруг не трогает', () => {
+  test('shotInto puts the first 12 bytes at the offset and touches nothing around', () => {
     const src = new TextEncoder().encode('значение подлиннее шестидесяти двух байт, чтобы было интересно')
     const dst = new Uint8Array(32).fill(0xaa)
     shotInto(dst, 8, src, 0, src.length)
@@ -76,7 +76,7 @@ describe('SHA-256 совпадает с платформенным', () => {
     expect([...dst.subarray(20)]).toEqual(Array(12).fill(0xaa))
   })
 
-  test('скрэтч не протекает между вызовами', () => {
+  test('scratch does not leak between calls', () => {
     // Расписание сообщения — модульная константа (правило 8 горячего пути).
     // Проверка на то, что оно не переносит состояние: два вызова подряд с
     // разными длинами обязаны дать те же хэши, что и поодиночке.

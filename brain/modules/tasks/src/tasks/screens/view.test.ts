@@ -1,32 +1,32 @@
 import { describe, expect, it } from 'vitest';
 import { isPanel, requestView, takeView, viewFromSearch, viewRequest } from './view';
 
-describe('заявка на показ вкладки', () => {
-  it('забирается один раз', () => {
+describe('tab display request', () => {
+  it('is claimed once', () => {
     requestView({ panel: 'today', compose: true });
     expect(takeView()).toEqual({ panel: 'today', compose: true });
     expect(takeView()).toBeNull();
     expect(viewRequest.value).toBeNull();
   });
 
-  it('читается из адреса ссылки глобального поиска', () => {
+  it('is read from the global search link address', () => {
     expect(viewFromSearch('?bucket=scheduled&task=t1')).toEqual({ panel: 'scheduled', task: 't1' });
     expect(viewFromSearch('?bucket=done')).toEqual({ panel: 'done' });
   });
 
-  it('обзор — такая же вкладка, хоть и не корзина', () => {
+  it('overview is a tab like any other, though not a bucket', () => {
     expect(isPanel('overview')).toBeTruthy();
     expect(isPanel('inbox')).toBeTruthy();
     expect(isPanel('archive')).toBeFalsy();
     expect(viewFromSearch('?bucket=overview')).toEqual({ panel: 'overview' });
   });
 
-  it('незнакомая вкладка в адресе не роняет экран в пустоту', () => {
+  it('unknown tab in the address does not drop the screen into a void', () => {
     expect(viewFromSearch('?bucket=archive&task=t1')).toEqual({ panel: 'inbox', task: 't1' });
     expect(viewFromSearch('?task=t1')).toEqual({ panel: 'inbox', task: 't1' });
   });
 
-  it('адрес без наших параметров заявкой не является', () => {
+  it('address without our params is not a request', () => {
     expect(viewFromSearch('')).toBeNull();
     expect(viewFromSearch('?other=1')).toBeNull();
   });

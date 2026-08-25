@@ -44,13 +44,13 @@ function landOf(byte = 1): Land {
   return land
 }
 
-test('короткое значение пишется и читается', () => {
+test('a short value writes and reads', () => {
   const doc = createSpace({ land: landOf() }).root(Memo)
   doc.title('Привет')
   expect(doc.title()).toBe('Привет')
 })
 
-test('обычный заголовок по-русски пишется и читается', () => {
+test('an ordinary Russian title writes and reads', () => {
   const doc = createSpace({ land: landOf() }).root(Memo)
   expect(new TextEncoder().encode(LONG).length).toBeGreaterThan(62)
 
@@ -58,7 +58,7 @@ test('обычный заголовок по-русски пишется и чи
   expect(doc.title()).toBe(LONG)
 })
 
-test('длинное значение лежит в ball, а не растянутым inline', () => {
+test('a long value lives in ball, not stretched inline', () => {
   // Без этой проверки тест позеленел бы и от того, что кто-то «починил» дыру,
   // подняв потолок inline: формат этого не позволяет (потолок 62 Б — маркер 63
   // занят выносом, ADR-расхождение №20), и такая починка была бы поломкой.
@@ -76,7 +76,7 @@ test('длинное значение лежит в ball, а не растяну
   expect(part.balls.get(shotKey(sand.shot()))?.length).toBe(sand.size())
 })
 
-test('длинное значение переживает круг через хранилище', () => {
+test('a long value survives a round trip through the store', () => {
   // Ровно то, чего не было: `ball` некуда сохранить. Круг идёт через настоящую
   // память хранилища, то есть через образ-арену, а не через `packEncode` в
   // переменную.

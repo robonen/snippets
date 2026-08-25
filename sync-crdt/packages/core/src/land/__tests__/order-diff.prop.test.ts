@@ -256,13 +256,13 @@ function diff(sands: readonly Sand[], head: string, keys: readonly number[], tal
   const backwards = [...sands].reverse()
 
   if (!identical(order(mixed, head), ours)) {
-    throw new Error(`order зависит от порядка перебора входа\n${JSON.stringify(sands)}`)
+    throw new Error(`order depends on input iteration order\n${JSON.stringify(sands)}`)
   }
   if (!identical(order(backwards, head), ours)) {
-    throw new Error(`order зависит от разворота входа\n${JSON.stringify(sands)}`)
+    throw new Error(`order depends on input reversal\n${JSON.stringify(sands)}`)
   }
   if (!identical(orderNaive(mixed, head), reference)) {
-    throw new Error(`orderNaive зависит от порядка перебора входа\n${JSON.stringify(sands)}`)
+    throw new Error(`orderNaive depends on input iteration order\n${JSON.stringify(sands)}`)
   }
 
   const form = shape(sands, head)
@@ -283,7 +283,7 @@ function diff(sands: readonly Sand[], head: string, keys: readonly number[], tal
     const ourSet = selfs(ours).sort().join(',')
     const refSet = selfs(reference).sort().join(',')
     if (ourSet !== refSet) {
-      throw new Error(`набор с кольцом разошёлся\nours=${ourSet}\nref =${refSet}\n${JSON.stringify(sands)}`)
+      throw new Error(`set with a cycle diverged\nours=${ourSet}\nref =${refSet}\n${JSON.stringify(sands)}`)
     }
   } else {
     tally.plain += 1
@@ -301,12 +301,12 @@ function diff(sands: readonly Sand[], head: string, keys: readonly number[], tal
   const shown = selfs(ours).sort().join(',')
   const alive = aliveByLww(sands, head).map(sand => sand.self).sort().join(',')
   if (shown !== alive) {
-    throw new Error(`order потерял живое по LWW\nshown=${shown}\nalive=${alive}\n${JSON.stringify(sands)}`)
+    throw new Error(`order lost a node alive by LWW\nshown=${shown}\nalive=${alive}\n${JSON.stringify(sands)}`)
   }
 }
 
-describe('order против референса на случайных историях', () => {
-  test('10 000 историй: без колец — побайтово как orderNaive, с кольцами — тот же набор', () => {
+describe('order against the reference on random histories', () => {
+  test('10 000 histories: without cycles — byte for byte like orderNaive, with cycles — the same set', () => {
     const tally: Tally = { plain: 0, ringy: 0, multiOrphan: 0 }
 
     fc.assert(
@@ -357,7 +357,7 @@ describe('order против референса на случайных исто
    * property-генератора кольца приходят слишком редко, чтобы на них можно было
    * положиться: сид у `fast-check` случайный, и сторож на редкое событие флакал бы.
    */
-  test('кольца из конкурентных move: набор тот же, ответ детерминирован', () => {
+  test('cycles from concurrent moves: the same set, a deterministic answer', () => {
     let seed = 0x51f3c7d
     const random = (limit: number): number => {
       seed ^= seed << 13
@@ -407,7 +407,7 @@ describe('order против референса на случайных исто
     expect(tally.ringy).toBeGreaterThan(0)
   })
 
-  test('цепочка в 20 000 элементов раскладывается без переполнения стека', () => {
+  test('a chain of 20 000 elements lays out without stack overflow', () => {
     // Стек — не абстрактная угроза: в тексте каждый символ это юнит, вставленный
     // за предыдущим, и рекурсивный обход ложился уже на десяти тысячах.
     const clock = fixedClock(1000)
@@ -433,7 +433,7 @@ describe('order против референса на случайных исто
  * `order.test.ts` не сверяются с ним построчно на всех головах. Здесь обе
  * функции получают один и тот же вход и обязаны ответить одинаково.
  */
-describe('order ≡ orderNaive на существующем корпусе', () => {
+describe('order ≡ orderNaive on the existing corpus', () => {
   interface SandOpts {
     readonly head?: string
     readonly peer?: string
@@ -461,7 +461,7 @@ describe('order ≡ orderNaive на существующем корпусе', ()
   // Ровно те наборы, что стоят в модульных примерах `order-naive.test.ts`.
   const examples: readonly Case[] = [
     { name: 'пустой набор', sands: [], heads: [ROOT] },
-    { name: 'единственный элемент', sands: [sand('a', ROOT, 'A')], heads: [ROOT] },
+    { name: 'a single element', sands: [sand('a', ROOT, 'A')], heads: [ROOT] },
     {
       name: 'цепочка lead',
       sands: [sand('a', ROOT, 'A'), sand('b', 'a', 'B'), sand('c', 'b', 'C')],
@@ -522,7 +522,7 @@ describe('order ≡ orderNaive на существующем корпусе', ()
       heads: [ROOT],
     },
     {
-      name: 'ветвление lead: у одного узла двое детей',
+      name: 'lead branching: one node has two children',
       sands: [sand('b0', ROOT, 'b0', { time: 1 }), sand('b1', 'b0', 'b1', { time: 2 }), sand('x', 'b0', 'x', { time: 3 })],
       heads: [ROOT],
     },
@@ -615,7 +615,7 @@ describe('order ≡ orderNaive на существующем корпусе', ()
     })
   }
 
-  test('корпус реально содержит и кольца, и сироты, и надгробия', () => {
+  test('the corpus really contains cycles, orphans, and tombstones', () => {
     // Сторож состава: если корпус выродится в набор линейных цепочек, тесты
     // выше останутся зелёными, но сверять будет нечего.
     const ringy = corpus.filter(item => item.heads.some(head => shape(item.sands, head).ringed))

@@ -98,7 +98,7 @@ export function cellOf(handle: Handle): Cell {
     : (handle as unknown as Record<symbol, Cell | undefined>)[CELL]
   if (cell === undefined) {
     throw new TypeError(
-      'метод канала вызван без приёмника: `const {push} = post.tags` отвязывает его — зовите `post.tags.push(...)`',
+      'channel method called without a receiver: `const {push} = post.tags` detaches it — call `post.tags.push(...)`',
     )
   }
   return cell

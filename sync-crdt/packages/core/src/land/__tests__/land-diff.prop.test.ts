@@ -202,8 +202,8 @@ const scenarioArb: fc.Arbitrary<Scenario> = fc.record({
   steps: fc.array(stepArb, { minLength: 8, maxLength: 50 }),
 })
 
-describe('раскладка сверяется с наивным оракулом', () => {
-  test('на историях из настоящих операций порядок совпадает поэлементно', () => {
+describe('layout is checked against the naive oracle', () => {
+  test('on histories of real operations the order matches element by element', () => {
     let rings = 0
     let strays = 0
 
@@ -260,8 +260,8 @@ describe('раскладка сверяется с наивным оракуло
   })
 })
 
-describe('операции сверяются с Replica', () => {
-  test('один поток правок даёт один порядок и одни значения', () => {
+describe('operations are checked against Replica', () => {
+  test('one stream of edits yields one order and the same values', () => {
     fc.assert(
       fc.property(scenarioArb, scenario => {
         const landClock = fixedClock(1000)

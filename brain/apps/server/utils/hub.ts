@@ -112,7 +112,7 @@ export function createHub(storage: Storage, persistDelay = PERSIST_DELAY): Hub {
         catch (error) {
           // Битый образ — не потеря: клиенты дошлют всё по фейсам. Начинаем с
           // чистого ленда и честно говорим об этом в лог.
-          console.error(`[brain] образ ленда ${id.str} не разобрался, начинаю пустым:`, error);
+          console.error(`[brain] land image ${id.str} failed to parse, starting empty:`, error);
         }
       }
       return { id, land, timer: null };
@@ -137,7 +137,7 @@ export function createHub(storage: Storage, persistDelay = PERSIST_DELAY): Hub {
       await storage.setItemRaw(landKey(slot.id), packEncode([[slot.id, part]]));
     }
     catch (error) {
-      console.error(`[brain] образ ленда ${slot.id.str} не записался:`, error);
+      console.error(`[brain] land image ${slot.id.str} failed to write:`, error);
     }
   }
 

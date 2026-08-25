@@ -35,8 +35,8 @@ function values(land: Land, head: LocalId = ROOT): unknown[] {
   return land.order(head).map(view => view.value)
 }
 
-describe('байты — источник истины', () => {
-  test('собранный лендом юнит побайтово совпадает с SandUnit.make', () => {
+describe('bytes are the source of truth', () => {
+  test('a unit assembled by the land matches SandUnit.make byte for byte', () => {
     // Ленд пишет байты сам, минуя `SandUnit.make`: четыре `Link` стоили бы
     // 147.9 нс каждая. Сторож нужен ровно потому, что знание формата оказалось
     // в двух местах — разъедутся они молча.
@@ -57,7 +57,7 @@ describe('байты — источник истины', () => {
     expect([...view.unit.bin]).toEqual([...twin.bin])
   })
 
-  test('вложенная запись кладёт head и lead теми же байтами', () => {
+  test('a nested write stores head and lead with the same bytes', () => {
     const land = makeLand()
     const head = land.post(ROOT, ROOT, 'папка')
     const first = land.post(head.self, ROOT, 'первый')
@@ -71,13 +71,13 @@ describe('байты — источник истины', () => {
     expect(values(land, head.self)).toEqual(['первый', 'второй'])
   })
 
-  test('tag доезжает до вида: без него S4 не отличит атом от списка', () => {
+  test('tag reaches the view: without it S4 cannot tell an atom from a list', () => {
     const land = makeLand()
     expect(land.post(ROOT, ROOT, 1, 'keys').tag).toBe('keys')
     expect(land.post(ROOT, ROOT, 2).tag).toBe('term')
   })
 
-  test('id узла переводится в шесть байт и обратно', () => {
+  test('a node id converts to six bytes and back', () => {
     const land = makeLand()
     const view = land.post(ROOT, ROOT, 'x')
     expect(land.nodeOf(land.idOf(view.self))).toBe(view.self)
@@ -85,22 +85,22 @@ describe('байты — источник истины', () => {
   })
 })
 
-describe('порядок', () => {
-  test('цепочка вставок читается по порядку', () => {
+describe('order', () => {
+  test('a chain of inserts reads in order', () => {
     const land = makeLand()
     let lead = ROOT
     for (const value of ['а', 'б', 'в']) lead = land.post(ROOT, lead, value).self
     expect(values(land)).toEqual(['а', 'б', 'в'])
   })
 
-  test('вставка в начало кладётся перед прежним первым', () => {
+  test('an insert at the head lands before the previous first', () => {
     const land = makeLand()
     land.post(ROOT, ROOT, 'старый')
     land.post(ROOT, ROOT, 'новый')
     expect(values(land)).toEqual(['новый', 'старый'])
   })
 
-  test('надгробие уходит из выдачи, но держит своё поддерево', () => {
+  test('a tombstone leaves the output but holds its subtree', () => {
     const land = makeLand()
     const first = land.post(ROOT, ROOT, 'первый')
     const second = land.post(ROOT, first.self, 'второй')
@@ -112,7 +112,7 @@ describe('порядок', () => {
     expect(land.remove(second.self)).toBe(false)
   })
 
-  test('перемещение переподвешивает последователя, а не рвёт цепочку', () => {
+  test('a move re-hangs the successor instead of breaking the chain', () => {
     const land = makeLand()
     let lead = ROOT
     const items: LocalId[] = []
@@ -126,7 +126,7 @@ describe('порядок', () => {
     expect(values(land)).toEqual([2, 3, 1])
   })
 
-  test('юнит с недоехавшим lead не пропадает, а дописывается в хвост', () => {
+  test('a unit whose lead has not arrived is not lost but appended to the tail', () => {
     const from = makeLand(0x11)
     const first = from.post(ROOT, ROOT, 'первый')
     const second = from.post(ROOT, first.self, 'второй')
@@ -140,27 +140,27 @@ describe('порядок', () => {
     expect(values(to)).toEqual(['первый', 'второй'])
   })
 
-  test('чтение пустой головы не аллоцирует и не падает', () => {
+  test('reading an empty head neither allocates nor crashes', () => {
     const land = makeLand()
     expect(land.order(ROOT)).toEqual([])
     expect(land.order(ROOT)).toBe(land.order(ROOT))
   })
 })
 
-describe('арбитраж LWW определён на байтах (ADR-015)', () => {
+describe('LWW arbitration is defined over bytes (ADR-015)', () => {
   // Пиры выбраны так, что текст ссылки и байты дают ПРОТИВОПОЛОЖНЫЙ порядок:
   // base64url ставит цифры после букв, а `-`/`_` — до цифр.
   const early = peerOf(0xf4)
   const late = peerOf(0xf8)
 
-  test('текстовая форма этих пиров действительно расходится с байтовой', () => {
+  test('the text form of these peers really diverges from the byte form', () => {
     // Сторож самого контрпримера: если алфавит ссылки когда-нибудь поменяют,
     // тест ниже станет проверять пустоту, и об этом надо узнать здесь.
     expect(early.str < late.str).toBe(false)
     expect(early.bin[0]).toBeLessThan(late.bin[0] as number)
   })
 
-  test('при равном времени побеждает меньший пир по байтам, а не по тексту', () => {
+  test('at equal time the smaller peer wins by bytes, not by text', () => {
     // Юниты собираются руками, а не двумя лендами: правило причинности из
     // `Stamp.next` намеренно уводит вторую запись на секунду вперёд, и через
     // ленды арбитр по пиру просто не включился бы. Здесь проверяется он сам.
@@ -183,8 +183,8 @@ describe('арбитраж LWW определён на байтах (ADR-015)', 
   })
 })
 
-describe('приём', () => {
-  test('повторная доставка ничего не меняет', () => {
+describe('receiving', () => {
+  test('redelivery changes nothing', () => {
     const from = makeLand(0x11)
     from.post(ROOT, ROOT, 'раз')
     from.post(ROOT, ROOT, 'два')
@@ -195,7 +195,7 @@ describe('приём', () => {
     expect(to.size()).toBe(2)
   })
 
-  test('не-санды (S6-подписи) хранятся спутником и едут в пачке, графа не касаясь', () => {
+  test('non-sands (S6 signatures) are stored as a satellite and travel in the pack without touching the graph', () => {
     const land = makeLand()
     const gift = GiftUnit.make({ peer: peerOf(0x11), time: 1, tick: 0, mate: Link.hole, tier: 3, rate: 0 })
     // Принят и учтён — но графа санд не касается: order(ROOT) пуст.
@@ -207,7 +207,7 @@ describe('приём', () => {
     expect(land.part().units.some(unit => unit instanceof GiftUnit)).toBe(true)
   })
 
-  test('две реплики сходятся на конкурентных правках', () => {
+  test('two replicas converge on concurrent edits', () => {
     const clock = fixedClock(1000)
     const a = new Land(peerOf(0x11), clock)
     const b = new Land(peerOf(0x22), clock)
@@ -227,7 +227,7 @@ describe('приём', () => {
     expect(values(a)).toHaveLength(3)
   })
 
-  test('счётчик id отматывается по своим же юнитам при гидрации', () => {
+  test('the id counter rewinds from own units during hydration', () => {
     const first = makeLand(0x11)
     const kept = first.post(ROOT, ROOT, 'до перезапуска')
 
@@ -242,8 +242,8 @@ describe('приём', () => {
   })
 })
 
-describe('size и count', () => {
-  test('size считает юниты по пирам, включая проигравших по LWW', () => {
+describe('size and count', () => {
+  test('size counts units per peer, including LWW losers', () => {
     const clock = fixedClock(1000)
     const a = new Land(peerOf(0x11), clock)
     const b = new Land(peerOf(0x22), clock)
@@ -267,7 +267,7 @@ describe('size и count', () => {
     expect(both.units()).toHaveLength(2)
   })
 
-  test('своя же прошлая версия не хранится: слот (head, peer, self) один', () => {
+  test('an own previous version is not stored: there is one (head, peer, self) slot', () => {
     const land = makeLand()
     const first = land.post(ROOT, ROOT, 'раз')
     land.post(ROOT, first.self, 'два')
@@ -285,8 +285,8 @@ describe('size и count', () => {
   })
 })
 
-describe('ленивость', () => {
-  test('непрочитанный ленд не заводит ни одного вида', () => {
+describe('laziness', () => {
+  test('an unread land creates no views', () => {
     const land = makeLand()
     let lead = ROOT
     for (let i = 0; i < 200; i++) lead = land.post(ROOT, lead, i).self
@@ -301,7 +301,7 @@ describe('ленивость', () => {
     expect(wire.views()).toBe(1)
   })
 
-  test('вид перестраивается, когда узел выиграл новую версию', () => {
+  test('a view is rebuilt when the node wins a new version', () => {
     const land = makeLand()
     const view = land.post(ROOT, ROOT, 'старое')
     expect(land.read(view.self)).toBe('старое')
@@ -311,7 +311,7 @@ describe('ленивость', () => {
     expect(land.peek(view.self)?.value).toBe('новое')
   })
 
-  test('санд с выносным значением без приложенного ball отвергается', () => {
+  test('a sand with an external value but no attached ball is rejected', () => {
     const land = makeLand()
     const big = SandUnit.makeBig({
       peer: peerOf(0x22),
@@ -330,7 +330,7 @@ describe('ленивость', () => {
     // и взяться им неоткуда. Во-вторых, в формате НЕТ маркера «балл отделён»
     // (docs/03 §2, «Открытый вопрос»), поэтому такой юнит вообще не должен был
     // доехать — пачка его закодировать не может. Отказ на приёме честнее.
-    expect(() => land.apply([big])).toThrow(/ball не приложен/)
+    expect(() => land.apply([big])).toThrow(/no ball is attached/)
 
     // А с приложенным баллом тот же юнит принимается и читается.
     const ball = varyEncode('я'.repeat(150))
@@ -353,8 +353,8 @@ describe('ленивость', () => {
   })
 })
 
-describe('реактивность поузловая', () => {
-  test('правка одного узла из тысячи пересчитывает ровно один канал', () => {
+describe('per-node reactivity', () => {
+  test('editing one node out of a thousand recomputes exactly one channel', () => {
     const land = makeLand(0x11)
     const nodes: LocalId[] = []
     let lead = ROOT
@@ -384,7 +384,7 @@ describe('реактивность поузловая', () => {
     expect(channels[500]!()).toBe('правка')
   })
 
-  test('равное значение будит читателя: гашение — работа файбера', () => {
+  test('an equal value wakes the reader: deduplication is the job of the fiber', () => {
     const land = makeLand(0x11)
     const view = land.post(ROOT, ROOT, 'то же')
 
@@ -407,7 +407,7 @@ describe('реактивность поузловая', () => {
     expect(runs).toBe(2)
   })
 
-  test('order подписан на состав детей своей головы, а не соседней', () => {
+  test('order subscribes to the children of its own head, not a neighboring one', () => {
     const land = makeLand()
     const left = land.post(ROOT, ROOT, 'левая')
     const right = land.post(ROOT, ROOT, 'правая')
@@ -432,7 +432,7 @@ describe('реактивность поузловая', () => {
     expect(rightRuns).toBe(1)
   })
 
-  test('появление ещё не приехавшего узла будит того, кто его прочитал', () => {
+  test('the arrival of a not-yet-delivered node wakes whoever read it', () => {
     const from = makeLand(0x11)
     const view = from.post(ROOT, ROOT, 'приедет')
 
@@ -451,7 +451,7 @@ describe('реактивность поузловая', () => {
     expect(runs).toBe(2)
   })
 
-  test('size и count — тоже каналы, каждый со своим сигналом', () => {
+  test('size and count are channels too, each with its own signal', () => {
     const land = makeLand()
     let totalRuns = 0
     const total = computed(() => {
@@ -475,8 +475,8 @@ describe('реактивность поузловая', () => {
   })
 })
 
-describe('провод', () => {
-  test('adopt принимает буфер пачки без копии в свою арену', () => {
+describe('wire', () => {
+  test('adopt takes the pack buffer into its arena without a copy', () => {
     const from = makeLand(0x11)
     let lead = ROOT
     for (let i = 0; i < 500; i++) lead = from.post(ROOT, lead, i).self
@@ -493,7 +493,7 @@ describe('провод', () => {
     expect(values(to)).toEqual(values(from))
   })
 
-  test('adopt и apply дают одно состояние', () => {
+  test('adopt and apply produce the same state', () => {
     const from = makeLand(0x11)
     let lead = ROOT
     for (let i = 0; i < 50; i++) lead = from.post(ROOT, lead, `значение ${i}`).self
@@ -513,7 +513,7 @@ describe('провод', () => {
     expect(adopted.count()).toBe(copied.count())
   })
 
-  test('пачка длиннее главы арены принимается целиком', () => {
+  test('a pack longer than an arena chunk is accepted whole', () => {
     // 64 КиБ — размер главы; 2000 сандов по 56 Б переваливают за неё, и
     // регистрация внахлёст обязана удержать юнит, начавшийся у самой границы.
     const from = makeLand(0x11)
@@ -529,7 +529,7 @@ describe('провод', () => {
     expect(values(to)).toEqual(values(from))
   })
 
-  test('units() уезжает и возвращается через кодек без потерь', () => {
+  test('units() goes out and comes back through the codec without loss', () => {
     const from = makeLand(0x11)
     const first = from.post(ROOT, ROOT, { имя: 'документ', версия: 2 }, 'keys')
     from.post(ROOT, first.self, new Uint8Array([1, 2, 3]))

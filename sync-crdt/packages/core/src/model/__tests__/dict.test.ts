@@ -24,8 +24,8 @@ function kidsOf(at: Stand, field: string): number {
   return slot === undefined ? 0 : coreOf(at.space).order(slot).length
 }
 
-describe('словарь: чтение и запись', () => {
-  test('непрочитанный ключ отдаёт blank своего типа', () => {
+describe('dict: reads and writes', () => {
+  test('an unread key returns the blank of its type', () => {
     const shelf = stand().space.root(Shelf)
     expect(shelf.counts('нет')).toBe(0)
     expect(shelf.labels(7)).toBe('')
@@ -34,7 +34,7 @@ describe('словарь: чтение и запись', () => {
     expect(shelf.counts.has('нет')).toBe(false)
   })
 
-  test('записанное читается обратно, x(key, next) возвращает победителя LWW', () => {
+  test('what was written reads back, x(key, next) returns the LWW winner', () => {
     const shelf = stand().space.root(Shelf)
     expect(shelf.counts('👍', 1)).toBe(1)
     expect(shelf.counts('👍')).toBe(1)
@@ -43,7 +43,7 @@ describe('словарь: чтение и запись', () => {
     expect(shelf.counts.has('👍')).toBe(true)
   })
 
-  test('ключи ЧИСЛА доезжают числами, а не строками', () => {
+  test('NUMBER keys arrive as numbers, not strings', () => {
     const shelf = stand().space.root(Shelf)
     shelf.labels(7, 'семь')
     shelf.labels(8, 'восемь')
@@ -51,7 +51,7 @@ describe('словарь: чтение и запись', () => {
     expect(shelf.labels(7)).toBe('семь')
   })
 
-  test('порядок ключей — ВСТАВОЧНЫЙ', () => {
+  test('key order is INSERTION order', () => {
     // Регрессия против baza: там `dive` шёл через `add` с `lead = hole`, и ключи
     // ложились в обратном порядке — побочный эффект якоря, не заявленный в
     // контракте (реестр, п. 29). Здесь порядок — часть контракта.
@@ -62,7 +62,7 @@ describe('словарь: чтение и запись', () => {
     expect(shelf.counts.keys()).toEqual(['xxx', 'yyy', 'zzz'])
   })
 
-  test('идемпотентная запись — НОЛЬ юнитов, первая — ровно два', () => {
+  test('an idempotent write is ZERO units, the first one exactly two', () => {
     const at = stand()
     const shelf = at.space.root(Shelf)
     // Первая запись в поле: ключевой юнит поля, ключевой юнит ключа и значение.
@@ -73,7 +73,7 @@ describe('словарь: чтение и запись', () => {
     expect(born(at, () => shelf.counts('b', 2))).toBe(2)
   })
 
-  test('delete и clear', () => {
+  test('delete and clear', () => {
     const shelf = stand().space.root(Shelf)
     shelf.counts('a', 1)
     shelf.counts('b', 2)
@@ -85,7 +85,7 @@ describe('словарь: чтение и запись', () => {
     expect(shelf.counts.keys()).toEqual([])
   })
 
-  test('rename СОХРАНЯЕТ поддерево: тот же self, другое имя', () => {
+  test('rename KEEPS the subtree: same self, different name', () => {
     const shelf = stand().space.root(Shelf)
     shelf.counts('было', 42)
     shelf.counts('рядом', 1)
@@ -95,7 +95,7 @@ describe('словарь: чтение и запись', () => {
     expect(shelf.counts('было')).toBe(0)
   })
 
-  test('rename на занятое имя не оставляет двух ключей под одним именем', () => {
+  test('rename onto a taken name does not leave two keys under one name', () => {
     const at = stand()
     const shelf = at.space.root(Shelf)
     shelf.counts('a', 1)
@@ -105,7 +105,7 @@ describe('словарь: чтение и запись', () => {
     expect(shelf.counts('b')).toBe(1)
   })
 
-  test('запись НЕ реентерантна: сеттер не перевычисляет канал изнутри себя', () => {
+  test('writes are NOT reentrant: the setter does not recompute the channel from within itself', () => {
     // У baza `atom.vary_of` заканчивался на `return this.vary_of(peer)` —
     // канал считался из самого себя (реестр, п. 37).
     const shelf = stand().space.root(Shelf)
@@ -131,8 +131,8 @@ describe('словарь: чтение и запись', () => {
   })
 })
 
-describe('словарь: мусор от чужой версии', () => {
-  test('ключ чужого типа пропускается, чтение не бросает, Issue есть', () => {
+describe('dict: garbage from a foreign version', () => {
+  test('a key of a foreign type is skipped, the read does not throw, an Issue is there', () => {
     const at = stand()
     const shelf = at.space.root(Shelf)
     shelf.counts('a', 1)
@@ -145,7 +145,7 @@ describe('словарь: мусор от чужой версии', () => {
     expect(shelf.counts.issue()?.expected).toBe('key')
   })
 
-  test('meta-слот не протекает в keys()', () => {
+  test('the meta slot does not leak into keys()', () => {
     // Ключевой юнит с ПУСТЫМ именем — это ссылка на схему, а не ключ данных
     // (docs/05 §3.9 и §9). Протечь в `keys()` он права не имеет.
     const at = stand()
@@ -157,7 +157,7 @@ describe('словарь: мусор от чужой версии', () => {
     expect(shelf.counts.size()).toBe(1)
   })
 
-  test('значение чужого типа даёт blank и Issue, а не бросок', () => {
+  test('a value of a foreign type yields blank and an Issue, not a throw', () => {
     const at = stand()
     const shelf = at.space.root(Shelf)
     shelf.counts('a', 1)
@@ -170,8 +170,8 @@ describe('словарь: мусор от чужой версии', () => {
   })
 })
 
-describe('словарь: слияние двух реплик', () => {
-  test('один ключ, вставленный в РАЗНЫЕ позиции, даёт ОДНО поддерево', () => {
+describe('dict: merging two replicas', () => {
+  test('one key inserted at DIFFERENT positions yields ONE subtree', () => {
     // Реестр, п. 30. У baza `self` ключа выводился из `head + lead`, то есть от
     // ТОЧКИ ВСТАВКИ: два пира, добавившие один ключ в разные места, получали два
     // поддерева на один ключ. Наш адрес контентный — `H(соль ‖ head ‖ ключ)`, —
@@ -194,7 +194,7 @@ describe('словарь: слияние двух реплик', () => {
     expect(left.space.root(Shelf).counts('k')).toBe(right.space.root(Shelf).counts('k'))
   })
 
-  test('«Dictionary merge» — значение под ключом разводится по LWW', () => {
+  test('«Dictionary merge» — the value under a key is settled by LWW', () => {
     const left = stand(0x22)
     const right = stand(0x33)
 
@@ -208,8 +208,8 @@ describe('словарь: слияние двух реплик', () => {
   })
 })
 
-describe('части: документ по ключу', () => {
-  test('часть есть всегда, пишется полями и попадает в keys()', () => {
+describe('parts: a document by key', () => {
+  test('a part always exists, is written by fields, and shows up in keys()', () => {
     const shelf = stand().space.root(Shelf)
     shelf.cards('c1').title('Первый!')
     shelf.cards('c2').rank(3)
@@ -220,12 +220,12 @@ describe('части: документ по ключу', () => {
     expect(shelf.cards.size()).toBe(2)
   })
 
-  test('идентичность: два обращения дают ОДИН объект', () => {
+  test('identity: two accesses yield ONE object', () => {
     const shelf = stand().space.root(Shelf)
     expect(shelf.cards('c1')).toBe(shelf.cards('c1'))
   })
 
-  test('has НЕ создаёт ключ, обращение — создаёт', () => {
+  test('has does NOT create a key, an access does', () => {
     const at = stand()
     const shelf = at.space.root(Shelf)
     expect(born(at, () => void shelf.cards.has('c1'))).toBe(0)
@@ -239,7 +239,7 @@ describe('части: документ по ключу', () => {
     expect(born(at, () => void shelf.cards('c1'))).toBe(0)
   })
 
-  test('delete и clear убирают ключ из keys()', () => {
+  test('delete and clear remove the key from keys()', () => {
     const shelf = stand().space.root(Shelf)
     shelf.cards('c1').title('раз')
     shelf.cards('c2').title('два')
@@ -249,7 +249,7 @@ describe('части: документ по ключу', () => {
     expect(shelf.cards.keys()).toEqual([])
   })
 
-  test('две реплики, заведшие один ключ, сходятся к ОДНОМУ документу', () => {
+  test('two replicas that created one key converge to ONE document', () => {
     const left = stand(0x22)
     const right = stand(0x33)
     left.space.root(Shelf).cards('c1').title('слева')
@@ -264,8 +264,8 @@ describe('части: документ по ключу', () => {
   })
 })
 
-describe('индекс: словарь словарей', () => {
-  test('чтение отсутствующей ветки НЕ создаёт ни одного юнита', () => {
+describe('index: a dict of dicts', () => {
+  test('reading a missing branch creates NOT A SINGLE unit', () => {
     // Новый кейс корпуса (docs/05 §8.1, `empire.test.ts` 1 → 3).
     const at = stand()
     const shelf = at.space.root(Shelf)
@@ -277,7 +277,7 @@ describe('индекс: словарь словарей', () => {
     expect(shelf.archive.keys([])).toEqual([])
   })
 
-  test('ensure заводит ветку, чтение её находит, delete убирает', () => {
+  test('ensure creates a branch, a read finds it, delete removes it', () => {
     const shelf = stand().space.root(Shelf)
     shelf.archive.ensure(['2026', '08', 'vue']).title('Файберы')
     shelf.archive.ensure(['2026', '07', 'crdt']).title('Ленд')
@@ -297,7 +297,7 @@ describe('индекс: словарь словарей', () => {
     expect(shelf.archive(['2026', '07', 'crdt'])?.title()).toBe('Ленд')
   })
 
-  test('ensert идемпотентен и на глубине 1', () => {
+  test('ensert is idempotent at depth 1 too', () => {
     const at = stand()
     const shelf = at.space.root(Shelf)
     const first = shelf.flat.ensure(['один'])
@@ -306,15 +306,15 @@ describe('индекс: словарь словарей', () => {
     expect(shelf.flat.keys([])).toEqual(['один'])
   })
 
-  test('путь не той длины не проходит и в рантайме', () => {
+  test('a path of the wrong length is rejected at runtime too', () => {
     const shelf = stand().space.root(Shelf)
     // @ts-expect-error путь короче объявленной глубины
-    expect(() => shelf.archive(['2026'])).toThrow(/глубины 3/)
+    expect(() => shelf.archive(['2026'])).toThrow(/depth 3/)
     // @ts-expect-error префикс не может быть полной глубины
-    expect(() => shelf.archive.keys(['a', 'b', 'c'])).toThrow(/префикс/)
+    expect(() => shelf.archive.keys(['a', 'b', 'c'])).toThrow(/prefix/)
   })
 
-  test('две реплики, заведшие один путь, сходятся к одному документу', () => {
+  test('two replicas that created one path converge to one document', () => {
     const left = stand(0x22)
     const right = stand(0x33)
     left.space.root(Shelf).archive.ensure(['2026', '08', 'vue']).title('слева')
@@ -328,7 +328,7 @@ describe('индекс: словарь словарей', () => {
     expect(doc?.rank()).toBe(4)
   })
 
-  test('приезд ветки от соседа будит читателя', () => {
+  test('a branch arriving from a neighbor wakes the reader', () => {
     const left = stand(0x22)
     const right = stand(0x33)
     const shelf = left.space.root(Shelf)

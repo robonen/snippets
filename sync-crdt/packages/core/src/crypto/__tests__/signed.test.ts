@@ -32,7 +32,7 @@ function roster(entries: ReadonlyMap<string, number>): Roster {
   return { rankOf: peer => entries.get(peer.str) }
 }
 
-test('подписанная пачка проходит проверку, санды сохраняются', async () => {
+test('a signed pack passes verification, sands are preserved', async () => {
   const alice = await signer()
   const land = landOf(alice)
   const first = land.post(ROOT, ROOT, 'привет')
@@ -47,7 +47,7 @@ test('подписанная пачка проходит проверку, са�
   expect(back.order(ROOT).map(v => v.value)).toEqual(['привет', 'мир'])
 })
 
-test('пачка несёт паспорт и печати для ретрансляции', async () => {
+test('the pack carries a pass and seals for relaying', async () => {
   const alice = await signer()
   const land = landOf(alice)
   land.post(ROOT, ROOT, 'x')
@@ -58,7 +58,7 @@ test('пачка несёт паспорт и печати для ретранс
   expect(part.units.some(u => u instanceof SealUnit)).toBe(true)
 })
 
-test('санд без печати выкидывается', async () => {
+test('a sand without a seal is dropped', async () => {
   const alice = await signer()
   const land = landOf(alice)
   land.post(ROOT, ROOT, 'подписанное')
@@ -80,7 +80,7 @@ test('санд без печати выкидывается', async () => {
   expect(back.order(ROOT).map(v => v.value)).toEqual(['подписанное'])
 })
 
-test('пир не из ростера не проходит, даже с валидной подписью', async () => {
+test('a peer not in the roster fails, even with a valid signature', async () => {
   const stranger = await signer()
   const land = landOf(stranger)
   land.post(ROOT, ROOT, 'чужак')
@@ -91,7 +91,7 @@ test('пир не из ростера не проходит, даже с вал�
   expect(result.dropped).toBe(1)
 })
 
-test('tier ниже post не пишет данные', async () => {
+test('a tier below post cannot write data', async () => {
   const reader = await signer()
   const land = landOf(reader)
   land.post(ROOT, ROOT, 'только чтение')
@@ -101,7 +101,7 @@ test('tier ниже post не пишет данные', async () => {
   expect(result.dropped).toBe(1)
 })
 
-test('порча подписи ломает проверку печати', async () => {
+test('corrupting the signature breaks seal verification', async () => {
   const alice = await signer()
   const land = landOf(alice)
   land.post(ROOT, ROOT, 'целостность')
@@ -116,7 +116,7 @@ test('порча подписи ломает проверку печати', asy
   expect(result.dropped).toBe(1)
 })
 
-test('печать не переносится в другой ленд (land в подписи)', async () => {
+test('a seal does not transfer to another land (land is in the signature)', async () => {
   const alice = await signer()
   const land = landOf(alice)
   land.post(ROOT, ROOT, 'тут')
@@ -130,7 +130,7 @@ test('печать не переносится в другой ленд (land в
   expect(result.dropped).toBe(1) // подпись привязана к LAND, тут OTHER
 })
 
-test('encrypt-then-sign: подпись поверх запечатанного проходит проверку', async () => {
+test('encrypt-then-sign: a signature over the sealed pack passes verification', async () => {
   const alice = await signer()
   const key = await secretKey(mintSecret())
   const land = landOf(alice)
@@ -142,7 +142,7 @@ test('encrypt-then-sign: подпись поверх запечатанного 
   expect(result.dropped).toBe(0)
 })
 
-test('PoW: rate=fast даёт подпись с ≥8 ведущими нулями, проверка требует их', async () => {
+test('PoW: rate=fast gives a signature with ≥8 leading zeros, verification requires them', async () => {
   const alice = await signer()
   const land = landOf(alice)
   land.post(ROOT, ROOT, 'дорогая запись')
@@ -153,7 +153,7 @@ test('PoW: rate=fast даёт подпись с ≥8 ведущими нулям
   expect(result.dropped).toBe(0)
 })
 
-test('инкрементальность: повторная подпись пачки с нашей печатью не плодит печатей', async () => {
+test('incrementality: re-signing a pack that has our seal does not multiply seals', async () => {
   const alice = await signer()
   const land = landOf(alice)
   land.post(ROOT, ROOT, 'единожды')
@@ -171,7 +171,7 @@ test('инкрементальность: повторная подпись па
   expect(passes).toHaveLength(1) // и не задублировали паспорт
 })
 
-test('общий проверяльщик учит паспорт один раз для нескольких пачек', async () => {
+test('a shared auditor learns the pass once for several packs', async () => {
   const alice = await signer()
   const land = landOf(alice)
   land.post(ROOT, ROOT, 'первая')
@@ -189,7 +189,7 @@ test('общий проверяльщик учит паспорт один ра�
   expect(result.dropped).toBe(0)
 })
 
-test('печать детерминирована: переподпись того же набора даёт те же байты', async () => {
+test('the seal is deterministic: re-signing the same set gives the same bytes', async () => {
   const alice = await signer()
   const land = landOf(alice)
   land.post(ROOT, ROOT, 'стабильно')
@@ -202,7 +202,7 @@ test('печать детерминирована: переподпись тог
   // и приём удержит одну: дубликаты не копятся в любом случае.
 })
 
-test('cover: чужие санды под печатью доверенного пира не пере-подписываются', async () => {
+test('cover: foreign sands under a trusted peer seal are not re-signed', async () => {
   const alice = await signer()
   const bob = await signer()
   const rankAll = roster(new Map([

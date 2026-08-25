@@ -2,35 +2,35 @@ import { describe, expect, it } from 'vitest';
 import { formatTags, normalizeTags, parseTags } from './tags';
 
 describe(normalizeTags, () => {
-  it('приводит регистр и срезает решётку', () => {
+  it('lowercases and strips the hash', () => {
     expect(normalizeTags(['Vue', '#CRDT'])).toEqual(['vue', 'crdt']);
   });
 
-  it('выкидывает пустые и повторы, сохраняя порядок первого появления', () => {
+  it('drops empties and duplicates, keeping first-appearance order', () => {
     expect(normalizeTags(['vue', '  ', 'VUE', '', '#vue', 'rust'])).toEqual(['vue', 'rust']);
   });
 
-  it('схлопывает внутренние пробелы: «local  first» и «local first» — один тег', () => {
+  it('collapses inner spaces: "local  first" and "local first" are one tag', () => {
     expect(normalizeTags(['local  first', 'local first'])).toEqual(['local first']);
   });
 
-  it('пустой вход — пустой список', () => {
+  it('empty input — empty list', () => {
     expect(normalizeTags([])).toEqual([]);
   });
 });
 
 describe(parseTags, () => {
-  it('разбирает строку по запятым, пробелам и переводам строк', () => {
+  it('splits a string by commas, spaces, and line breaks', () => {
     expect(parseTags('vue, Rust\ncrdt  #vue')).toEqual(['vue', 'rust', 'crdt']);
   });
 
-  it('строка из одних разделителей тегов не даёт', () => {
+  it('string of only separators yields no tags', () => {
     expect(parseTags(' , , ')).toEqual([]);
   });
 });
 
 describe(formatTags, () => {
-  it('собирает обратно в строку поля ввода', () => {
+  it('reassembles back into the input-field string', () => {
     expect(formatTags(['vue', 'crdt'])).toBe('vue, crdt');
     expect(parseTags(formatTags(['vue', 'crdt']))).toEqual(['vue', 'crdt']);
   });

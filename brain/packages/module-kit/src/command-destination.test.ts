@@ -38,11 +38,11 @@ function moduleFiles(dir: string, found: string[] = []): string[] {
 
 const files = moduleFiles(join(ROOT, 'modules'));
 
-test('декларации модулей найдены', () => {
+test('Module declarations are found', () => {
   expect(files.length).toBeGreaterThanOrEqual(4);
 });
 
-test('каждая команда возвращает, куда вести', () => {
+test('Every command returns where to lead', () => {
   const mute: string[] = [];
 
   for (const path of files) {

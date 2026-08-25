@@ -1,29 +1,21 @@
-// Подпись пачками (docs/07 §3): аутентичность юнита — свойство ЮНИТА, а не
-// канала. Порт seal/pass из baza.
+// Подписи (docs/07 §3): аутентичность — свойство юнита, а не канала доставки.
+// Идея seal/pass взята из baza.
 //
-// ─── Что подписывается ───────────────────────────────────────────────────────
+// Подписывается не каждый юнит, а `Seal` — список из ≤15 хэшей запечатанных
+// юнитов (encrypt-then-sign: подпись покрывает ровно те байты, что уедут на
+// провод, поэтому сервер, меняющий payload, ломает и подпись). Юнит считается
+// достоверным, если есть валидный `Seal`, содержащий его хэш. Выигрыш: одна
+// ECDSA/EdDSA-операция на десяток изменений.
 //
-// Не каждый юнит, а `Seal` — список из ≤15 хэшей запечатанных юнитов (encrypt-
-// then-sign: подпись покрывает ИМЕННО те байты, что уедут на провод, поэтому
-// сервер, меняющий payload, ломает и подпись). Юнит достоверен, если существует
-// валидный `Seal` того же пира, содержащий его хэш. Одна ECDSA/EdDSA-операция
-// на десяток изменений.
-//
-// ─── К чему привязана подпись ────────────────────────────────────────────────
-//
-// Подписывается `landId ‖ seal.sens()` — «чувствительные» байты печати (всё,
-// кроме хвостовой подписи) с подмешанным адресом ленда. Land в подписи =
-// защита от переноса печати в другой ленд (тот же приём, что у нонса в
-// `sealed.ts`). PoW: `tick` крутится, пока у подписи не наберётся `rateBits`
-// ведущих нулей — антиспам встроен в модель доступа, по умолчанию выключен
+// В подпись идёт `landId ‖ seal.sens()` — байты печати без хвостовой подписи
+// плюс адрес ленда. Адрес нужен, чтобы печать нельзя было перенести в другой
+// ленд (тот же приём, что у нонса в `sealed.ts`). PoW: `tick` перебирается,
+// пока подпись не наберёт `rateBits` ведущих нулей; по умолчанию выключен
 // (rate=0, ADR-009).
 //
-// ─── Алгоритм ────────────────────────────────────────────────────────────────
-//
-// Ed25519, где платформа умеет (Node 20+, свежие браузеры), иначе ECDSA P-256.
-// Выбор фиксируется в первом байте `Pass` (meta паспорта). `peer` пира — это
-// SHA-256[0..8) от его публичного ключа (ADR-007), то есть подделать автора =
-// подобрать прообраз хэша.
+// Алгоритм: Ed25519, где платформа умеет (Node 20+, свежие браузеры), иначе
+// ECDSA P-256; выбор записан в meta паспорта. `peer` = SHA-256[0..8) от
+// публичного ключа (ADR-007): подделать автора = подобрать прообраз хэша.
 
 import { Link } from '../binary/link'
 import { SealUnit, PassUnit, type PassAlgo, type UnitStamp } from '../binary/unit'
@@ -134,11 +126,11 @@ export async function signerOf(algo: PassAlgo, pair: SubtleKeyPair): Promise<Sig
 
     async seal(land, hashes, stamp, rateBits = 0): Promise<SealUnit> {
       if (hashes.length > SEAL_MAX) {
-        throw new CryptoError(`в печать влезает ${SEAL_MAX} хэшей, пришло ${hashes.length}`, `ленд ${land.str}`)
+        throw new CryptoError(`a seal fits ${SEAL_MAX} hashes, got ${hashes.length}`, `land ${land.str}`)
       }
       for (const shot of hashes) {
         if (shot.length !== SHOT_BYTES) {
-          throw new CryptoError(`хэш печати — ${SHOT_BYTES} Б, пришло ${shot.length}`, `ленд ${land.str}`)
+          throw new CryptoError(`a seal hash is ${SHOT_BYTES} B, got ${shot.length}`, `land ${land.str}`)
         }
       }
 
@@ -163,7 +155,7 @@ export async function signerOf(algo: PassAlgo, pair: SubtleKeyPair): Promise<Sig
         if (leadingZeroBits(sign) >= rateBits) break
         tick += 1
         if (tick > 0xffff) {
-          throw new CryptoError(`PoW rate=${rateBits} не добит за секунду`, `ленд ${land.str}`)
+          throw new CryptoError(`PoW rate=${rateBits} not met within a second`, `land ${land.str}`)
         }
       }
 

@@ -56,7 +56,7 @@ function stand(peer = 0x11, when = 1000): Stand {
 
   const open = (other: Link): Space => {
     if (other.equals(LOST_LAND)) {
-      throw new ModelError(`соседний ленд «${other.str}» некому открыть`, 'test.open')
+      throw new ModelError(`no one can open the neighboring land «${other.str}»`, 'test.open')
     }
     const key = other.str
     const found = spaces.get(key)
@@ -110,8 +110,8 @@ function posted(space: Space, fn: () => void): number {
   return count
 }
 
-describe('ссылка: чтение, запись, создание — три разные операции (реестр, п. 28)', () => {
-  test('непрочитанная ссылка — null, и ни одного юнита за чтение', () => {
+describe('link: read, write, create — three different operations (registry, item 28)', () => {
+  test('an unread link is null, and not a single unit for the read', () => {
     const { land, space } = stand()
     const note = space.doc(Note, noteAt(land))
 
@@ -121,7 +121,7 @@ describe('ссылка: чтение, запись, создание — три 
     expect(land.size()).toBe(before)
   })
 
-  test('чтение, запись и создание не путаются друг с другом', () => {
+  test('read, write, and create do not get mixed up', () => {
     const { land, space } = stand()
     const note = space.doc(Note, noteAt(land))
 
@@ -140,7 +140,7 @@ describe('ссылка: чтение, запись, создание — три 
     expect(note.author()).toBe(other)
   })
 
-  test('ensure идемпотентен: два вызова дают ОДНУ сущность и один набор юнитов', () => {
+  test('ensure is idempotent: two calls yield ONE entity and one set of units', () => {
     const { land, space } = stand()
     const note = space.doc(Note, noteAt(land))
 
@@ -152,7 +152,7 @@ describe('ссылка: чтение, запись, создание — три 
     expect(land.size()).toBe(size)
   })
 
-  test('ensure детерминирован: две реплики сходятся к одной сущности', () => {
+  test('ensure is deterministic: two replicas converge to one entity', () => {
     const a = stand(0x21)
     const b = stand(0x22)
 
@@ -171,7 +171,7 @@ describe('ссылка: чтение, запись, создание — три 
     expect(a.land.order(noteAt(a.land)).length).toBe(1)
   })
 
-  test('внутриленд-ссылка хранится ОТНОСИТЕЛЬНОЙ', () => {
+  test('an intra-land link is stored RELATIVE', () => {
     const { land, space } = stand()
     const note = space.doc(Note, noteAt(land))
     const author = note.author.ensure()
@@ -185,7 +185,7 @@ describe('ссылка: чтение, запись, создание — три 
     expect(author.$.link().str.startsWith(HOME.str)).toBe(true)
   })
 
-  test('clear стирает ссылку, но не сущность', () => {
+  test('clear erases the link but not the entity', () => {
     const { land, space } = stand()
     const note = space.doc(Note, noteAt(land))
     const author = note.author.ensure()
@@ -198,8 +198,8 @@ describe('ссылка: чтение, запись, создание — три 
   })
 })
 
-describe('ссылка: чужие данные не роняют чтение (docs/05 §4)', () => {
-  test('число вместо ссылки — null и Issue{decode}, а не бросок', () => {
+describe('link: foreign data does not crash reads (docs/05 §4)', () => {
+  test('a number instead of a link is null and Issue{decode}, not a throw', () => {
     const { land, space, issues } = stand()
     const note = space.doc(Note, noteAt(land))
     note.author.ensure()
@@ -214,7 +214,7 @@ describe('ссылка: чужие данные не роняют чтение (
     expect(issues[issues.length - 1]?.field).toBe('author')
   })
 
-  test('ссылка в ленд, которого некому открыть, — null и Issue{broken-link}', () => {
+  test('a link to a land no one can open is null and Issue{broken-link}', () => {
     const { land, space, issues } = stand()
     const note = space.doc(Note, noteAt(land))
 
@@ -228,7 +228,7 @@ describe('ссылка: чужие данные не роняют чтение (
     expect(issue?.got).toBe(far.str)
   })
 
-  test('ссылка уровня ленда — не сущность: null и Issue, а не половина документа', () => {
+  test('a land-level link is not an entity: null and an Issue, not half a document', () => {
     const { land, space, issues } = stand()
     const note = space.doc(Note, noteAt(land))
     cast(note.author, atom(t.maybe(t.link)))(GUEST_LAND)
@@ -238,8 +238,8 @@ describe('ссылка: чужие данные не роняют чтение (
   })
 })
 
-describe('множественная ссылка', () => {
-  test('add кладёт в КОНЕЦ — порядок часть контракта (реестр, п. 29)', () => {
+describe('multi-link', () => {
+  test('add appends to the END — order is part of the contract (registry, item 29)', () => {
     const { land, space } = stand()
     const note = space.doc(Note, noteAt(land))
     const one = space.doc(Author, land.nodeAt(101))
@@ -256,7 +256,7 @@ describe('множественная ссылка', () => {
     expect(note.editors.has(two)).toBe(true)
   })
 
-  test('запись состава — РЕКОНСИЛЯЦИЯ: замена одного элемента стоит один юнит', () => {
+  test('writing the membership is RECONCILIATION: replacing one element costs one unit', () => {
     const { land, space } = stand()
     const note = space.doc(Note, noteAt(land))
     const authors = [101, 102, 103].map(id => space.doc(Author, land.nodeAt(id)))
@@ -279,7 +279,7 @@ describe('множественная ссылка', () => {
     )
   })
 
-  test('remove и move меняют состав, не трогая сущности', () => {
+  test('remove and move change the membership without touching entities', () => {
     const { land, space } = stand()
     const note = space.doc(Note, noteAt(land))
     const authors = [101, 102, 103].map(id => space.doc(Author, land.nodeAt(id)))
@@ -295,7 +295,7 @@ describe('множественная ссылка', () => {
     expect(note.editors.has(authors[2] as never)).toBe(false)
   })
 
-  test('attach создаёт РАЗНЫЕ сущности, в отличие от ensure', () => {
+  test('attach creates DIFFERENT entities, unlike ensure', () => {
     const { space, land } = stand()
     const note = space.doc(Note, noteAt(land))
 
@@ -309,7 +309,7 @@ describe('множественная ссылка', () => {
     expect(note.editors().map(x => x.name())).toEqual(['первый', 'второй'])
   })
 
-  test('битая ссылка выпадает из выдачи и даёт Issue, а не дырку в массиве', () => {
+  test('a broken link drops out of the output and yields an Issue, not a hole in the array', () => {
     const { land, space, issues } = stand()
     const note = space.doc(Note, noteAt(land))
     const good = space.doc(Author, land.nodeAt(101))
@@ -325,7 +325,7 @@ describe('множественная ссылка', () => {
     expect(issues.some(i => i.kind === 'decode' && i.field === 'editors')).toBe(true)
   })
 
-  test('clear стирает состав целиком', () => {
+  test('clear erases the whole membership', () => {
     const { land, space } = stand()
     const note = space.doc(Note, noteAt(land))
     note.editors([101, 102].map(id => space.doc(Author, land.nodeAt(id))))
@@ -334,8 +334,8 @@ describe('множественная ссылка', () => {
   })
 })
 
-describe('вложенная часть', () => {
-  test('часть есть всегда, а чтение не пишет НИ ОДНОГО юнита', () => {
+describe('nested part', () => {
+  test('a part always exists, and a read writes NOT A SINGLE unit', () => {
     const { land, space } = stand()
     const note = space.doc(Note, noteAt(land))
 
@@ -347,7 +347,7 @@ describe('вложенная часть', () => {
     expect(note.stats()).toBe(note.stats())
   })
 
-  test('первая запись внутрь достраивает цепочку до родителя', () => {
+  test('the first write inside completes the chain up to the parent', () => {
     const { land, space } = stand()
     const head = noteAt(land)
     const note = space.doc(Note, head)
@@ -363,7 +363,7 @@ describe('вложенная часть', () => {
     expect(note.stats()).toBe(space.doc(Note, head).stats())
   })
 
-  test('часть попадает в обход поддерева родителя', () => {
+  test('a part is included in the traversal of the parent subtree', () => {
     const { land, space } = stand()
     const head = noteAt(land)
     const note = space.doc(Note, head)
@@ -376,7 +376,7 @@ describe('вложенная часть', () => {
     expect(land.order(slot).map(view => view.value)).toContain('views')
   })
 
-  test('две реплики пишут в часть независимо и сходятся', () => {
+  test('two replicas write into a part independently and converge', () => {
     const a = stand(0x31)
     const b = stand(0x32)
 
@@ -392,15 +392,15 @@ describe('вложенная часть', () => {
     expect([two.views(), two.likes()]).toEqual([10, 3])
   })
 
-  test('часть целиком не пишется — и это громко', () => {
+  test('a part cannot be written whole — and loudly so', () => {
     const { land, space } = stand()
     const note = space.doc(Note, noteAt(land))
     expect(() => (note.stats as unknown as (next: unknown) => void)({})).toThrow(ModelError)
   })
 })
 
-describe('гранулярность рождения (docs/05 §5)', () => {
-  test('here — своя сущность в своём ленде', () => {
+describe('birth granularity (docs/05 §5)', () => {
+  test('here — an own entity in the own land', () => {
     const { land, space } = stand()
     const vault = space.doc(Vault, land.nodeAt(500))
     const born = vault.here.ensure()
@@ -410,7 +410,7 @@ describe('гранулярность рождения (docs/05 §5)', () => {
     expect(land.size()).toBeGreaterThan(0)
   })
 
-  test('area — отдельный ленд того же лорда, свой поток синхронизации', () => {
+  test('area — a separate land of the same lord, its own sync stream', () => {
     const { land, space, lands } = stand()
     const vault = space.doc(Vault, land.nodeAt(500))
     const born = vault.area.ensure()
@@ -427,7 +427,7 @@ describe('гранулярность рождения (docs/05 §5)', () => {
     expect(vault.area()?.name()).toBe('в области')
   })
 
-  test('{land} — новый ленд со своими правами', () => {
+  test('{land} — a new land with its own rights', () => {
     const { land, space, lands } = stand()
     const vault = space.doc(Vault, land.nodeAt(500))
     const born = vault.guest.ensure()
@@ -438,14 +438,14 @@ describe('гранулярность рождения (docs/05 §5)', () => {
     expect(vault.guest()?.name()).toBe('в гостях')
   })
 
-  test('born из вызова перекрывает born из схемы', () => {
+  test('born from the call overrides born from the schema', () => {
     const { land, space } = stand()
     const vault = space.doc(Vault, land.nodeAt(500))
     const born = vault.here.ensure({ land: GUEST_LAND })
     expect(born.$.link().land().str).toBe(GUEST_LAND.str)
   })
 
-  test('отказ в доступе к ленду ГРОМКИЙ: Issue{denied} плюс бросок (реестр, п. 35)', () => {
+  test('land access denial is LOUD: Issue{denied} plus a throw (registry, item 35)', () => {
     const { land, space, issues } = stand()
     const vault = space.doc(Vault, land.nodeAt(500))
 
@@ -462,8 +462,8 @@ describe('гранулярность рождения (docs/05 §5)', () => {
   })
 })
 
-describe('реактивность ссылки', () => {
-  test('появление ссылки будит читателя, а соседнее поле — нет', () => {
+describe('link reactivity', () => {
+  test('a link appearing wakes the reader, a neighboring field does not', () => {
     const { land, space } = stand()
     const note = space.doc(Note, noteAt(land))
 

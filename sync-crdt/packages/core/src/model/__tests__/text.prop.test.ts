@@ -36,8 +36,8 @@ const flat = (max = 10): fc.Arbitrary<string> =>
     { maxLength: max },
   ).map(parts => parts.join(''))
 
-describe('текст: round-trip записи', () => {
-  test('что записали — то и прочитали, на любой строке', () => {
+describe('text: write round-trip', () => {
+  test('what was written is what is read, on any string', () => {
     fc.assert(
       fc.property(text(14), value => {
         const at = stand()
@@ -53,7 +53,7 @@ describe('текст: round-trip записи', () => {
     )
   })
 
-  test('серия записей сходится к последней', () => {
+  test('a series of writes converges to the last one', () => {
     fc.assert(
       fc.property(fc.array(text(8), { minLength: 1, maxLength: 6 }), values => {
         const at = stand()
@@ -65,7 +65,7 @@ describe('текст: round-trip записи', () => {
     )
   })
 
-  test('повторная запись того же значения не рождает юнитов', () => {
+  test('rewriting the same value births no units', () => {
     fc.assert(
       fc.property(text(10), value => {
         const at = stand()
@@ -79,8 +79,8 @@ describe('текст: round-trip записи', () => {
   })
 })
 
-describe('текст: write равен срезу строки', () => {
-  test('`write(next, from, to)` даёт `s.slice(0,from) + next + s.slice(to)`', () => {
+describe('text: write equals a string slice', () => {
+  test('`write(next, from, to)` yields `s.slice(0,from) + next + s.slice(to)`', () => {
     fc.assert(
       fc.property(flat(12), flat(4), fc.nat(40), fc.nat(40), (base, patch, a, b) => {
         const from = Math.min(a, b)
@@ -99,7 +99,7 @@ describe('текст: write равен срезу строки', () => {
     )
   })
 
-  test('серия правок диапазона равна той же серии над обычной строкой', () => {
+  test('a series of range edits equals the same series over a plain string', () => {
     fc.assert(
       fc.property(
         flat(10),
@@ -125,8 +125,8 @@ describe('текст: write равен срезу строки', () => {
   })
 })
 
-describe('текст: каретка обратима', () => {
-  test('`offsetAt(pointAt(off)) === off` для каждого смещения текста', () => {
+describe('text: the caret is invertible', () => {
+  test('`offsetAt(pointAt(off)) === off` for every text offset', () => {
     // Именно этот инвариант ломает сдвиг на единицу в границе токена: он не
     // ловится ни одним merge-тестом и проявляется как прыжок курсора через
     // слово (docs/05 §3.10).
@@ -151,7 +151,7 @@ describe('текст: каретка обратима', () => {
     )
   })
 
-  test('за концом текста каретки нет, есть остаток', () => {
+  test('past the end of text there is no caret, there is a remainder', () => {
     fc.assert(
       fc.property(text(8), fc.integer({ min: 1, max: 20 }), (value, over) => {
         const at = stand()
@@ -168,7 +168,7 @@ describe('текст: каретка обратима', () => {
   })
 })
 
-describe('текст: сходимость реплик', () => {
+describe('text: replica convergence', () => {
   type Step =
     | { readonly kind: 'set'; readonly at: 0 | 1; readonly value: string }
     | { readonly kind: 'write'; readonly at: 0 | 1; readonly value: string; readonly from: number; readonly to: number }
@@ -188,7 +188,7 @@ describe('текст: сходимость реплик', () => {
     fc.record({ kind: fc.constant('tick' as const), at: fc.constantFrom(0 as const, 1 as const) }),
   )
 
-  test('случайные операции МОДЕЛИ и случайное расписание доставки сходятся', () => {
+  test('random MODEL operations and a random delivery schedule converge', () => {
     fc.assert(
       fc.property(fc.array(step, { maxLength: 16 }), steps => {
         const sides: readonly [Stand, Stand] = [stand(0x11, 1000), stand(0x22, 1000)]
@@ -222,7 +222,7 @@ describe('текст: сходимость реплик', () => {
     )
   })
 
-  test('доставка идемпотентна: повтор пачки ничего не меняет', () => {
+  test('delivery is idempotent: repeating a pack changes nothing', () => {
     fc.assert(
       fc.property(flat(10), flat(10), (one, two) => {
         const left = stand(0x11, 1000)

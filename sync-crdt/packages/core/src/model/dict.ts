@@ -190,7 +190,7 @@ export function readEntry(core: SpaceCore, cell: Cell, at: Head): unknown {
   const raw = core.valueOf(view)
   if (raw === null) {
     if (core.broken(view)) {
-      core.report(issueAt(core, cell, at, view, 'shape', type.name, 'байты, которых кодек не знает'))
+      core.report(issueAt(core, cell, at, view, 'shape', type.name, 'bytes the codec does not know'))
     }
     return type.blank
   }
@@ -378,7 +378,7 @@ export const DICT_METHODS: Readonly<Record<string, unknown>> = Object.freeze({
       const value = core.valueOf(held)
       if (value === null) {
         if (!core.broken(held)) continue
-        return issueAt(core, cell, slot, held, 'shape', type.name, 'байты, которых кодек не знает')
+        return issueAt(core, cell, slot, held, 'shape', type.name, 'bytes the codec does not know')
       }
       if (type.decode(value) === null) {
         return issueAt(core, cell, slot, held, 'decode', type.name, describe(value))

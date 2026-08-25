@@ -48,7 +48,7 @@ export type Maker = (core: SpaceCore, cell: Cell, head: Head) => Handle
 
 function absent(kind: string): never {
   throw new ModelError(
-    `поле вида «${kind}» собирается следующим слоем поверх основания S4 — сейчас умеют atom, list, dict, text, parts, index, link, links, part`,
+    `a field of kind «${kind}» is built by the next layer on top of the S4 foundation — currently supported: atom, list, dict, text, parts, index, link, links, part`,
     'model/kinds',
   )
 }

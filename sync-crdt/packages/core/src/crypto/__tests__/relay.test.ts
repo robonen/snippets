@@ -46,7 +46,7 @@ async function receive(
   return { pack: await openPack(verified.pack, key), dropped: verified.dropped }
 }
 
-test('печати доезжают до второго устройства через слепой сервер', async () => {
+test('seals reach the second device through a blind server', async () => {
   const alice = await signer()
   const key = await secretKey(mintSecret())
   const rank = roster(new Map([[alice.peer.str, rankOf(TIER.post, RATE.just)]]))
@@ -75,7 +75,7 @@ test('печати доезжают до второго устройства ч�
   expect(two.order(ROOT).map(v => v.value)).toEqual(['первая', 'вторая'])
 })
 
-test('санд, вброшенный на сервере без печати, второе устройство отвергает', async () => {
+test('a sand injected at the server without a seal is rejected by the second device', async () => {
   const alice = await signer()
   const key = await secretKey(mintSecret())
   const rank = roster(new Map([[alice.peer.str, rankOf(TIER.post, RATE.just)]]))

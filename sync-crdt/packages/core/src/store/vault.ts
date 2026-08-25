@@ -147,8 +147,8 @@ export function openVault(options: VaultOptions): Vault {
     const kept = (error: unknown): void => {
       // Пачки остаются в очереди — они уже там, снимаем их только при успехе.
       report(new StoreError(
-        `хранилище не приняло пачку, она сохранена для повторной попытки (${held} в очереди): ${String(error)}`,
-        `ленд ${id.str}`,
+        `store did not accept the pack, it is kept for a retry (${held} queued): ${String(error)}`,
+        `land ${id.str}`,
       ))
     }
 
@@ -192,7 +192,7 @@ export function openVault(options: VaultOptions): Vault {
       })
     },
     save(): void {
-      if (closed) throw new StoreError('хранилище отключено от ленда', `ленд ${id.str}`)
+      if (closed) throw new StoreError('store is disconnected from the land', `land ${id.str}`)
       drain()
     },
     close(): void {
@@ -216,5 +216,5 @@ function concat(parts: readonly Uint8Array[]): Uint8Array {
 }
 
 function defaultReport(error: unknown): void {
-  console.error('[@sync/core] хранилище не приняло пачку:', error)
+  console.error('[@sync/core] store did not accept the pack:', error)
 }

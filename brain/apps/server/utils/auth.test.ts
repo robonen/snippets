@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { authorized } from './auth';
 
 describe(authorized, () => {
-  it('пустой секрет отказывает ВСЕМ, включая пустой заголовок', () => {
+  it('empty secret rejects EVERYONE, including an empty header', () => {
     expect(authorized('что угодно', '')).toBeFalsy();
     expect(authorized('Bearer что угодно', '')).toBeFalsy();
     expect(authorized('', '')).toBeFalsy();
@@ -10,12 +10,12 @@ describe(authorized, () => {
     expect(authorized(null, '')).toBeFalsy();
   });
 
-  it('пропускает верный токен и с префиксом Bearer, и без него', () => {
+  it('accepts the correct token both with and without the Bearer prefix', () => {
     expect(authorized('секрет', 'секрет')).toBeTruthy();
     expect(authorized('Bearer секрет', 'секрет')).toBeTruthy();
   });
 
-  it('отвергает чужой токен, отсутствующий заголовок и подстроку верного', () => {
+  it('rejects a foreign token, a missing header, and a substring of the correct one', () => {
     expect(authorized('другой', 'секрет')).toBeFalsy();
     expect(authorized('секре', 'секрет')).toBeFalsy();
     expect(authorized('секрет ', 'секрет')).toBeFalsy();

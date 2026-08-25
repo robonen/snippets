@@ -14,7 +14,7 @@ function pump(read: () => unknown): Promise<unknown> | null {
   }
 }
 
-test('снимок показывает состояние и зависимости', () => {
+test('Snapshot shows state and dependencies', () => {
   const count = ref(2)
   const double = computed(function double() {
     return count() * 2
@@ -29,7 +29,7 @@ test('снимок показывает состояние и зависимос
   expect(snap.deps[0]?.kind).toBe('source')
 })
 
-test('непосчитанный узел виден как холодный, а не как пустой', () => {
+test('Uncomputed node shows as cold, not as empty', () => {
   const lazy = computed(function lazy() {
     return 1
   })
@@ -41,19 +41,19 @@ test('непосчитанный узел виден как холодный, а
   expect(inspect(lazy).state).toBe('value')
 })
 
-test('ошибка видна вместе с сообщением', () => {
+test('Error is visible along with its message', () => {
   const boom = computed(function boom(): number {
-    throw new Error('взорвалось')
+    throw new Error('boom')
   })
   expect(() => boom()).toThrow()
 
   const snap = inspect(boom)
   expect(snap.state).toBe('error')
-  expect(snap.error).toBe('взорвалось')
+  expect(snap.error).toBe('boom')
   expect(snap.flags).toContain('cache:error')
 })
 
-test('waitingOn показывает, кто именно держит ожидание', () => {
+test('waitingOn shows exactly who holds the wait', () => {
   const gate = new Promise<string>(() => {})
   const load = (): Promise<string> => gate
 
@@ -74,7 +74,7 @@ test('waitingOn показывает, кто именно держит ожид�
   expect(chain.every((node) => node.state === 'pending')).toBe(true)
 })
 
-test('waitingOn пуст, когда ничего не ждёт', () => {
+test('waitingOn is empty when nothing is waiting', () => {
   const value = computed(function value() {
     return 1
   })
@@ -82,7 +82,7 @@ test('waitingOn пуст, когда ничего не ждёт', () => {
   expect(waitingOn(value)).toEqual([])
 })
 
-test('промис ожидания достаётся для отладчика', async () => {
+test('Pending promise is retrievable for the debugger', async () => {
   let release!: (value: string) => void
   const gate = new Promise<string>((resolve) => {
     release = resolve
@@ -104,7 +104,7 @@ test('промис ожидания достаётся для отладчика
   expect(pendingPromise(view)).toBeUndefined()
 })
 
-test('текстовое дерево читается глазами', () => {
+test('Text tree is readable by eye', () => {
   const gate = new Promise<string>(() => {})
   const load = (): Promise<string> => gate
   const flag = ref(true)
@@ -122,7 +122,7 @@ test('текстовое дерево читается глазами', () => {
   expect(text.split('\n').length).toBeGreaterThanOrEqual(3)
 })
 
-test('обход не зацикливается и уважает предел глубины', () => {
+test('Traversal does not loop and respects the depth limit', () => {
   const source = ref(0)
   let node = computed(function level() {
     return source()
@@ -146,7 +146,7 @@ test('обход не зацикливается и уважает предел 
   expect(cursor.truncated).toBe('depth')
 })
 
-test('инспекция ничего не меняет в графе', () => {
+test('Inspection changes nothing in the graph', () => {
   const source = ref(1)
   let runs = 0
   const view = computed(function view() {
@@ -174,7 +174,7 @@ test('инспекция ничего не меняет в графе', () => {
   stop()
 })
 
-test('значения не попадают в снимок без явного запроса', () => {
+test('Values do not enter the snapshot without an explicit request', () => {
   const heavy = computed(function heavy() {
     return { payload: 'много данных' }
   })

@@ -65,7 +65,7 @@ export function describe(raw: Vary): string {
  */
 export function warnIssue(issue: Issue): void {
   console.warn(
-    `@sync/model ${issue.kind}: поле «${issue.field}» — ждали ${issue.expected}, пришло ${issue.got}`,
+    `@sync/model ${issue.kind}: field «${issue.field}» — expected ${issue.expected}, got ${issue.got}`,
     {
       land: issue.land.str,
       head: issue.head,

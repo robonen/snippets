@@ -160,7 +160,7 @@ function termOf(core: SpaceCore, cell: Cell, view: SandView): string {
     peer: Link.peer(view.peer),
     field: cell.key,
     expected: 'string',
-    got: unreadable ? 'байты, которых кодек не знает' : describe(raw),
+    got: unreadable ? 'bytes the codec does not know' : describe(raw),
   })
   return ''
 }

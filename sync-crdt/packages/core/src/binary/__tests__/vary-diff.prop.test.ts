@@ -145,8 +145,8 @@ const dictHeavy = fc.letrec<{ node: Vary }>((tie) => ({
 
 // ── 1. Разбор второй реализацией ─────────────────────────────────────────────
 
-describe('сверка с независимым разбором', () => {
-  it('referenceDecode(varyEncode(x)) ≡ x на 25 000 значениях', { timeout: 300_000 }, () => {
+describe('cross-check against independent parsing', () => {
+  it('referenceDecode(varyEncode(x)) ≡ x on 25,000 values', { timeout: 300_000 }, () => {
     fc.assert(
       fc.property(anyValue, (input) => {
         const bytes = varyEncode(input)
@@ -157,7 +157,7 @@ describe('сверка с независимым разбором', () => {
     )
   })
 
-  it('на словарях с трудными ключами — отдельные 20 000 прогонов', { timeout: 300_000 }, () => {
+  it('dictionaries with tricky keys — a separate 20,000 runs', { timeout: 300_000 }, () => {
     fc.assert(
       fc.property(dictHeavy, (input) => {
         expect(alike(referenceDecode(varyEncode(input)), input)).toBe(true)
@@ -166,7 +166,7 @@ describe('сверка с независимым разбором', () => {
     )
   })
 
-  it('разбор не оставляет хвоста и не читает за буфер', () => {
+  it('parsing leaves no tail and does not read past the buffer', () => {
     fc.assert(
       fc.property(anyValue, (input) => {
         const bytes = varyEncode(input)
@@ -185,8 +185,8 @@ describe('сверка с независимым разбором', () => {
 
 // ── 2. Каноничность как свойство ─────────────────────────────────────────────
 
-describe('каноничность проверяется независимо', () => {
-  it('перестановка ключей на любой глубине не меняет ни байта', () => {
+describe('canonicity is verified independently', () => {
+  it('key permutation at any depth changes not a single byte', () => {
     fc.assert(
       fc.property(dictHeavy, fc.integer({ min: 0, max: 2 ** 31 - 1 }), (input, seed) => {
         let state = seed >>> 0
@@ -203,7 +203,7 @@ describe('каноничность проверяется независимо',
     )
   })
 
-  it('ключи возрастают по байтам UTF-8, а не по код-юнитам JS', () => {
+  it('keys ascend by UTF-8 bytes, not by JS code units', () => {
     fc.assert(
       fc.property(fc.uniqueArray(trickyKey, { minLength: 2, maxLength: 8 }), (keys) => {
         const dict: Record<string, Vary> = {}
@@ -216,7 +216,7 @@ describe('каноничность проверяется независимо',
     )
   })
 
-  it('структурно равные значения дают одни байты (-0, 1.0, вложенность)', () => {
+  it('structurally equal values give the same bytes (-0, 1.0, nesting)', () => {
     expect(hex(varyEncode(-0))).toBe(hex(varyEncode(0)))
     expect(hex(varyEncode(1.0))).toBe(hex(varyEncode(1)))
     expect(hex(varyEncode([-0, 1.0]))).toBe(hex(varyEncode([0, 1])))
@@ -224,7 +224,7 @@ describe('каноничность проверяется независимо',
     expect(hex(varyEncode({ b: 1, a: 2 }))).toBe(hex(varyEncode({ a: 2, b: 1 })))
   })
 
-  it('целое, влезающее в безопасный диапазон, никогда не пишется вещественным', () => {
+  it('an integer within the safe range is never written as a float', () => {
     fc.assert(
       fc.property(fc.maxSafeInteger(), (n) => {
         const bytes = varyEncode(n)
@@ -238,7 +238,7 @@ describe('каноничность проверяется независимо',
     )
   })
 
-  it('вещественным пишется только то, что целым не выразить', () => {
+  it('only what an integer cannot express is written as a float', () => {
     for (const n of [2 ** 53, -(2 ** 53), 1e300, 0.5, Number.MIN_VALUE, Number.POSITIVE_INFINITY]) {
       const bytes = varyEncode(n)
       expect(bytes[0]).toBe(0x03)
@@ -254,25 +254,25 @@ describe('каноничность проверяется независимо',
 // внести правку в кодек и убедиться, что сверка её ловит; правка откачена, но
 // здесь остаются рукотворные байты — то, что сломанный кодек и написал бы.
 
-describe('референс ловит неканоничные байты', () => {
+describe('the reference catches non-canonical bytes', () => {
   const broken: Array<[string, string]> = [
     // Пара ключей '😀' / '＀': по код-юнитам JS суррогат 0xD83D меньше 0xFF00,
     // по байтам UTF-8 всё наоборот (0xF0 > 0xEF). Сортировка через голый
     // `sort()` написала бы ровно эти байты.
-    ['ключи не отсортированы (порядок по код-юнитам JS)', 'c284f09f98800083efbc8000'],
-    ['ключи повторяются', 'c2816100816100'],
-    ['LEB128 не минимален', '3f8000'],
-    ['-0 в вещественной ветке', '038000000000000000'],
-    ['неканоничный NaN', '037ff8000000000001'],
-    ['безопасное целое в вещественной ветке', '033ff0000000000000'],
-    ['ведущий нуль в модуле bigint', 'e2020001'],
-    ['ноль записан отрицательным bigint', 'e300'],
-    ['ноль записан отрицательной датой', 'e100'],
-    ['хвост после значения', '2020'],
-    ['overlong-последовательность UTF-8', '82c0af'],
-    ['суррогат в UTF-8', '83eda080'],
-    ['ключ словаря не TEXT', 'c12000'],
-    ['зарезервированное расширение', 'e400'],
+    ['keys unsorted (JS code-unit order)', 'c284f09f98800083efbc8000'],
+    ['duplicate keys', 'c2816100816100'],
+    ['non-minimal LEB128', '3f8000'],
+    ['-0 in the float branch', '038000000000000000'],
+    ['non-canonical NaN', '037ff8000000000001'],
+    ['safe integer in the float branch', '033ff0000000000000'],
+    ['leading zero in bigint magnitude', 'e2020001'],
+    ['zero written as a negative bigint', 'e300'],
+    ['zero written as a negative date', 'e100'],
+    ['tail after the value', '2020'],
+    ['overlong UTF-8 sequence', '82c0af'],
+    ['surrogate in UTF-8', '83eda080'],
+    ['dictionary key is not TEXT', 'c12000'],
+    ['reserved extension', 'e400'],
   ]
 
   for (const [name, bytes] of broken) {
@@ -281,7 +281,7 @@ describe('референс ловит неканоничные байты', () =
     })
   }
 
-  it('а канонично записанное — принимает', () => {
+  it('while canonically written input is accepted', () => {
     expect(referenceDecode(unhex('c2816100816200'))).toEqual({ a: null, b: null })
     expect(referenceDecode(unhex('3f00'))).toBe(31)
   })
@@ -333,14 +333,14 @@ function revive(node: GoldenNode): Vary {
         minValue: Number.MIN_VALUE,
       }
       const value = table[node.v as string]
-      if (value === undefined) throw new Error(`неизвестное спецзначение ${String(node.v)}`)
+      if (value === undefined) throw new Error(`unknown special value ${String(node.v)}`)
       return value
     }
-    default: throw new Error(`неизвестный вид узла ${node.k}`)
+    default: throw new Error(`unknown node kind ${node.k}`)
   }
 }
 
-describe(`golden-векторы ${golden.format} через независимый разбор`, () => {
+describe(`golden vectors ${golden.format} through independent parsing`, () => {
   for (const vector of golden.vectors) {
     it(vector.name, () => {
       // Байты из фикстуры читает вторая реализация: если раскладка в шапке
@@ -354,8 +354,8 @@ describe(`golden-векторы ${golden.format} через независимы
 
 // ── 5. Разбор кодека и независимый разбор согласны между собой ───────────────
 
-describe('оба разбора видят одно значение', () => {
-  it('varyDecode и referenceDecode не расходятся', () => {
+describe('both parsers see the same value', () => {
+  it('varyDecode and referenceDecode do not diverge', () => {
     fc.assert(
       fc.property(anyValue, (input) => {
         const bytes = varyEncode(input)

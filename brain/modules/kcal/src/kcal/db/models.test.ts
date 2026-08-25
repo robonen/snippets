@@ -48,8 +48,8 @@ const ENTRY: Entry = {
   createdAt: 1_700_200,
 };
 
-describe('модели дневника на @sync/core', () => {
-  it('продукт переживает круг документ → снимок, включая опциональные поля', () => {
+describe('diary models on @sync/core', () => {
+  it('food survives the document → snapshot round-trip, including optional fields', () => {
     const root = spaceOf().root(KcalModel);
     writeFood(root.foods(FOOD.id), FOOD);
 
@@ -59,7 +59,7 @@ describe('модели дневника на @sync/core', () => {
     expect(Object.hasOwn(readFood(FOOD.id, root.foods(FOOD.id)), 'barcode')).toBeFalsy();
   });
 
-  it('ключи каталога видны и удаляются', () => {
+  it('catalog keys are visible and deletable', () => {
     const root = spaceOf().root(KcalModel);
     writeFood(root.foods('a'), { ...FOOD, id: 'a' });
     writeFood(root.foods('b'), { ...FOOD, id: 'b', name: 'Гречка' });
@@ -69,7 +69,7 @@ describe('модели дневника на @sync/core', () => {
     expect([...root.foods.keys()]).toEqual(['b']);
   });
 
-  it('запись дневника: снимок совпадает, быстрая запись без продукта — без лишних полей', () => {
+  it('diary entry: snapshot matches, quick entry without a food has no extra fields', () => {
     const root = spaceOf().root(KcalModel);
     writeEntry(root.entries(ENTRY.id), ENTRY);
     expect(readEntry(ENTRY.id, root.entries(ENTRY.id))).toEqual(ENTRY);
@@ -92,7 +92,7 @@ describe('модели дневника на @sync/core', () => {
     expect(Object.hasOwn(back, 'amountG')).toBeFalsy();
   });
 
-  it('профиль: до первого сохранения его нет, после — есть', () => {
+  it('profile: absent before the first save, present after', () => {
     const root = spaceOf().root(KcalModel);
     expect(root.profile().createdAt()).toBe(0);
 
@@ -114,7 +114,7 @@ describe('модели дневника на @sync/core', () => {
     expect(readProfile(root.profile())).toEqual(profile);
   });
 
-  it('две вкладки сходятся: запись из одной видна в другой', () => {
+  it('two tabs converge: a record from one is visible in the other', () => {
     const clock = fixedClock(1_700_000);
     const peer = Link.peer(new Uint8Array(8).fill(0x77));
     const tabA = new Land(peer, clock, { session: 0x000100 });

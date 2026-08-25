@@ -158,7 +158,7 @@ function hex(bin: Uint8Array): string {
 /** Вид на те же байты. Заводится на каждое чтение: прибору дорого — и пусть. */
 function view(bin: Uint8Array, at: number, size: number): DataView {
   if (at < 0 || at + size > bin.length) {
-    throw new UnitMismatch(`чтение ${size} Б с офсета ${at} выходит за юнит ${bin.length} Б`, `байт ${at}`)
+    throw new UnitMismatch(`reading ${size} B at offset ${at} runs past the unit of ${bin.length} B`, `byte ${at}`)
   }
   return new DataView(bin.buffer, bin.byteOffset + at, size)
 }
@@ -179,7 +179,7 @@ function readU8(bin: Uint8Array, at: number): number {
 /** Копия куска. Прибор не отдаёт окон: подмена входа не должна менять прочитанное. */
 function slice(bin: Uint8Array, at: number, size: number, field: string): Uint8Array {
   if (at + size > bin.length) {
-    throw new UnitMismatch(`поле ${field} (${size} Б с ${at}) не помещается в юнит ${bin.length} Б`, `байт ${at}`)
+    throw new UnitMismatch(`field ${field} (${size} B at ${at}) does not fit in the unit of ${bin.length} B`, `byte ${at}`)
   }
   const out = new Uint8Array(size)
   for (let i = 0; i < size; i++) out[i] = readU8(bin, at + i)
@@ -196,7 +196,7 @@ function slice(bin: Uint8Array, at: number, size: number, field: string): Uint8A
 function blank(bin: Uint8Array, from: number, to: number, what: string): void {
   for (let at = from; at < to; at++) {
     if (readU8(bin, at) !== 0) {
-      throw new UnitMismatch(`${what}: байт ${at} = 0x${readU8(bin, at).toString(16)}, ожидался ноль`, `байт ${at}`)
+      throw new UnitMismatch(`${what}: byte ${at} = 0x${readU8(bin, at).toString(16)}, expected zero`, `byte ${at}`)
     }
   }
 }
@@ -210,12 +210,12 @@ function blank(bin: Uint8Array, from: number, to: number, what: string): void {
  */
 export function readUnit(bin: Uint8Array): RefUnit {
   if (bin.length < REF_HEAD_BYTES) {
-    throw new UnitMismatch(`общая часть — ${REF_HEAD_BYTES} Б, а доступно ${bin.length}`, `юнит ${bin.length} Б`)
+    throw new UnitMismatch(`the common part is ${REF_HEAD_BYTES} B, but only ${bin.length} available`, `unit ${bin.length} B`)
   }
 
   const code = readU8(bin, 0)
   const kind = REF_KIND[code - 1]
-  if (kind === undefined) throw new UnitMismatch(`вид №${code} неизвестен`, 'байт 0')
+  if (kind === undefined) throw new UnitMismatch(`kind #${code} is unknown`, 'byte 0')
 
   if (kind === 'sand') return readSand(bin)
   if (kind === 'gift') return readGift(bin)
@@ -226,7 +226,7 @@ export function readUnit(bin: Uint8Array): RefUnit {
 /** Общая часть: одна на все четыре вида, читается до всякой развилки. */
 function readHead(bin: Uint8Array, kind: RefKind, length: number): RefHead {
   if (bin.length !== length) {
-    throw new UnitMismatch(`${kind}: раскладка даёт ${length} Б, пришло ${bin.length}`, `юнит ${bin.length} Б`)
+    throw new UnitMismatch(`${kind}: the layout gives ${length} B, got ${bin.length}`, `unit ${bin.length} B`)
   }
   return {
     kind,
@@ -256,8 +256,8 @@ function readSand(bin: Uint8Array): RefSand {
     const size = readU16(bin, 34)
     if (size <= REF_INLINE_MAX || size > REF_BALL_MAX) {
       throw new UnitMismatch(
-        `выносное значение объявлено в ${size} Б, а выносится только ${REF_INLINE_MAX + 1}…${REF_BALL_MAX}`,
-        'байт 34',
+        `external value declared as ${size} B, but only ${REF_INLINE_MAX + 1}…${REF_BALL_MAX} may be external`,
+        'byte 34',
       )
     }
     return {
@@ -277,13 +277,13 @@ function readSand(bin: Uint8Array): RefSand {
 
   // СТРОЖЕ боевого: у inline-санда поля sizeBig и shot не существуют — §2
   // объявляет payload только с офсета 48, значит 34…48 обязаны быть нулями.
-  blank(bin, 34, 48, 'sand: sizeBig и shot у значения внутри юнита')
+  blank(bin, 34, 48, 'sand: sizeBig and shot on an inline value')
   const payload = slice(bin, 48, inline, 'payload')
   // СТРОЖЕ боевого: хвост выравнивания — тоже часть хэшируемых байт.
-  blank(bin, 48 + inline, length, 'sand: выравнивание после payload')
+  blank(bin, 48 + inline, length, 'sand: alignment after payload')
 
   if (inline === 0) {
-    throw new UnitMismatch('значение пустое, а у vary нет нулевого представления', 'байт 1')
+    throw new UnitMismatch('value is empty, but vary has no zero-length encoding', 'byte 1')
   }
 
   return {
@@ -304,10 +304,10 @@ function readSand(bin: Uint8Array): RefSand {
 function readGift(bin: Uint8Array): RefGift {
   const head = readHead(bin, 'gift', REF_GIFT_BYTES)
   // СТРОЖЕ боевого: §2 не отводит подарку байта meta — значит он ноль.
-  blank(bin, 1, 2, 'gift: meta не задействован')
+  blank(bin, 1, 2, 'gift: meta is unused')
   const rank = readU8(bin, 24)
   // СТРОЖЕ боевого: между rank(24) и code(32) семь байт ничьи.
-  blank(bin, 25, 32, 'gift: дыра выравнивания между rank и code')
+  blank(bin, 25, 32, 'gift: alignment gap between rank and code')
   const code = slice(bin, 32, REF_CODE_BYTES, 'code')
 
   let coded = false
@@ -333,7 +333,7 @@ function readSeal(bin: Uint8Array): RefSeal {
   const wide = meta >= 128
   // СТРОЖЕ боевого: §2 отводит meta печати только count(4) и wide(1).
   if (meta % 128 >= 16) {
-    throw new UnitMismatch(`seal: биты 4…6 meta не заняты ни count, ни wide, а meta = 0x${meta.toString(16)}`, 'байт 1')
+    throw new UnitMismatch(`seal: meta bits 4…6 are used by neither count nor wide, but meta = 0x${meta.toString(16)}`, 'byte 1')
   }
 
   const tail = 16 + count * REF_SHOT_BYTES
@@ -343,7 +343,7 @@ function readSeal(bin: Uint8Array): RefSeal {
   const hashes: Uint8Array[] = []
   for (let i = 0; i < count; i++) hashes.push(slice(bin, 16 + i * REF_SHOT_BYTES, REF_SHOT_BYTES, `hashes[${i}]`))
   // СТРОЖЕ боевого: выравнивание между хэшами и подписью.
-  blank(bin, tail, align(tail), 'seal: выравнивание перед sign')
+  blank(bin, tail, align(tail), 'seal: alignment before sign')
 
   return {
     ...head,
@@ -360,14 +360,14 @@ function readPass(bin: Uint8Array): RefPass {
   const algo = REF_ALGO[meta]
   const size = REF_ALGO_KEY[meta]
   if (algo === undefined || size === undefined) {
-    throw new UnitMismatch(`pass: алгоритм №${meta} неизвестен`, 'байт 1')
+    throw new UnitMismatch(`pass: algorithm #${meta} is unknown`, 'byte 1')
   }
 
   const length = align(16 + size)
   const head = readHead(bin, 'pass', length)
   const key = slice(bin, 16, size, 'key')
   // СТРОЖЕ боевого: хвост выравнивания за ключом.
-  blank(bin, 16 + size, length, 'pass: выравнивание после key')
+  blank(bin, 16 + size, length, 'pass: alignment after key')
 
   return { ...head, kind: 'pass', algo, key }
 }

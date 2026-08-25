@@ -9,12 +9,12 @@ import { lockedByAway } from './lock';
 
 const IDLE = 15 * 60 * 1000;
 
-test('вкладка в фоне дольше таймаута — запирать', () => {
+test('tab in background longer than the timeout — lock', () => {
   const hiddenAt = 1_000_000;
   expect(lockedByAway(hiddenAt, hiddenAt + IDLE + 1, IDLE)).toBeTruthy();
 });
 
-test('короткая отлучка замок не трогает', () => {
+test('a short absence does not touch the lock', () => {
   const hiddenAt = 1_000_000;
   // Ровно таймаут — ещё не «дольше»: граница отдана пользователю, иначе
   // приложение запиралось бы в секунду, когда он уже тянется к клавиатуре.
@@ -22,13 +22,13 @@ test('короткая отлучка замок не трогает', () => {
   expect(lockedByAway(hiddenAt, hiddenAt + 60_000, IDLE)).toBeFalsy();
 });
 
-test('вкладку ни разу не прятали — запирать нечего', () => {
+test('tab was never hidden — nothing to lock', () => {
   // Иначе первое же переключение окна на свежей вкладке захлопывало бы замок:
   // ноль как «давным-давно» дал бы разницу в полвека.
   expect(lockedByAway(0, Date.now(), IDLE)).toBeFalsy();
 });
 
-test('сон машины отлучку не отменяет', () => {
+test('machine sleep does not cancel the absence', () => {
   // Ровно случай, ради которого правило считает часы, а не тики таймера:
   // ноутбук закрыли на восемь часов, таймеры всё это время стояли.
   const hiddenAt = 1_000_000;

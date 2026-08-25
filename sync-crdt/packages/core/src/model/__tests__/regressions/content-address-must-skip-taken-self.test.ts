@@ -31,8 +31,8 @@ import { Paper } from '../paper'
 import { Shelf } from '../shelf'
 import { born, stand } from '../shelf-stand'
 
-describe('контентный адрес: занятый self пропускается', () => {
-  test('усаженный контрпример на тексте', () => {
+describe('content address: a taken self is skipped', () => {
+  test('a seeded counterexample on text', () => {
     const paper = stand().space.root(Paper)
     paper.body('-')
     paper.body.write('a', 0, 0)
@@ -41,7 +41,7 @@ describe('контентный адрес: занятый self пропуска�
     expect(paper.body()).toBe('-a-')
   })
 
-  test('тот же дефект на голом списке — тремя обычными записями', () => {
+  test('the same defect on a bare list — with three ordinary writes', () => {
     const shelf = stand().space.root(Shelf)
     shelf.tags(['-'])
     shelf.tags(['a', '-'])
@@ -49,14 +49,14 @@ describe('контентный адрес: занятый self пропуска�
     expect(shelf.tags()).toEqual(['-', 'a', '-'])
   })
 
-  test('вставка дубля за тем же якорем даёт второй элемент, а не тишину', () => {
+  test('inserting a duplicate behind the same anchor yields a second element, not silence', () => {
     const shelf = stand().space.root(Shelf)
     shelf.tags(['a', 'b'])
     shelf.tags.insert(1, 'b')
     expect(shelf.tags()).toEqual(['a', 'b', 'b'])
   })
 
-  test('надгробие переиспользуется: повторный набор стёртого не плодит узлы', () => {
+  test('a tombstone is reused: retyping the erased does not multiply nodes', () => {
     const at = stand()
     const shelf = at.space.root(Shelf)
     shelf.tags(['раз', 'два'])
@@ -69,7 +69,7 @@ describe('контентный адрес: занятый self пропуска�
     expect(units).toBe(1)
   })
 
-  test('схлопывание одинаковых КОНКУРЕНТНЫХ вставок не пострадало', () => {
+  test('collapsing of identical CONCURRENT inserts is unharmed', () => {
     // Две реплики с одинаковым состоянием видят одинаковую занятость, делают
     // одинаковый пропуск и приходят к одному адресу — иначе лечение стоило бы
     // ровно того, ради чего адрес сделан контентным (docs/05 §3.6).

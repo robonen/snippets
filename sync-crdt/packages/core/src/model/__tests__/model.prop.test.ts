@@ -107,8 +107,8 @@ function tamper(land: Land, field: Field, raw: Vary): void {
   land.apply(other.units())
 }
 
-describe('model.tamper — чтение никогда не бросает', () => {
-  test('произвольный Vary в произвольном поле даёт blank и ровно один Issue', () => {
+describe('model.tamper — reads never throw', () => {
+  test('an arbitrary Vary in an arbitrary field yields blank and exactly one Issue', () => {
     fc.assert(
       fc.property(fieldArb, varyArb, (field: Field, raw: Vary) => {
         fc.pre(varyEncode(raw).length <= INLINE_MAX)
@@ -161,8 +161,8 @@ describe('model.tamper — чтение никогда не бросает', () 
   })
 })
 
-describe('model.idempotent — без неё эхо между пирами бесконечно', () => {
-  test('x(x()) не рождает юнитов, x(v); x(v) рождает ровно один', () => {
+describe('model.idempotent — without it the echo between peers is endless', () => {
+  test('x(x()) births no units, x(v); x(v) births exactly one', () => {
     fc.assert(
       fc.property(fc.string({ maxLength: 16 }), fc.integer({ min: -1e6, max: 1e6 }), (title, views) => {
         const { land, space } = stand()
@@ -210,8 +210,8 @@ function step(note: Doc<'note'>, op: Step): void {
   else note.tag(op.value % 3 === 0 ? null : `g${op.value}`)
 }
 
-describe('model.converge — сходимость на уровне операций модели', () => {
-  test('две реплики со случайным расписанием читают одинаково', () => {
+describe('model.converge — convergence at the level of model operations', () => {
+  test('two replicas with a random schedule read the same', () => {
     const stepArb: fc.Arbitrary<Step> = fc.record({
       peer: fc.nat(1),
       field: fieldArb,

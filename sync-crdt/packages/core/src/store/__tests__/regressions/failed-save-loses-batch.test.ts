@@ -41,7 +41,7 @@ function flaky(): UnitStore & { ok: boolean; saves: number } {
     load: (id: Link) => inner.load(id),
     save(id: Link, pack: Uint8Array) {
       store.saves += 1
-      if (!store.ok) throw new Error('диск полон')
+      if (!store.ok) throw new Error('disk full')
       return inner.save(id, pack)
     },
     lands: () => inner.lands(),
@@ -50,7 +50,7 @@ function flaky(): UnitStore & { ok: boolean; saves: number } {
   return store as UnitStore & { ok: boolean; saves: number }
 }
 
-test('правка, не принятая хранилищем, уезжает следующей попыткой', () => {
+test('an edit rejected by the store leaves with the next attempt', () => {
   const store = flaky()
   const land = landOf()
   const said: unknown[] = []
@@ -62,7 +62,7 @@ test('правка, не принятая хранилищем, уезжает �
 
   // Отказ обязан быть ГРОМКИМ: молчание здесь и было дефектом.
   expect(said).toHaveLength(1)
-  expect(String(said[0])).toMatch(/повторной попытки/)
+  expect(String(said[0])).toMatch(/for a retry/)
 
   // Диск ожил — и та же правка уезжает, хотя журнал ленда её уже не помнит.
   store.ok = true
@@ -78,7 +78,7 @@ test('правка, не принятая хранилищем, уезжает �
   // хранилище синхронное — это ровно та ветка, ради которой синхронность
   // сохранена, — но сузить тип надо явно, а не молчаливым `as`.
   const bin = store.load(LAND)
-  if (bin instanceof Promise) throw new Error('память обязана отвечать синхронно')
+  if (bin instanceof Promise) throw new Error('memory must respond synchronously')
   restored.adopt(bin)
   const values = restored.order(ROOT).map((view) => view.value)
 
@@ -87,7 +87,7 @@ test('правка, не принятая хранилищем, уезжает �
   vault.close()
 })
 
-test('повторный отказ не размножает пачки и не теряет их', () => {
+test('a repeated refusal neither multiplies packs nor loses them', () => {
   const store = flaky()
   const land = landOf()
   const vault = openVault({ store, id: LAND, land, report: () => {} })
@@ -108,7 +108,7 @@ test('повторный отказ не размножает пачки и не
   // хранилище синхронное — это ровно та ветка, ради которой синхронность
   // сохранена, — но сузить тип надо явно, а не молчаливым `as`.
   const bin = store.load(LAND)
-  if (bin instanceof Promise) throw new Error('память обязана отвечать синхронно')
+  if (bin instanceof Promise) throw new Error('memory must respond synchronously')
   restored.adopt(bin)
   expect(restored.order(ROOT).map((view) => view.value)).toEqual([
     'правка 0', 'правка 1', 'правка 2', 'правка 3', 'правка 4',

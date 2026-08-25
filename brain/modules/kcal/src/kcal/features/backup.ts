@@ -66,7 +66,7 @@ export interface ImportSummary {
  */
 export function importBackup(space: Space, payload: BackupPayload): ImportSummary {
   if (payload.app !== 'kcal' || payload.version !== BACKUP_VERSION) {
-    throw new Error('Файл не похож на бэкап приложения «Ккал»');
+    throw new Error('File does not look like a Kcal app backup');
   }
   const root = space.root(KcalModel);
   space.edit(() => {
@@ -99,19 +99,19 @@ export function parseBackup(text: string): { payload: BackupPayload; skipped: nu
     raw = JSON.parse(text);
   }
   catch {
-    throw new Error('Файл не читается: это не JSON');
+    throw new Error('File cannot be read: not JSON');
   }
-  if (!isRecord(raw)) throw new Error('Файл не похож на бэкап приложения «Ккал»');
-  if (raw.app !== 'kcal') throw new Error('Файл не похож на бэкап приложения «Ккал»');
+  if (!isRecord(raw)) throw new Error('File does not look like a Kcal app backup');
+  if (raw.app !== 'kcal') throw new Error('File does not look like a Kcal app backup');
   if (raw.version !== BACKUP_VERSION) {
-    throw new Error(`Версия формата ${String(raw.version)} не поддерживается — нужна ${BACKUP_VERSION}`);
+    throw new Error(`Format version ${String(raw.version)} is not supported — ${BACKUP_VERSION} required`);
   }
 
   const foods = list(raw.foods);
   const entries = list(raw.entries);
   const weights = list(raw.weights);
   if (foods === null || entries === null || weights === null) {
-    throw new Error('Файл повреждён: списки продуктов и записей не на месте');
+    throw new Error('File is corrupted: food and entry lists are out of place');
   }
 
   const payload: BackupPayload = {

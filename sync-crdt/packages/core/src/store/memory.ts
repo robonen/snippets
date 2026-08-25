@@ -122,7 +122,7 @@ export interface MemoryStore extends UnitStore {
 export function memoryStore(options: MemoryStoreOptions = {}): MemoryStore {
   const sides = options.mirrors ?? 2
   if (sides !== 1 && sides !== 2) {
-    throw new StoreError(`зеркал ${sides}: осмысленны 1 (без устойчивости к обрыву) и 2`, 'memoryStore')
+    throw new StoreError(`${sides} mirrors: only 1 (no interruption resilience) and 2 make sense`, 'memoryStore')
   }
 
   /** Ленд → его тома. Живут дольше образов: {@link MemoryStore.reopen} рвёт вторые. */

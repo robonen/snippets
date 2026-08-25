@@ -145,7 +145,7 @@ export function writeLinks(core: SpaceCore, cell: Cell, head: Head, next: unknow
 /** Часть целиком не пишется: у неё нет значения, есть поддерево. */
 export function writePart(_core: SpaceCore, cell: Cell): void {
   throw new ModelError(
-    `поле «${cell.key}» — вложенная часть: она есть всегда и пишется по одному полю (post.stats().views(1)), а не целиком`,
+    `field «${cell.key}» is a nested part: it always exists and is written one field at a time (post.stats().views(1)), not whole`,
     'part',
   )
 }
@@ -444,7 +444,7 @@ function docOf(core: SpaceCore, cell: Cell, head: Head, view: SandView, to: Mode
   const raw = core.valueOf(view)
   if (raw === null) {
     if (core.broken(view)) {
-      core.report(issueAt(core, cell, head, view, 'shape', 'pawn', 'байты, которых кодек не знает'))
+      core.report(issueAt(core, cell, head, view, 'shape', 'pawn', 'bytes the codec does not know'))
     }
     return null
   }
@@ -459,7 +459,7 @@ function docOf(core: SpaceCore, cell: Cell, head: Head, view: SandView, to: Mode
   if (bin.length !== PAWN_BYTES) {
     // Ссылка уровня лорда или ленда — это не сущность. Молча вернуть `null`
     // значило бы повторить п. 35: «нет значения» и «мусор» слиплись бы.
-    core.report(issueAt(core, cell, head, view, 'broken-link', 'pawn', at.str || '(пусто)'))
+    core.report(issueAt(core, cell, head, view, 'broken-link', 'pawn', at.str || '(empty)'))
     return null
   }
 
@@ -550,7 +550,7 @@ function modelFor(name: ModelName, at: string): AnyModel {
   const found = modelOf(name)
   if (found === undefined) {
     throw new ModelError(
-      `модель «${name}» не объявлена в этом процессе: импортируйте файл с её model(...)`,
+      `model «${name}» is not declared in this process: import the file with its model(...)`,
       at,
     )
   }
@@ -586,7 +586,7 @@ function deny(core: SpaceCore, cell: Cell, head: Head, slot: Head, land: Link, e
     self: slot,
     peer: null,
     field: cell.key,
-    expected: `запись в ленд ${land.str || '(пусто)'}`,
+    expected: `write into land ${land.str || '(empty)'}`,
     got: error instanceof Error ? error.message : String(error),
   }
 }

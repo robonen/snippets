@@ -33,8 +33,8 @@ function sampleRule(random: () => number): RepeatRule {
   return rule(unit, 1 + Math.floor(random() * 12));
 }
 
-describe('следующее вхождение повтора', () => {
-  it('шагает днями, неделями и месяцами', () => {
+describe('next repeat occurrence', () => {
+  it('steps by days, weeks, and months', () => {
     expect(nextOccurrence(rule('day', 1), '2026-08-24')).toBe('2026-08-25');
     expect(nextOccurrence(rule('week', 1), '2026-08-24')).toBe('2026-08-31');
     expect(nextOccurrence(rule('month', 1), '2026-08-24')).toBe('2026-09-24');
@@ -43,12 +43,12 @@ describe('следующее вхождение повтора', () => {
     expect(nextOccurrence(rule('month', 6), '2026-08-24')).toBe('2027-02-24');
   });
 
-  it('выключенное правило и отсутствие правила не дают вхождения', () => {
+  it('disabled rule and missing rule yield no occurrence', () => {
     expect(nextOccurrence(rule('day', 1, false), '2026-08-24')).toBeNull();
     expect(nextOccurrence(undefined, '2026-08-24')).toBeNull();
   });
 
-  it('шагом может быть только целое ≥ 1', () => {
+  it('step must be an integer ≥ 1', () => {
     expect(nextOccurrence(rule('day', 0), '2026-08-24')).toBeNull();
     expect(nextOccurrence(rule('day', -3), '2026-08-24')).toBeNull();
     expect(nextOccurrence(rule('day', 1.5), '2026-08-24')).toBeNull();
@@ -56,7 +56,7 @@ describe('следующее вхождение повтора', () => {
     expect(nextOccurrence(rule('month', Number.POSITIVE_INFINITY), '2026-08-24')).toBeNull();
   });
 
-  it('дата обязана быть днём формата YYYY-MM-DD', () => {
+  it('date must be a day in YYYY-MM-DD format', () => {
     expect(nextOccurrence(rule('day', 1), '2026-8-24')).toBeNull();
     expect(nextOccurrence(rule('day', 1), '2026-08')).toBeNull();
     expect(nextOccurrence(rule('day', 1), '24.08.2026')).toBeNull();
@@ -66,7 +66,7 @@ describe('следующее вхождение повтора', () => {
     expect(nextOccurrence(rule('day', 1), '2026-02-30')).toBeNull();
   });
 
-  it('конец месяца прижимается к последнему дню, а не перепрыгивает вперёд', () => {
+  it('month end clamps to the last day instead of jumping ahead', () => {
     expect(nextOccurrence(rule('month', 1), '2026-01-31')).toBe('2026-02-28');
     expect(nextOccurrence(rule('month', 1), '2026-03-31')).toBe('2026-04-30');
     expect(nextOccurrence(rule('month', 1), '2026-05-31')).toBe('2026-06-30');
@@ -75,13 +75,13 @@ describe('следующее вхождение повтора', () => {
     expect(nextOccurrence(rule('month', 2), '2026-01-31')).toBe('2026-03-31');
   });
 
-  it('прижатие ЛИПКОЕ: следующий шаг считается уже от прижатой даты', () => {
+  it('clamping is STICKY: the next step counts from the clamped date', () => {
     const clamped = nextOccurrence(rule('month', 1), '2026-01-31');
     expect(clamped).toBe('2026-02-28');
     expect(nextOccurrence(rule('month', 1), clamped ?? '')).toBe('2026-03-28');
   });
 
-  it('високосный год виден и в днях, и в месяцах', () => {
+  it('leap year shows in both days and months', () => {
     expect(nextOccurrence(rule('day', 1), '2024-02-28')).toBe('2024-02-29');
     expect(nextOccurrence(rule('day', 1), '2026-02-28')).toBe('2026-03-01');
     expect(nextOccurrence(rule('month', 1), '2024-01-31')).toBe('2024-02-29');
@@ -89,14 +89,14 @@ describe('следующее вхождение повтора', () => {
     expect(nextOccurrence(rule('month', 48), '2024-02-29')).toBe('2028-02-29');
   });
 
-  it('перевод через год и через границу месяца', () => {
+  it('carry across a year and across a month boundary', () => {
     expect(nextOccurrence(rule('day', 1), '2026-12-31')).toBe('2027-01-01');
     expect(nextOccurrence(rule('day', 3), '2026-12-30')).toBe('2027-01-02');
     expect(nextOccurrence(rule('week', 1), '2026-12-28')).toBe('2027-01-04');
     expect(nextOccurrence(rule('month', 5), '2026-08-31')).toBe('2027-01-31');
   });
 
-  it('свойство: вхождение всегда строго позже исходного дня', () => {
+  it('property: the occurrence is always strictly after the source day', () => {
     const random = lcg(20_260_824);
     for (let i = 0; i < SAMPLES; i++) {
       const from = sampleDate(random);
@@ -106,7 +106,7 @@ describe('следующее вхождение повтора', () => {
     }
   });
 
-  it('свойство: дневной шаг — ровно N календарных дней', () => {
+  it('property: a daily step is exactly N calendar days', () => {
     const random = lcg(7);
     for (let i = 0; i < SAMPLES; i++) {
       const from = sampleDate(random);
@@ -116,7 +116,7 @@ describe('следующее вхождение повтора', () => {
     }
   });
 
-  it('свойство: недельный шаг сохраняет день недели', () => {
+  it('property: a weekly step keeps the weekday', () => {
     const random = lcg(13);
     for (let i = 0; i < SAMPLES; i++) {
       const from = sampleDate(random);
@@ -127,7 +127,7 @@ describe('следующее вхождение повтора', () => {
     }
   });
 
-  it('свойство: месячный шаг сохраняет число месяца или прижимается к последнему дню', () => {
+  it('property: a monthly step keeps the day of month or clamps to the last day', () => {
     const random = lcg(29);
     for (let i = 0; i < SAMPLES; i++) {
       const from = sampleDate(random);
@@ -140,7 +140,7 @@ describe('следующее вхождение повтора', () => {
     }
   });
 
-  it('свойство: порядок дат сохраняется — более поздний день не даёт более раннего вхождения', () => {
+  it('property: date order is preserved — a later day never yields an earlier occurrence', () => {
     const random = lcg(101);
     for (let i = 0; i < SAMPLES; i++) {
       const first = sampleDate(random);
@@ -150,7 +150,7 @@ describe('следующее вхождение повтора', () => {
     }
   });
 
-  it('свойство: N дневных шагов подряд — это N дней', () => {
+  it('property: N daily steps in a row are N days', () => {
     const random = lcg(999);
     const daily = rule('day', 1);
     for (let i = 0; i < 40; i++) {
@@ -163,32 +163,32 @@ describe('следующее вхождение повтора', () => {
   });
 });
 
-describe('догонялки просроченного повтора', () => {
-  it('возвращает первый день строго после указанного', () => {
+describe('catching up an overdue repeat', () => {
+  it('returns the first day strictly after the given one', () => {
     expect(nextAfter(rule('day', 1), '2026-08-24', '2026-08-24')).toBe('2026-08-25');
     expect(nextAfter(rule('week', 1), '2026-08-24', '2026-08-24')).toBe('2026-08-31');
   });
 
-  it('ежедневная задача, забытая на неделю, догоняет за один раз', () => {
+  it('a daily task forgotten for a week catches up in one go', () => {
     expect(nextAfter(rule('day', 1), '2026-08-17', '2026-08-24')).toBe('2026-08-25');
   });
 
-  it('ритм числа месяца переживает опоздание', () => {
+  it('day-of-month rhythm survives being late', () => {
     // Платить 5-го: выполнено 7 марта, следующее — 5 апреля, а не 7-го.
     expect(nextAfter(rule('month', 1), '2026-01-05', '2026-03-07')).toBe('2026-04-05');
   });
 
-  it('без правила догонять нечего', () => {
+  it('nothing to catch up without a rule', () => {
     expect(nextAfter(undefined, '2026-08-24', '2026-08-24')).toBeNull();
     expect(nextAfter(rule('day', 1, false), '2026-08-17', '2026-08-24')).toBeNull();
   });
 
-  it('отставание больше предела считается от дня выполнения, а не крутит цикл', () => {
+  it('lag beyond the limit counts from the completion day instead of spinning the loop', () => {
     // Двадцать шесть лет ежедневного повтора — далеко за CATCH_UP_LIMIT.
     expect(nextAfter(rule('day', 1), '2000-01-01', '2026-08-24')).toBe('2026-08-25');
   });
 
-  it('свойство: результат всегда позже дня выполнения', () => {
+  it('property: the result is always after the completion day', () => {
     const random = lcg(4242);
     for (let i = 0; i < SAMPLES; i++) {
       const from = sampleDate(random);
@@ -198,8 +198,8 @@ describe('догонялки просроченного повтора', () => {
   });
 });
 
-describe('нормализация и подпись правила', () => {
-  it('оставляет целый положительный шаг и отбрасывает остальное', () => {
+describe('rule normalization and label', () => {
+  it('keeps a whole positive step and drops the rest', () => {
     expect(normalizeRepeat(rule('week', 2))).toEqual({ unit: 'week', every: 2, enabled: true });
     expect(normalizeRepeat(rule('day', 3.7))).toEqual({ unit: 'day', every: 3, enabled: true });
     expect(normalizeRepeat(rule('day', 0))).toBeUndefined();
@@ -208,11 +208,11 @@ describe('нормализация и подпись правила', () => {
     expect(normalizeRepeat(undefined)).toBeUndefined();
   });
 
-  it('выключенное правило переживает нормализацию: настройка ждёт, а не стирается', () => {
+  it('disabled rule survives normalization: the setting waits instead of being erased', () => {
     expect(normalizeRepeat(rule('month', 2, false))).toEqual({ unit: 'month', every: 2, enabled: false });
   });
 
-  it('подпись склоняет числительные', () => {
+  it('label declines numerals', () => {
     expect(repeatLabel(rule('day', 1))).toBe('каждый день');
     expect(repeatLabel(rule('week', 1))).toBe('каждую неделю');
     expect(repeatLabel(rule('month', 1))).toBe('каждый месяц');

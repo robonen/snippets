@@ -103,7 +103,7 @@ function selvesOf(land: Land): number[] {
 
 // ─── 1. Арбитраж по БАЙТАМ пира (ADR-015) ────────────────────────────────────
 
-describe('арбитраж LWW идёт по байтам пира', () => {
+describe('LWW arbitration goes by peer bytes', () => {
   const pairs: readonly (readonly [string, Uint8Array, Uint8Array])[] = [
     // base64url: "9…" против "-…" — текстовый порядок обратен байтовому
     ['0xf4 против 0xf8', peerBytes(0xf4), peerBytes(0xf8)],
@@ -115,7 +115,7 @@ describe('арбитраж LWW идёт по байтам пира', () => {
   ]
 
   for (const [name, low, high] of pairs) {
-    test(`${name}: побеждает меньший по байтам, независимо от порядка приёма`, () => {
+    test(`${name}: the byte-wise smaller wins, regardless of receive order`, () => {
       const base = { time: 1000, tick: 0, self: 0x10, head: 0, lead: 0 }
       const a = sandOf({ ...base, peer: low, value: 'low' })
       const b = sandOf({ ...base, peer: high, value: 'high' })
@@ -130,7 +130,7 @@ describe('арбитраж LWW идёт по байтам пира', () => {
     })
   }
 
-  test('порядок сиблингов при равном времени — по байтам пира', () => {
+  test('sibling order at equal time goes by peer bytes', () => {
     // Два конкурента за одну позицию (lead = ROOT) от разных пиров.
     const a = sandOf({ peer: peerBytes(0xf8), time: 1000, tick: 0, self: 0x11, head: 0, lead: 0, value: 'f8' })
     const b = sandOf({ peer: peerBytes(0xf4), time: 1000, tick: 0, self: 0x12, head: 0, lead: 0, value: 'f4' })
@@ -208,8 +208,8 @@ const corpusArb = fc.array(specArb, { minLength: 1, maxLength: 24 })
 
 // ─── 3. Сходимость: любой порядок доставки даёт одно состояние ───────────────
 
-describe('сходимость', () => {
-  test('перестановка и разбиение доставки не меняют итог', () => {
+describe('convergence', () => {
+  test('permuting and splitting delivery does not change the outcome', () => {
     fc.assert(
       fc.property(corpusArb, fc.array(fc.nat(1000), { minLength: 1, maxLength: 32 }), (specs, keys) => {
         const units = unitsOf(specs)
@@ -251,8 +251,8 @@ describe('сходимость', () => {
 
 // ─── 4. Идемпотентность ──────────────────────────────────────────────────────
 
-describe('идемпотентность', () => {
-  test('повторная доставка ничего не берёт и ничего не меняет', () => {
+describe('idempotence', () => {
+  test('redelivery takes nothing and changes nothing', () => {
     fc.assert(
       fc.property(corpusArb, specs => {
         const units = unitsOf(specs)
@@ -278,8 +278,8 @@ describe('идемпотентность', () => {
 
 // ─── 5. Достижимость: ни один живой по LWW узел не теряется ──────────────────
 
-describe('достижимость', () => {
-  test('каждый живой по LWW узел присутствует в order ровно один раз', () => {
+describe('reachability', () => {
+  test('every node alive by LWW appears in order exactly once', () => {
     fc.assert(
       fc.property(corpusArb, specs => {
         const units = unitsOf(specs)
@@ -303,8 +303,8 @@ describe('достижимость', () => {
 
 // ─── 6. Сверка с наивным оракулом на опасных пирах ───────────────────────────
 
-describe('сверка с orderNaive на пирах со старшим битом', () => {
-  test('порядок и значения совпадают поэлементно', () => {
+describe('cross-check with orderNaive on peers with the high bit set', () => {
+  test('order and values match element by element', () => {
     fc.assert(
       fc.property(corpusArb, specs => {
         const units = unitsOf(specs)
@@ -324,8 +324,8 @@ describe('сверка с orderNaive на пирах со старшим бит�
 
 // ─── 7. adopt эквивалентен apply ─────────────────────────────────────────────
 
-describe('adopt и apply дают одно состояние', () => {
-  test('пачка, принятая главой арены, читается так же, как скопированная', () => {
+describe('adopt and apply produce the same state', () => {
+  test('a pack adopted as an arena chunk reads the same as a copied one', () => {
     fc.assert(
       fc.property(corpusArb, specs => {
         const units = unitsOf(specs)
@@ -349,8 +349,8 @@ describe('adopt и apply дают одно состояние', () => {
 
 // ─── 8. size() и count() ─────────────────────────────────────────────────────
 
-describe('счётчики', () => {
-  test('size — число слотов (head, peer, self), count — число живых узлов', () => {
+describe('counters', () => {
+  test('size is the number of (head, peer, self) slots, count is the number of live nodes', () => {
     fc.assert(
       fc.property(corpusArb, specs => {
         const units = unitsOf(specs)
@@ -406,8 +406,8 @@ function landNodesOf(land: Land, head: LocalId): string[] {
   return land.order(head).map(view => idText(id48(view.bin, view.at + SAND_AT.self)))
 }
 
-describe('вложенные головы', () => {
-  test('order каждой головы совпадает с оракулом', () => {
+describe('nested heads', () => {
+  test('order of every head matches the oracle', () => {
     fc.assert(
       fc.property(nestedArb, specs => {
         const units = unitsOf(specs)
@@ -427,7 +427,7 @@ describe('вложенные головы', () => {
     )
   })
 
-  test('сходимость: перестановка доставки не меняет ни одну голову', () => {
+  test('convergence: permuting delivery changes no head', () => {
     fc.assert(
       fc.property(nestedArb, fc.array(fc.nat(1000), { minLength: 1, maxLength: 32 }), (specs, keys) => {
         const units = unitsOf(specs)
@@ -456,7 +456,7 @@ describe('вложенные головы', () => {
     )
   })
 
-  test('достижимость: живой по LWW узел виден под своей головой', () => {
+  test('reachability: a node alive by LWW is visible under its head', () => {
     fc.assert(
       fc.property(nestedArb, specs => {
         const units = unitsOf(specs)
@@ -535,8 +535,8 @@ function runOp(land: Land, op: LandOp): void {
   land.move(target.self, to <= 0 ? ROOT : (items[to - 1] as { self: LocalId }).self)
 }
 
-describe('многопировая история на пирах со старшим битом', () => {
-  test('после полной доставки все ленды читают одно и то же', () => {
+describe('multi-peer history on peers with the high bit set', () => {
+  test('after full delivery all lands read the same', () => {
     fc.assert(
       fc.property(historyArb, history => {
         const clock = fixedClock(1000)
@@ -577,7 +577,7 @@ describe('многопировая история на пирах со стар�
     )
   })
 
-  test('каждый ленд совпадает с наивной раскладкой своих же юнитов', () => {
+  test('every land matches the naive layout of its own units', () => {
     fc.assert(
       fc.property(historyArb, history => {
         const clock = fixedClock(1000)
@@ -620,8 +620,8 @@ describe('многопировая история на пирах со стар�
 
 // ─── 11. Надгробие не воскресает ─────────────────────────────────────────────
 
-describe('надгробие', () => {
-  test('старый юнит, доехавший после удаления, не воскрешает элемент', () => {
+describe('tombstone', () => {
+  test('an old unit arriving after removal does not resurrect the element', () => {
     fc.assert(
       fc.property(corpusArb, fc.nat(7), (specs, victim) => {
         const units = unitsOf(specs)
@@ -649,8 +649,8 @@ describe('надгробие', () => {
 // Сходимость этого свойства не покрывает: реплики согласованно приходят к
 // ответу, в котором увиденная правка проиграла тому, что она правила.
 
-describe('причинность', () => {
-  test('remove чужого элемента, уже увиденного, всегда убирает его из чтения', () => {
+describe('causality', () => {
+  test('remove of a foreign element already seen always drops it from reads', () => {
     fc.assert(
       fc.property(
         fc.nat(255), fc.nat(255), fc.integer({ min: 0, max: 3 }), fc.nat(3),
@@ -686,7 +686,7 @@ describe('причинность', () => {
 
 // ─── 13. Два известных расхождения, зафиксированных красным ──────────────────
 
-describe('известные дефекты', () => {
+describe('known defects', () => {
   /**
    * ADR-006: каждая вкладка держит ПОЛНЫЙ ленд и обменивается паками. Пир — хэш
    * публичного ключа (ADR-007), то есть у вкладок он ОДИН. Счётчик `self` и
@@ -699,7 +699,7 @@ describe('известные дефекты', () => {
    * реплики с одним набором юнитов расходились НАВСЕГДА, а цикл «применять,
    * пока `apply` не вернёт 0» вставал, ничего не заподозрив.
    */
-  test('две вкладки одного пира (ADR-006) всё же сходятся', () => {
+  test('two tabs of one peer (ADR-006) still converge', () => {
     const clock = fixedClock(1000)
     const tabA = new Land(Link.peer(peerBytes(0x11)), clock)
     const tabB = new Land(Link.peer(peerBytes(0x11)), clock)
@@ -725,7 +725,7 @@ describe('известные дефекты', () => {
    * перестают совпадать. Энтропию даёт обвязка (`randomSession()` в
    * `wire/tabs`), ленд по умолчанию детерминирован — как с часами.
    */
-  test('две вкладки с РАЗНЫМИ сеансами не теряют ни одной правки', () => {
+  test('two tabs with DIFFERENT sessions lose no edit', () => {
     const clock = fixedClock(1000)
     const tabA = new Land(Link.peer(peerBytes(0x11)), clock, { session: 0x000100 })
     const tabB = new Land(Link.peer(peerBytes(0x11)), clock, { session: 0x800100 })
@@ -748,7 +748,7 @@ describe('известные дефекты', () => {
    * одного пира без сеансов, теряет правки; `wire/tabs` поэтому требует сеанс,
    * а не предлагает.
    */
-  test.fails('две вкладки БЕЗ сеансов правку теряют', () => {
+  test.fails('two tabs WITHOUT sessions do lose an edit', () => {
     const clock = fixedClock(1000)
     const tabA = new Land(Link.peer(peerBytes(0x11)), clock)
     const tabB = new Land(Link.peer(peerBytes(0x11)), clock)
@@ -764,7 +764,7 @@ describe('известные дефекты', () => {
     expect(valuesOf(tabA).sort()).toEqual(['из вкладки A', 'из вкладки B'])
   })
 
-  test.fails('один self под двумя головами виден под обеими, как в docs/04 §1', () => {
+  test.fails('one self under two heads is visible under both, as in docs/04 §1', () => {
     // Индекс модели — `head → peer → self` (docs/04 §1), и оракул `resolveNaive`
     // сворачивает LWW ВНУТРИ головы: слоты `(A, peer, self)` и `(B, peer, self)`
     // независимы. Боевой ленд держит победителя ГЛОБАЛЬНО по `self` (`Graph.refs`

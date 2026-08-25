@@ -22,7 +22,7 @@ const AS_DICT = dict(t.string, t.maybe(t.string))
 const AS_REF = atom(t.maybe(t.link))
 const AS_REFS = links('ref-author')
 
-test('ссылка, часть и множественная ссылка выводятся без аннотаций', () => {
+test('link, part, and multi-link are inferred without annotations', () => {
   expectTypeOf(note.author()).toEqualTypeOf<Doc<'ref-author'> | null>()
   expectTypeOf(note.author.ensure()).toEqualTypeOf<Doc<'ref-author'>>()
   expectTypeOf(note.editors()).toEqualTypeOf<readonly Doc<'ref-author'>[]>()
@@ -41,7 +41,7 @@ test('ссылка, часть и множественная ссылка выв
   expectTypeOf(note.stats).not.toBeAny()
 })
 
-test('cast выводит канал по спеке и документ по модели', () => {
+test('cast infers the channel from the spec and the document from the model', () => {
   expectTypeOf(cast(note.body, AS_LIST)()).toEqualTypeOf<readonly string[]>()
   expectTypeOf(cast(note.marks, AS_LIST).at(0)).toEqualTypeOf<string | null>()
   expectTypeOf(cast(note.author, AS_REF)()).toEqualTypeOf<Link | null>()
@@ -58,7 +58,7 @@ test('cast выводит канал по спеке и документ по м
   expectTypeOf(cast(note, Gauge)).toEqualTypeOf<Doc<'ref-gauge'>>()
 })
 
-test('неправильное не компилируется', () => {
+test('invalid code does not compile', () => {
   // @ts-expect-error число вместо строки
   note.title(42)
   // @ts-expect-error у ссылки нет списковых операций
@@ -79,7 +79,7 @@ test('неправильное не компилируется', () => {
   note.author.attach()
 })
 
-test('пространство и модель согласованы по имени', () => {
+test('space and model agree on the name', () => {
   const land = new Land(undefined as never, fixedClock(0))
   const space = createSpace({ land })
   expectTypeOf(space.doc(Note, 0 as never)).toEqualTypeOf<Doc<'ref-note'>>()
