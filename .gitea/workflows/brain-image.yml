@@ -1,4 +1,9 @@
-name: brain image
+# Образ сервера brain: сборка на каждый пуш в main и публикация в реестр Gitea.
+#
+# Дальше образ тянется в Proxmox 9.1 напрямую: Storage → «Pull from OCI
+# Registry» → git.robonen.ru/robonen/brain:latest → Create CT (том на /data,
+# переменные в Options). Подробности — brain/docs/04-server.md §3.
+name: brain-image
 
 on:
   push:
@@ -8,25 +13,40 @@ on:
       - 'sync-crdt/**'
       - 'vite-layers/**'
       - '.gitea/workflows/brain-image.yml'
+  workflow_dispatch:
+
+# Два пуша в main не должны гоняться за общий тег latest.
+concurrency:
+  group: brain-image-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
 
 env:
-  IMAGE: git.robonen.ru/robonen/brain
+  REGISTRY: git.robonen.ru
+  NAMESPACE: ${{ github.repository_owner }} # -> git.robonen.ru/robonen/brain
 
 jobs:
   build:
+    name: build (brain:latest)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v6
 
-      - name: Login to Gitea registry
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login git.robonen.ru -u ${{ github.actor }} --password-stdin
+      - name: Log in to ${{ env.REGISTRY }}
+        env:
+          REGISTRY_USER: ${{ secrets.REGISTRY_USER || github.actor }}
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN || secrets.GITHUB_TOKEN }}
+        run: echo "$REGISTRY_TOKEN" | docker login "$REGISTRY" -u "$REGISTRY_USER" --password-stdin
 
-      - name: Build image
-        run: >-
-          docker build -f brain/Dockerfile
-          -t $IMAGE:latest
-          -t $IMAGE:${{ github.sha }}
-          .
-
-      - name: Push image
-        run: docker push --all-tags $IMAGE
+      - name: Build and push brain
+        run: |
+          set -euo pipefail
+          ref="$REGISTRY/$NAMESPACE/brain"
+          echo "==> Building $ref"
+          docker build -f brain/Dockerfile -t "$ref:latest" -t "$ref:${{ github.sha }}" .
+          echo "==> Pushing $ref"
+          docker push "$ref:latest"
+          docker push "$ref:${{ github.sha }}"
