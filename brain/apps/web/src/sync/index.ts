@@ -1,3 +1,4 @@
+import { CryptoError } from '@sync/core';
 import { landId } from '@brain/module-kit';
 import { syncEngine } from './engine';
 import { socketWire } from './socket';
@@ -39,11 +40,36 @@ export function startSync(options: StartSyncOptions): void {
   running = syncEngine({
     lands: options.lands.map(id => ({ id: landId(id), land: options.spaces.landOf(id) })),
     secure: options.secure,
+    report: syncReporter(),
     wire: handlers => socketWire(
       { url: settings.url, token: settings.token, onLive: markSyncLive },
       handlers,
     ),
   });
+}
+
+/**
+ * Отказы приёма — в консоль, но по-человечески. Главный ожидаемый случай:
+ * устройство ещё не подключено к пространству, и дельты запечатаны чужими
+ * секретами — GCM честно не сходится на каждом кадре. Это не поломка, а
+ * состояние «ждёт подключения», и спамить стеками на каждый кадр незачем:
+ * одна подсказка на ленд.
+ */
+function syncReporter(): (error: unknown) => void {
+  const hinted = new Set<string>();
+  return (error) => {
+    if (error instanceof CryptoError) {
+      if (hinted.has(error.at)) return;
+      hinted.add(error.at);
+      console.warn(
+        `[brain] синк: данные (${error.at}) запечатаны другим секретом. `
+        + 'Если это новое устройство — подключите его: на старом устройстве '
+        + 'экран «Доступ» → «Доверять», затем здесь — «Присоединиться».',
+      );
+      return;
+    }
+    console.error('[brain] sync:', error);
+  };
 }
 
 export function stopSync(): void {

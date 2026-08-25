@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { computedAsync, useSupported } from '@robonen/vue';
 import {
   Button,
@@ -174,8 +174,17 @@ const others = computed(() => (devices.value ?? []).filter(device => !device.min
 
 /** Ждёт ли нас чужая обёртка — свежему устройству предлагается присоединиться. */
 const grantReady = ref(false);
+// Обёртка приезжает синком ПОСЛЕ захода на экран — опрашиваем, пока экран
+// открыт, чтобы карточка «Присоединиться» появилась сама, без перезахода.
+let grantTimer: ReturnType<typeof setInterval> | null = null;
 onMounted(async () => {
   grantReady.value = await pendingGrant();
+  grantTimer = setInterval(async () => {
+    if (!grantReady.value) grantReady.value = await pendingGrant();
+  }, 5000);
+});
+onUnmounted(() => {
+  if (grantTimer !== null) clearInterval(grantTimer);
 });
 
 const deviceBusy = ref('');
