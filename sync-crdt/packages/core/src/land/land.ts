@@ -55,7 +55,9 @@ import {
   UNIT_AT,
   UNIT_BYTES,
   UnitError,
+  parseUnit,
   shotKey,
+  unitKeyAt,
   unitLengthAt,
   unitSpanAt,
 } from '../binary/unit'
@@ -187,6 +189,14 @@ export class Land implements Interner {
   readonly #alive: RefNode<number>
 
   /**
+   * Спутники графа — seal/pass/gift (S6-подписи, docs/07). Ключ {@link unitKeyAt}
+   * → ref в арене. Ни порядка, ни надгробий: их работа — доехать до получателя
+   * вместе с сандами и там подтвердить авторство. Отдельная карта, а не индекс
+   * санд, потому что у них нет ни `self`, ни `head`, ни `lead`.
+   */
+  readonly #extra: Map<string, number>
+
+  /**
    * Ссылки на юниты, ещё не отданные хранилищу, — `null`, пока хранилища нет.
    *
    * Именно `null`, а не всегда живой `Set`: ленду без хранилища журнал стоил бы
@@ -245,6 +255,7 @@ export class Land implements Interner {
     this.#live = 0
     this.#total = new RefNode(0)
     this.#alive = new RefNode(0)
+    this.#extra = new Map()
 
     this.#journal = null
     this.#trash = []
@@ -282,7 +293,13 @@ export class Land implements Interner {
     let taken = 0
     for (const unit of units) {
       const bin = unit.bin
-      if (!isSand(bin, 0)) continue
+      // Не-санд (seal/pass/gift, S6-подписи) — плоский спутник графа: ни
+      // порядка, ни надгробий, только хранение и ретрансляция. Их держит
+      // отдельный набор, горячий путь санд не задет (docs/07).
+      if (!isSand(bin, 0)) {
+        taken += this.#keep(bin, 0, NO_REF)
+        continue
+      }
       if (((bin[UNIT_AT.meta] as number) & 0b111111) === INLINE_BIG) {
         taken += this.#big(unit as SandUnit, balls)
         continue
@@ -365,9 +382,13 @@ export class Land implements Interner {
     let taken = 0
     const cursor = new PackCursor(bin)
     for (let step = cursor.next(); step !== PACK_STEP.end; step = cursor.next()) {
-      if (step !== PACK_STEP.unit || cursor.kind !== KIND_SAND) continue
+      if (step !== PACK_STEP.unit) continue
       const at = cursor.at
-      taken += this.#accept(bin, at, refIn(base, at))
+      // Не-санд юниты (seal/pass/gift) едут спутником — принимаем в плоский
+      // набор без графа (docs/07).
+      taken += cursor.kind === KIND_SAND
+        ? this.#accept(bin, at, refIn(base, at))
+        : this.#keep(bin, at, refIn(base, at))
     }
 
     // Ни одного юнита не взято — значит в буфер не смотрит ни одна ссылка, и
@@ -448,11 +469,16 @@ export class Land implements Interner {
   units(): readonly AnyUnit[] {
     if (this.#units === 0) return NO_UNITS
 
-    const out: SandUnit[] = []
+    const out: AnyUnit[] = []
     for (const peers of this.#heads.values()) {
       for (const kids of peers.values()) {
         for (const ref of kids.values()) out.push(this.#unitAt(ref))
       }
+    }
+    for (const ref of this.#extra.values()) {
+      const bin = this.#arena.bin(ref)
+      const at = ref & CHUNK_MASK
+      out.push(parseUnit(bin.subarray(at, at + unitLengthAt(bin, at))))
     }
     return out
   }
@@ -469,7 +495,7 @@ export class Land implements Interner {
   part(): PackPart {
     if (this.#units === 0) return packPart()
 
-    const units: SandUnit[] = []
+    const units: AnyUnit[] = []
     const balls = new Map<string, Uint8Array>()
 
     for (const peers of this.#heads.values()) {
@@ -487,6 +513,14 @@ export class Land implements Interner {
           }
         }
       }
+    }
+
+    // Спутники (seal/pass/gift) — после сандов: получатель собирает их в карты
+    // до проверки, порядок в секции значения не имеет.
+    for (const ref of this.#extra.values()) {
+      const bin = this.#arena.bin(ref)
+      const at = ref & CHUNK_MASK
+      units.push(parseUnit(bin.subarray(at, at + unitLengthAt(bin, at))))
     }
 
     return packPart({ units, balls })
@@ -941,6 +975,32 @@ export class Land implements Interner {
     if (cur === NO_REF || cur === prev) this.#crown(self, head, ref, cur)
     else if (cmpAt(src, at, this.#arena.bin(cur), cur & CHUNK_MASK) < 0) this.#crown(self, head, ref, cur)
 
+    return 1
+  }
+
+  /**
+   * Принять спутник — seal/pass/gift. Без графа: LWW по заголовку
+   * `(time, peer, tick)`, ключ — {@link unitKeyAt}. Идемпотентно (повторная
+   * печать не меняет состояния), поэтому годится условием остановки сходимости.
+   *
+   * @returns 1, если набор изменился.
+   */
+  #keep(src: Uint8Array, at: number, ready: number): number {
+    this.#stamp.hear(readU32(src, at + UNIT_AT.time), readU16(src, at + UNIT_AT.tick), this.#mine(src, at))
+
+    const key = unitKeyAt(src, at)
+    const prev = this.#extra.get(key)
+    if (prev !== undefined) {
+      // Свежее побеждает; ничья (та же печать) или старее — не трогаем.
+      if (cmpAt(src, at, this.#arena.bin(prev), prev & CHUNK_MASK) >= 0) return 0
+      this.#trash.push(prev, unitSpanAt(this.#arena.bin(prev), prev & CHUNK_MASK))
+      this.#journal?.delete(prev)
+    }
+
+    const ref = ready !== NO_REF ? ready : this.#arena.store(src, at, unitSpanAt(src, at))
+    this.#extra.set(key, ref)
+    this.#journal?.add(ref)
+    if (prev === undefined) this.#units += 1
     return 1
   }
 

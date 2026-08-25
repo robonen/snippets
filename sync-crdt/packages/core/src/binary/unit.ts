@@ -1115,11 +1115,25 @@ export function unitKeyAt(bin: Uint8Array, at: number): string {
   }
 
   if (kind === KIND_SEAL) {
-    // Как у `SealUnit.path()`: пара `time.tick` у одного пира строго растёт, и
-    // потому так же уникальна, как хэш, но синхронна.
+    // Метка `peer/time.tick` уникальна только у СОБСТВЕННЫХ юнитов пира: печать
+    // же чеканится на границе провода (S6, `signPack`), и две печати одного
+    // пира над РАЗНЫМИ пачками могут совпасть меткой (та же секунда; печать
+    // поверх чужих юнитов при поручительстве). Совпавший ключ склеил бы их в
+    // один слот, и вторая печать молча пропала бы при ретрансляции — санды под
+    // ней стали бы недоказуемыми у третьих устройств. Поэтому в ключ
+    // подмешивается XOR-свёртка списка хэшей: синхронный суррогат хэша
+    // содержимого (сам `Unit.hash` асинхронен и ключом быть не может).
     let out = 'l'
     for (let i = 0; i < PEER_BYTES; i++) out += HEX[bin[at + UNIT_AT.peer + i] as number]
-    return `${out}/${readU32(bin, at + UNIT_AT.time)}.${readU16(bin, at + UNIT_AT.tick)}`
+    const count = (bin[at + UNIT_AT.meta] as number) & 0b1111
+    const fold = new Uint8Array(SHOT_BYTES)
+    for (let item = 0; item < count; item++) {
+      const from = at + SEAL_AT.hashes + item * SHOT_BYTES
+      for (let i = 0; i < SHOT_BYTES; i++) fold[i] = (fold[i] as number) ^ (bin[from + i] as number)
+    }
+    let mix = ''
+    for (let i = 0; i < SHOT_BYTES; i++) mix += HEX[fold[i] as number]
+    return `${out}/${readU32(bin, at + UNIT_AT.time)}.${readU16(bin, at + UNIT_AT.tick)}/${mix}`
   }
 
   throw new UnitError(`вид №${kind} неизвестен`, `юнит по офсету ${at}`)

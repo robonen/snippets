@@ -195,11 +195,16 @@ describe('приём', () => {
     expect(to.size()).toBe(2)
   })
 
-  test('юниты не-санды пропускаются: права и подписи — работа S6', () => {
+  test('не-санды (S6-подписи) хранятся спутником и едут в пачке, графа не касаясь', () => {
     const land = makeLand()
     const gift = GiftUnit.make({ peer: peerOf(0x11), time: 1, tick: 0, mate: Link.hole, tier: 3, rate: 0 })
+    // Принят и учтён — но графа санд не касается: order(ROOT) пуст.
+    expect(land.apply([gift])).toBe(1)
+    expect(land.order(ROOT)).toEqual([])
+    // Повторная доставка идемпотентна — условие остановки сходимости цело.
     expect(land.apply([gift])).toBe(0)
-    expect(land.size()).toBe(0)
+    // Уезжает в пачке для ретрансляции.
+    expect(land.part().units.some(unit => unit instanceof GiftUnit)).toBe(true)
   })
 
   test('две реплики сходятся на конкурентных правках', () => {

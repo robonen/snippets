@@ -3,8 +3,7 @@ import { syncEngine } from './engine';
 import { socketWire } from './socket';
 import { loadSyncSettings, markSyncLive, syncConfigured } from './settings';
 import type { Spaces } from '@brain/module-kit';
-import type { SecretRing } from '@sync/core';
-import type { SyncEngine } from './engine';
+import type { Secure, SyncEngine } from './engine';
 
 /**
  * Сборка синхронизации: ленды + связка + сокет.
@@ -20,8 +19,8 @@ import type { SyncEngine } from './engine';
 
 export interface StartSyncOptions {
   readonly spaces: Spaces;
-  /** Связка секретов — та же, что открыла ленды. */
-  readonly ring: SecretRing;
+  /** Крипто-политика провода: шифр + подпись (`security/signing`). */
+  readonly secure: Secure;
   /** Ленды под синхронизацию: модули и ленды оболочки. */
   readonly lands: readonly string[];
 }
@@ -39,7 +38,7 @@ export function startSync(options: StartSyncOptions): void {
 
   running = syncEngine({
     lands: options.lands.map(id => ({ id: landId(id), land: options.spaces.landOf(id) })),
-    ring: options.ring,
+    secure: options.secure,
     wire: handlers => socketWire(
       { url: settings.url, token: settings.token, onLive: markSyncLive },
       handlers,

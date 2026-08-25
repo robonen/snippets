@@ -2,13 +2,11 @@ import {
   diffOf,
   facesFromPack,
   helloPack,
-  openPack,
   packDecode,
   packEncode,
   packPart,
-  sealPack,
 } from '@sync/core';
-import type { Land, LandId, SecretRing } from '@sync/core';
+import type { Land, LandId } from '@sync/core';
 
 /**
  * Движок синка: face-обмен ядра поверх одного WebSocket.
@@ -26,10 +24,21 @@ import type { Land, LandId, SecretRing } from '@sync/core';
  * доставка идемпотентна, дельта считается от фейсов, локальный журнал ядра и
  * есть «непереданное». Хранить прогресс синка отдельно нечего.
  *
- * Шифрование — на границе провода: наружу пачки уходят через `sealPack`,
- * внутрь приходят через `openPack` (payload юнитов, заголовки открыты — сервер
- * мержит, не читая). Ключи — та же связка, что у хранилища.
+ * Крипта — на границе провода, объектом {@link Secure} от сборки (`app/boot`):
+ * исходящее шифруется и ПОДПИСЫВАЕТСЯ, входящее ПРОВЕРЯЕТСЯ и расшифровывается.
+ * Подпись покрывает хэши запечатанных юнитов (encrypt-then-sign), поэтому
+ * сервер, подменивший заголовок, ломает печать — движок такой юнит отбросит.
+ * Движок самого крипто не знает: политику (ключи, ростер, корень доверия
+ * `keys`) держит `Secure`.
  */
+
+/** Крипто-политика провода. Всё, что движок знает о шифровании и подписи. */
+export interface Secure {
+  /** Запечатать и подписать пачку перед отправкой. */
+  outgoing(pack: Uint8Array): Promise<Uint8Array>;
+  /** Проверить подписи и расшифровать принятую пачку (неаутентичное отброшено). */
+  incoming(bytes: Uint8Array): Promise<Uint8Array>;
+}
 
 export interface WireHandlers {
   open(): void;
@@ -49,8 +58,8 @@ export interface SyncLand {
 
 export interface SyncEngineOptions {
   readonly lands: readonly SyncLand[];
-  /** Связка секретов — та же, что у хранилища. */
-  readonly ring: SecretRing;
+  /** Крипто-политика провода: шифр + подпись. */
+  readonly secure: Secure;
   readonly wire: (handlers: WireHandlers) => Wire;
   /** Куда сообщать об отказах разбора и крипты. По умолчанию — console.error. */
   readonly report?: (error: unknown) => void;
@@ -92,7 +101,7 @@ export function syncEngine(options: SyncEngineOptions): SyncEngine {
 
     frame(bytes: Uint8Array): void {
       queue(async () => {
-        const opened = await openPack(bytes, options.ring);
+        const opened = await options.secure.incoming(bytes);
 
         for (const [id, part] of packDecode(opened)) {
           const entry = byLand.get(id.str);
@@ -108,7 +117,7 @@ export function syncEngine(options: SyncEngineOptions): SyncEngine {
             const delta = diffOf(entry.land.part(), facesFromPack(part.faces));
             if (delta.units.length === 0) continue;
             const pack = packEncode([[id, packPart({ units: delta.units, balls: delta.balls })]]);
-            wire.send(await sealPack(pack, options.ring));
+            wire.send(await options.secure.outgoing(pack));
           }
         }
       });
@@ -122,7 +131,7 @@ export function syncEngine(options: SyncEngineOptions): SyncEngine {
   for (const { id, land } of byLand.values()) {
     stops.push(land.tap(id, (pack) => {
       queue(async () => {
-        wire.send(await sealPack(pack, options.ring));
+        wire.send(await options.secure.outgoing(pack));
       });
     }));
   }

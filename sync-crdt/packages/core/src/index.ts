@@ -112,6 +112,24 @@ export {
 } from './crypto/identity'
 
 /**
+ * Подписи (стадия S6, аутентичность): Ed25519/P-256 подписант и проверяльщик,
+ * печати над хэшами запечатанных юнитов (encrypt-then-sign), ранги tier/rate с
+ * PoW. `signPack`/`verifyPack` работают на границе пачки — сервер, подменивший
+ * заголовок или payload, ломает хэш и не может пересобрать печать.
+ */
+export {
+  createAuditor,
+  mintSignerPair,
+  signerOf,
+  SEAL_MAX,
+  type Auditor,
+  type SealStamp,
+  type Signer,
+} from './crypto/signer'
+export { rankOf, rateOf, tierAllows, tierOf, RATE, TIER, type RateName, type TierName } from './crypto/rank'
+export { signPack, verifyPack, type Roster, type SignOptions, type VerifyResult } from './crypto/signed'
+
+/**
  * Синхронизация вкладок (стадия S7, wire-bc): сырые пачки через
  * `BroadcastChannel`, привет фейсами, дельта по водяному знаку с `Fail Summ`.
  * Каждый одновременно живой ленд одного пира обязан получить свой

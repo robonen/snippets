@@ -1,4 +1,4 @@
-import { atom, identityOf, mintExchangePair, model, parts, t } from '@sync/core';
+import { Link, atom, identityOf, mintExchangePair, model, parts, t } from '@sync/core';
 import { decodeBytes, decodeSecrets, encodeBytes } from '@brain/auth';
 import type { Doc, ExchangeAlgo, Identity, Space, SubtleKeyPair } from '@sync/core';
 import type { Keyring } from '@brain/auth';
@@ -42,8 +42,14 @@ export const DeviceModel = model('keys/device', {
   /** Человеку: «телефон», «рабочий ноутбук». */
   label: atom(t.string),
   algo: atom(t.enum(['x25519', 'p256'] as const).or('x25519')),
-  /** base64url сырого публичного ключа. Он же — id записи. */
+  /** base64url сырого публичного ключа ECDH. Он же — id записи. */
   pub: atom(t.string),
+  /**
+   * Подписной `peer` устройства (канонический текст ссылки, 11 симв.) — SHA-256
+   * от его ключа ПОДПИСИ и он же адрес устройства в лендах. Из него строится
+   * ростер прав: живое устройство доверено, отозванное — нет.
+   */
+  signPeer: atom(t.string),
   addedAt: atom(t.number),
   /** Ноль — устройство живо. Метка, а не удаление: отзыв должен быть виден. */
   revokedAt: atom(t.number),
@@ -111,6 +117,7 @@ export interface PairedDevice {
   readonly pub: string;
   readonly label: string;
   readonly algo: ExchangeAlgo;
+  readonly signPeer: string;
   readonly addedAt: number;
   readonly revoked: boolean;
   readonly mine: boolean;
@@ -124,6 +131,7 @@ export function listDevices(space: Space, myPub: string): PairedDevice[] {
       pub,
       label: doc.label(),
       algo: doc.algo(),
+      signPeer: doc.signPeer(),
       addedAt: doc.addedAt(),
       revoked: doc.revokedAt() > 0,
       mine: pub === myPub,
@@ -131,17 +139,35 @@ export function listDevices(space: Space, myPub: string): PairedDevice[] {
   }).sort((a, b) => a.addedAt - b.addedAt);
 }
 
-/** Объявить себя в пространстве. Идемпотентно: запись одна на устройство. */
-export function announceDevice(space: Space, identity: Identity, label: string): void {
+/** Живые подписные peer'ы — из них строится ростер прав (см. `security/signing`). */
+export function livePeers(space: Space): Link[] {
+  const root = space.root(KeysModel);
+  const out: Link[] = [];
+  for (const pub of root.devices.keys()) {
+    const doc = root.devices(pub);
+    if (doc.revokedAt() > 0) continue;
+    const signPeer = doc.signPeer();
+    if (signPeer !== '') out.push(Link.parse(signPeer));
+  }
+  return out;
+}
+
+/**
+ * Объявить себя в пространстве. Идемпотентно по ECDH-ключу, но подписной peer
+ * дописывается всегда: старые записи (до подписей) его не несли.
+ */
+export function announceDevice(space: Space, identity: Identity, signPeer: string, label: string): void {
   const pub = encodeBytes(identity.pub);
   const root = space.root(KeysModel);
-  if (root.devices.has(pub)) return;
   space.edit(() => {
     const doc = root.devices(pub);
-    doc.label(label);
-    doc.algo(identity.algo);
-    doc.pub(pub);
-    doc.addedAt(Date.now());
+    if (doc.addedAt() === 0) {
+      doc.label(label);
+      doc.algo(identity.algo);
+      doc.pub(pub);
+      doc.addedAt(Date.now());
+    }
+    if (doc.signPeer() !== signPeer) doc.signPeer(signPeer);
   });
 }
 

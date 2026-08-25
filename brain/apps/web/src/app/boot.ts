@@ -1,6 +1,6 @@
 import { packDecode, packEncode } from '@sync/core';
 import { createRegistry, landId, openSpaces } from '@brain/module-kit';
-import type { LandId, SecretRing } from '@sync/core';
+import type { LandId, Roster, SecretRing, Signer } from '@sync/core';
 import type { Registry, Spaces } from '@brain/module-kit';
 import type { Keyring } from '@brain/auth';
 import { loadModules } from '@/app/modules';
@@ -12,10 +12,12 @@ import {
   claimGrant,
   deviceIdentity,
   grantTo,
+  livePeers,
   markRevoked,
   regrantAll,
 } from '@/security/pairing';
 import type { PairedDevice } from '@/security/pairing';
+import { deviceSigner, makeSecure, ownerRoster } from '@/security/signing';
 import { loadSyncSettings, startSync, stopSync } from '@/sync';
 
 /**
@@ -35,15 +37,22 @@ import { loadSyncSettings, startSync, stopSync } from '@/sync';
 /** Ленды с данными пользователя. Служебный `keys` — отдельно: он открытый. */
 let dataLands: string[] = [];
 let spacesRef: Spaces | null = null;
+let signerRef: Signer | null = null;
 
 export async function bootBrain(): Promise<{ spaces: Spaces; registry: Registry }> {
   const modules = await loadModules();
   const registry = createRegistry(modules);
   dataLands = [INBOX_ID, ...modules.map(module => module.id)];
 
+  // Подписант — ДО сборки пространств: его `peer` (хэш ключа подписи) становится
+  // адресом устройства в лендах, иначе печати не докажут авторство сандов.
+  const signer = await deviceSigner();
+  signerRef = signer;
+
   const spaces = openSpaces({
     modules,
     shell: [{ id: INBOX_ID }, { id: KEYS_ID }],
+    peer: signer.peer,
   });
   spacesRef = spaces;
 
@@ -53,12 +62,13 @@ export async function bootBrain(): Promise<{ spaces: Spaces; registry: Registry 
       for (const name of dataLands) await ring.ensure(landId(name).str);
       await spaces.unseal(secretsOf(ring));
 
-      // Устройство объявляется в пространстве: без этого его не подключить
-      // вторым и не отозвать. Имя — лучшее, что знает браузер.
+      // Устройство объявляется в пространстве: ECDH-ключ для пейринга и подписной
+      // peer для ростера. Без этого его не подключить, не отозвать и не доверять
+      // его печатям.
       const identity = await deviceIdentity();
-      announceDevice(spaces.space(KEYS_ID), identity, deviceLabel());
+      announceDevice(spaces.space(KEYS_ID), identity, signer.peer.str, deviceLabel());
 
-      startSync({ spaces, ring: secretsOf(ring), lands: [KEYS_ID, ...dataLands] });
+      startSync({ spaces, secure: secureOf(ring, signer), lands: [KEYS_ID, ...dataLands] });
     },
     conceal: async () => {
       // Сначала снять синк, потом закрыть ленды: пришедшая пачка иначе успела
@@ -84,6 +94,16 @@ function secretsOf(ring: Keyring): SecretRing {
       return key;
     },
   };
+}
+
+/** Крипто-политика провода: шифр по связке + подпись, ростер живой из ленда `keys`. */
+function secureOf(ring: Keyring, signer: Signer): ReturnType<typeof makeSecure> {
+  const keysLand = landId(KEYS_ID).str;
+  // Фабрика ростера: зовётся один раз на кадр (контракт makeSecure), поэтому
+  // «доверил устройство или отозвал» проверка видит без перезапуска синка, а
+  // список устройств из CRDT не перечитывается на каждый lookup пира.
+  const roster = (): Roster => ownerRoster(livePeers(need().space(KEYS_ID)));
+  return makeSecure(secretsOf(ring), signer, roster, keysLand);
 }
 
 function deviceLabel(): string {
@@ -123,7 +143,7 @@ export async function joinSpace(): Promise<void> {
   for (const name of dataLands) await ring.ensure(landId(name).str);
 
   await spaces.unseal(secretsOf(ring));
-  startSync({ spaces, ring: secretsOf(ring), lands: [KEYS_ID, ...dataLands] });
+  startSync({ spaces, secure: secureOf(ring, signerNow()), lands: [KEYS_ID, ...dataLands] });
 }
 
 /**
@@ -168,7 +188,7 @@ export async function revokeDevice(device: PairedDevice): Promise<void> {
 
   await regrantAll(spaces.space(KEYS_ID), ring, identity);
   await wipeServerLands();
-  startSync({ spaces, ring: secretsOf(ring), lands: [KEYS_ID, ...dataLands] });
+  startSync({ spaces, secure: secureOf(ring, signerNow()), lands: [KEYS_ID, ...dataLands] });
 }
 
 /** Стереть серверные копии лендов данных — перед перезаливкой перепечатанного. */
@@ -214,4 +234,9 @@ function ringNow(): Keyring {
   const ring = currentKeyring();
   if (ring === null) throw new Error('связка заперта');
   return ring;
+}
+
+function signerNow(): Signer {
+  if (signerRef === null) throw new Error('подписант не готов');
+  return signerRef;
 }
