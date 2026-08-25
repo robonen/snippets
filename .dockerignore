@@ -1,0 +1,16 @@
+# Контекст сборки brain/Dockerfile: нужны только исходники трёх каталогов.
+# Всё тяжёлое и воспроизводимое отрезается — ставится и собирается внутри.
+**/node_modules
+**/dist
+**/.output
+**/.data
+**/.data-dev
+**/.vite-layers
+.git
+.gitea
+
+# Соседние проекты монорепо, не участвующие в образе.
+element-inspector
+serializer
+shiki-vue-wrapper
+steam-glow

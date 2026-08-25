@@ -44,7 +44,7 @@
 routes/sync.ts            WS: авторизация рукопожатия, подписки, доставка
 routes/lands/[land].delete.ts  админ-ручка отзыва: забыть ленд (токен)
 routes/[...path].get.ts   SPA-фолбэк (index.html из кэша процесса)
-plugins/storage.ts        рантайм-маунт data: (Cloudflare KV | DATA_DIR) + flush на close
+plugins/storage.ts        рантайм-маунт data: (DATA_DIR) + flush на close
 utils/hub.ts              вся логика: ленды, exchange, вещание, персист
 utils/instance.ts         хаб процесса над useStorage('data')
 utils/auth.ts             токен: чистая timing-safe проверка
@@ -90,22 +90,26 @@ SYNC_TOKEN=… DATA_DIR=/var/lib/brain PORT=8787 PUBLIC_ORIGIN=https://brain.exa
 | env | что | по умолчанию |
 |---|---|---|
 | `SYNC_TOKEN` | общий секрет; **без него сервер отказывает всем** | — |
-| `DATA_DIR` | каталог образов (файловое хранилище) | `./.data` |
-| `CLOUDFLARE_KV_ACCOUNT_ID` | продакшен-хранилище: Cloudflare KV по REST | — |
-| `CLOUDFLARE_KV_NAMESPACE_ID` | — вместе с account id | — |
-| `CLOUDFLARE_KV_API_TOKEN` | токен с правом Workers KV Storage: Edit | — |
+| `DATA_DIR` | каталог образов лендов (файловое хранилище) | `./.data` (в образе — `/data`) |
 | `PUBLIC_ORIGIN` | origin для сверки `Origin` на WS-рукопожатии | `http://localhost:4877` |
 | `PORT` | порт node-server | `3000` |
 
-**Продакшен-хранилище — Cloudflare KV.** Заполнены все три `CLOUDFLARE_KV_*`
-— плагин перемонтирует `data:` на `cloudflare-kv-http` (REST, сервер остаётся
-node-процессом; `DATA_DIR` тогда не нужен). Образы едут строками
-`base64:…` — это штатный raw-фолбэк ядра unstorage, хаб разницы не видит
-(тест «профиль cloudflare-kv-http»). Эвентуальная консистентность KV не
-угрожает по построению: истина — память единственного процесса, KV — ленивый
-снапшот, отставший после рестарта образ долечивает первый же привет клиента по
-фейсам. Лимит значения KV — 25 МиБ на ленд: личному пространству хватает с
-запасом.
+**Продакшен — контейнер в Proxmox 9.1.** Каждый пуш в `main` собирает лёгкий
+OCI-образ (`brain/Dockerfile`: node:22-alpine + самодостаточный nitro
+`.output`, ~60 МБ) и публикует его в реестр Gitea — workflow
+`.gitea/workflows/brain-image.yml`, образ `git.robonen.ru/robonen/brain`.
+Proxmox 9.1 запускает OCI-образы нативно как LXC:
+
+1. Storage → **Pull from OCI Registry** → `git.robonen.ru/robonen/brain:latest`
+   (приватный реестр — логин/PAT Gitea);
+2. **Create CT** → на вкладке Template выбрать скачанный образ; на **Disks**
+   примонтировать том на `/data` (данные лендов переживают пересоздание);
+3. после создания в **Options** задать `SYNC_TOKEN` и `PUBLIC_ORIGIN`.
+
+Обновление версии в Proxmox — пересоздание контейнера с тем же томом `/data`
+(смену образа на месте Proxmox пока не умеет, tech preview). Потеря контейнера
+без тома не теряет данные пользователя: клиенты дошлют всё по фейсам (§0),
+серверный каталог — кэш.
 
 systemd и nginx — как раньше (проксирование WebSocket с `Upgrade`/`Connection`
 обязательно); маршруты `/auth` и `/account` исчезли, наружу торчат `/sync`

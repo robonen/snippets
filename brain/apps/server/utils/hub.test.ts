@@ -127,9 +127,9 @@ describe('hub', () => {
     await hub.flush();
   });
 
-  it('survives a driver without raw bytes — the cloudflare-kv-http profile', async () => {
-    // KV-драйвер умеет только строки: ядро unstorage возит raw base64-фолбэком.
-    // Хаб обязан не заметить разницы — на этом держится продакшен-хранилище.
+  it('survives a driver that only stores strings', async () => {
+    // Часть unstorage-драйверов умеет только строки: ядро unstorage тогда возит
+    // raw-байты через base64-фолбэк. Хаб не должен замечать разницы.
     const cells = new Map<string, string>();
     const stringOnly = {
       name: 'string-only',

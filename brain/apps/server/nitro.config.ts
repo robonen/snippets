@@ -32,24 +32,14 @@ export default defineConfig({
     publicOrigin: 'http://localhost:4877',
     /** Каталог данных для файлового хранилища. Пусто — маунт из `storage` ниже. */
     dataDir: '',
-    /**
-     * Продакшен-хранилище: Cloudflare KV по REST (`cloudflare-kv-http`).
-     * Заполнены все три поля — плагин перемонтирует `data:` на KV.
-     * Env: CLOUDFLARE_KV_ACCOUNT_ID, CLOUDFLARE_KV_NAMESPACE_ID,
-     * CLOUDFLARE_KV_API_TOKEN (плоские имена — envPrefix выше).
-     */
-    cloudflareKv: {
-      accountId: '',
-      namespaceId: '',
-      apiToken: '',
-    },
   },
 
   /**
    * Данные сервера: образы лендов и пир — маунт `data:`. База по умолчанию
-   * задаётся здесь (конфиг — build-time); рантаймовые значения — Cloudflare KV
-   * или `DATA_DIR` — перемонтируют её в plugins/storage.ts: ровно
-   * документированная схема «статичное в конфиге, секреты в плагине».
+   * задаётся здесь (конфиг — build-time); рантаймовый `DATA_DIR` перемонтирует
+   * её в plugins/storage.ts — документированная схема «статичное в конфиге,
+   * динамичное в плагине». В контейнере (docs/04 §3) `DATA_DIR=/data` и
+   * примонтированный том.
    */
   storage: {
     data: { driver: 'fs', base: './.data' },

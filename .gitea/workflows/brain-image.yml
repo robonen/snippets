@@ -1,0 +1,32 @@
+name: brain image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'brain/**'
+      - 'sync-crdt/**'
+      - 'vite-layers/**'
+      - '.gitea/workflows/brain-image.yml'
+
+env:
+  IMAGE: git.robonen.ru/robonen/brain
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Login to Gitea registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login git.robonen.ru -u ${{ github.actor }} --password-stdin
+
+      - name: Build image
+        run: >-
+          docker build -f brain/Dockerfile
+          -t $IMAGE:latest
+          -t $IMAGE:${{ github.sha }}
+          .
+
+      - name: Push image
+        run: docker push --all-tags $IMAGE
