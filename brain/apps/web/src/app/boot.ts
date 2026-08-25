@@ -18,7 +18,7 @@ import {
 } from '@/security/pairing';
 import type { PairedDevice } from '@/security/pairing';
 import { deviceSigner, makeSecure, ownerRoster } from '@/security/signing';
-import { loadSyncSettings, startSync, stopSync } from '@/sync';
+import { loadSyncSettings, startSync, stopSync, syncConfigured } from '@/sync';
 
 /**
  * Порядок запуска.
@@ -194,7 +194,9 @@ export async function revokeDevice(device: PairedDevice): Promise<void> {
 /** Стереть серверные копии лендов данных — перед перезаливкой перепечатанного. */
 async function wipeServerLands(): Promise<void> {
   const settings = loadSyncSettings();
-  if (settings.url === '') return;
+  // Выключатель синка — токен; пустой адрес означает «этот же origin», и
+  // относительный URL ниже как раз туда и пойдёт.
+  if (!syncConfigured(settings)) return;
   for (const name of dataLands) {
     const at = `${settings.url}/lands/${landId(name).str}`;
     const response = await fetch(at, {

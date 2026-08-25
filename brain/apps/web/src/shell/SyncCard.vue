@@ -80,14 +80,14 @@ const statusText = computed(() => {
           inputmode="url"
           placeholder="https://brain.example.com"
           autocomplete="off"
-          hint="Пусто — синхронизация выключена, приложение полностью локально"
+          hint="Пусто — тот же сервер, что раздал приложение"
         />
         <TextField
           v-model="token"
           label="Токен доступа"
           type="password"
           autocomplete="off"
-          hint="Тот же секрет, что в SYNC_TOKEN на сервере"
+          hint="Тот же секрет, что в SYNC_TOKEN на сервере. Пусто — синхронизация выключена"
         />
       </form>
       <template #footer>

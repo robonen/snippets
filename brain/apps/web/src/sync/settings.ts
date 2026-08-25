@@ -15,7 +15,10 @@ import type { ComputedRef, ShallowRef } from 'vue';
  * ЭТОГО устройства (домашний сервер снаружи и внутри сети зовётся по-разному),
  * а не общее свойство пространства.
  *
- * Пусто — синк выключен. Приложение остаётся полностью local-first.
+ * ПУСТОЙ АДРЕС — «этот же origin»: PWA раздаёт сам сервер синка, и в обычном
+ * деплое вводить адрес самого себя не нужно (socket.ts подставит текущий
+ * origin). Выключателем служит ТОКЕН: пустой токен — синк выключен, приложение
+ * остаётся полностью local-first (сервер без токена всё равно откажет всем).
  */
 
 const URL_KEY = 'brain.sync.url';
@@ -52,7 +55,7 @@ export function saveSyncSettings(
 }
 
 export function syncConfigured(value: SyncSettings): boolean {
-  return value.url !== '';
+  return value.token !== '';
 }
 
 export function markSyncLive(value: boolean): void {

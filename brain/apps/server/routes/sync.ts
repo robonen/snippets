@@ -18,11 +18,14 @@ export default defineWebSocketHandler({
   upgrade(request) {
     const config = serverConfig();
 
-    // Origin — защита от cross-site WS hijacking: сверяем со значением из
-    // конфигурации, а не с `Host` — ему нельзя верить.
-    const origin = request.headers.get('origin');
-    if (origin !== config.publicOrigin) {
-      return new Response('foreign origin', { status: 401 });
+    // Сверка Origin — только при явно заданном PUBLIC_ORIGIN (см.
+    // nitro.config.ts: с токеном в query она опциональное ужесточение, а не
+    // основа защиты). Сверяем с конфигом, а не с `Host` — ему нельзя верить.
+    if (config.publicOrigin !== '') {
+      const origin = request.headers.get('origin');
+      if (origin !== config.publicOrigin) {
+        return new Response('foreign origin', { status: 401 });
+      }
     }
 
     // Токен — в query: браузерный WebSocket не умеет ставить свои заголовки на
