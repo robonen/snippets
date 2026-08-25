@@ -1,0 +1,20 @@
+{
+  "name": "@brain/std",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Общие хелперы без домена и без UI: даты и числа.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "date-fns": "catalog:"
+  },
+  "devDependencies": {
+    "@robonen/tsconfig": "catalog:",
+    "typescript": "catalog:"
+  }
+}

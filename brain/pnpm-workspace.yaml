@@ -1,0 +1,50 @@
+packages:
+  - apps/*
+  - packages/*
+  - modules/*
+
+# Версии живут здесь, а не в десяти package.json: рассинхрон vue между
+# оболочкой и пакетами кита — это две Vue в бандле и падение mount на чужом
+# appContext (тот же класс ошибок, что лечится `resolve.dedupe`).
+catalog:
+  vue: 3.6.0-rc.5
+  vue-router: ^5.2.0
+  '@robonen/primitives': ^0.0.6
+  '@robonen/writekit': ^0.0.4
+  '@robonen/crdt': ^0.0.1
+  '@robonen/stdlib': ^0.0.12
+  '@robonen/platform': ^0.0.5
+  '@robonen/vue': ^0.2.0
+  '@robonen/eslint': ^0.0.1
+  '@robonen/tsconfig': ^0.1.1
+  '@vitejs/plugin-vue': ^6.0.8
+  '@tailwindcss/vite': ^4.3.3
+  '@types/node': ^26.2.0
+  barcode-detector: ^3.2.2
+  '@fontsource-variable/onest': ^5.3.0
+  '@fontsource-variable/unbounded': ^5.3.0
+  date-fns: ^4.4.0
+  eslint: ^10.9.0
+  jiti: ^2.7.0
+  lucide-vue-next: ^1.0.0
+  tailwindcss: ^4.3.3
+  typescript: ~6.0.3
+  vite: ^8.2.2
+  vitest: ^4.1.11
+  vue-tsc: ^3.3.11
+  zxing-wasm: 3.1.1
+
+allowBuilds:
+  unrs-resolver: true
+
+minimumReleaseAgeExclude:
+  - eslint@10.9.0
+  - lucide@1.33.0
+  - vite@8.2.2
+
+peerDependencyRules:
+  # primitives и writekit объявляют peer `vue ^3.5`, а мы на 3.6-rc: пререлиз
+  # не удовлетворяет диапазону по семверу, хотя API совместим.
+  allowAny:
+    - vue
+    - rollup

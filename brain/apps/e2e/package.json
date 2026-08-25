@@ -1,0 +1,17 @@
+{
+  "name": "@brain/e2e",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Живая проверка мультиустройства: собранный сервер + собранная PWA под настоящим Chromium (docs/01-security.md §3, §7).",
+  "scripts": {
+    "test": "playwright test",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "@robonen/tsconfig": "catalog:",
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
+  }
+}

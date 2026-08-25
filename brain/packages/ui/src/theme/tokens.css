@@ -1,0 +1,584 @@
+@import 'tailwindcss';
+
+/* Гарнитуры живут вместе с темой, а не в точке входа приложения: шрифт — часть
+   оформления, и модуль, подключающий токены, обязан получить его вместе с
+   цветами. Оба вариативные — один файл на гарнитуру вместо восьми начертаний. */
+@import '@fontsource-variable/onest';
+@import '@fontsource-variable/unbounded';
+
+/*
+ * Оформление brain: холодные нейтрали с сине-фиолетовым подтоном и один
+ * яркий индиго. Светлая и тёмная.
+ *
+ * Цвета заданы в OKLCH, и это не мода. В sRGB два цвета с одинаковыми
+ * числами воспринимаются разной светлоты: #d94a38 и #38d94a «одинаковые» на
+ * бумаге и совершенно разные на глаз. В OKLCH первое число — воспринимаемая
+ * светлота, поэтому семантический ряд (успех, риск, ошибка) держится на одной
+ * L и не пестрит, а тёмная тема получается сдвигом L, а не подбором вручную.
+ *
+ * Тема меняет ЗНАЧЕНИЯ семантических переменных, а не набор утилит:
+ * `bg-surface` пишется один раз и работает в обеих. Альтернатива —
+ * `dark:`-вариант на каждом классе — означала бы, что каждый компонент помнит
+ * про обе темы, и один забытый вариант ломает контраст.
+ *
+ * Имена — по РОЛИ, а не по цвету: роль переживает смену палитры, «серый-200»
+ * не переживает.
+ */
+
+:root {
+  color-scheme: light;
+
+  /*
+   * Графит: нейтрали ИСТИННО серые, без подтона. Прошлая палитра несла хрому
+   * 0.012–0.016 на поверхностях — на глаз это видимый фиолетовый, из-за
+   * которого весь экран читался как очередная админка на Tailwind.
+   */
+  --canvas: #fafafa;
+  --surface: #fff;
+  --raised: #fff;
+  --sunken: #f2f2f2;
+
+  /*
+   * Границы ПОЛУПРОЗРАЧНЫЕ, а не сплошные. Сплошная линия на светлой
+   * поверхности выглядит одинаково везде, а полупрозрачная темнеет ровно
+   * настолько, насколько темнее подложка, — поэтому одна и та же переменная
+   * работает и на карточке, и на всплывающем слое, и поверх подсветки.
+   */
+  --line: rgb(0 0 0 / 7%);
+  --line-strong: rgb(0 0 0 / 14%);
+
+  --text: #171717;
+  --text-soft: #5c5c5c;
+  --text-faint: #7d7d7d;
+
+  /*
+   * Главное действие — ИНВЕРСИЯ нейтрали, а не цветная заливка. Так делают
+   * Vercel и cobalt, и это ровно то, что отличает графит от «синей кнопки на
+   * сером»: цвет остаётся на смысл, а не на «здесь кнопка».
+   */
+  --solid: #171717;
+  --on-solid: #fafafa;
+
+  /* Акцент — сдержанный синий и только для смысла: ссылка, фокус, выделение. */
+  --accent: #0068d6;
+  --accent-hover: #0055b0;
+  --accent-soft: #eaf2fd;
+  --on-accent: #fff;
+
+  --positive: #147a3d;
+  --warning: #8a5a00;
+  --danger: #c62b2b;
+  --danger-soft: #fdecec;
+
+  --glass: rgb(255 255 255 / 72%);
+  --glass-line: rgb(0 0 0 / 6%);
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 5%);
+  --shadow-raised:
+    0 1px 2px rgb(0 0 0 / 5%),
+    0 8px 24px rgb(0 0 0 / 7%);
+  --shadow-float:
+    0 2px 4px rgb(0 0 0 / 5%),
+    0 16px 48px rgb(0 0 0 / 12%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+
+    /* Почти чёрный холст: графит тем и графит, что фон уходит в ноль, а
+       поверхности поднимаются от него мелкими шагами. */
+    --canvas: #0a0a0a;
+    --surface: #131313;
+    --raised: #1c1c1c;
+    --sunken: #000;
+
+    --line: rgb(255 255 255 / 8%);
+    --line-strong: rgb(255 255 255 / 15%);
+
+    --text: #ededed;
+    --text-soft: #a1a1a1;
+    --text-faint: #767676;
+
+    --solid: #ededed;
+    --on-solid: #0a0a0a;
+
+    --accent: #4d9bff;
+    --accent-hover: #6faeff;
+    --accent-soft: #10243d;
+    --on-accent: #0a0a0a;
+
+    --positive: #3fbf6a;
+    --warning: #d99a2b;
+    --danger: #f16362;
+    --danger-soft: #2a1414;
+
+    --glass: rgb(20 20 20 / 72%);
+    --glass-line: rgb(255 255 255 / 8%);
+
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 50%);
+    --shadow-raised:
+      0 1px 2px rgb(0 0 0 / 50%),
+      0 8px 28px rgb(0 0 0 / 55%);
+    --shadow-float:
+      0 2px 4px rgb(0 0 0 / 55%),
+      0 20px 56px rgb(0 0 0 / 65%);
+  }
+}
+
+/* Ручной выбор перебивает систему в обе стороны. */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  /* Почти чёрный холст: графит тем и графит, что фон уходит в ноль, а
+     поверхности поднимаются от него мелкими шагами. */
+  --canvas: #0a0a0a;
+  --surface: #131313;
+  --raised: #1c1c1c;
+  --sunken: #000;
+
+  --line: rgb(255 255 255 / 8%);
+  --line-strong: rgb(255 255 255 / 15%);
+
+  --text: #ededed;
+  --text-soft: #a1a1a1;
+  --text-faint: #767676;
+
+  --solid: #ededed;
+  --on-solid: #0a0a0a;
+
+  --accent: #4d9bff;
+  --accent-hover: #6faeff;
+  --accent-soft: #10243d;
+  --on-accent: #0a0a0a;
+
+  --positive: #3fbf6a;
+  --warning: #d99a2b;
+  --danger: #f16362;
+  --danger-soft: #2a1414;
+
+  --glass: rgb(20 20 20 / 72%);
+  --glass-line: rgb(255 255 255 / 8%);
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 50%);
+  --shadow-raised:
+    0 1px 2px rgb(0 0 0 / 50%),
+    0 8px 28px rgb(0 0 0 / 55%);
+  --shadow-float:
+    0 2px 4px rgb(0 0 0 / 55%),
+    0 20px 56px rgb(0 0 0 / 65%);
+}
+
+/*
+ * `inline` — чтобы утилита компилировалась в `var(--surface)`, а не в
+ * конкретный цвет: без этого тема застыла бы на значении момента сборки.
+ */
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-sunken: var(--sunken);
+  --color-glass: var(--glass);
+
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-glass-line: var(--glass-line);
+
+  --color-text: var(--text);
+  --color-text-soft: var(--text-soft);
+  --color-text-faint: var(--text-faint);
+
+  --color-solid: var(--solid);
+  --color-on-solid: var(--on-solid);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-on-accent: var(--on-accent);
+
+  --color-positive: var(--positive);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+
+  /* Системный шрифт: ноль сетевых запросов на первой отрисовке и родной вид на
+     каждой платформе. Иерархию несут размер и вес, а не гарнитура. */
+  --font-sans: system-ui, -apple-system, 'Segoe UI', roboto, 'Helvetica Neue', sans-serif;
+  --font-mono: ui-monospace, sfmono-regular, 'SF Mono', menlo, monospace;
+
+  --radius-control: 0.625rem;
+  --radius-card: 0.875rem;
+  --radius-sheet: 1.25rem;
+  --radius-pill: 999px;
+
+  --shadow-sm: var(--shadow-sm);
+  --shadow-raised: var(--shadow-raised);
+  --shadow-float: var(--shadow-float);
+
+  /*
+   * Кривые. Встроенные `ease-*` слишком вялые: у них нет рывка, который читается
+   * как намеренность. `ease-in` для интерфейса запрещён — он тянет именно тот
+   * первый момент, на который пользователь смотрит внимательнее всего.
+   */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* Длительности. Всё, что живёт в интерфейсе, укладывается в 300 мс. */
+  --duration-press: 140ms;
+  --duration-hint: 160ms;
+  --duration-menu: 200ms;
+  --duration-sheet: 280ms;
+
+  /*
+   * Умолчания для голого `transition-*`. Ставятся здесь, а не дописываются
+   * `duration-… ease-…` в тридцати шаблонах: забытый в одном месте класс —
+   * это один элемент, который движется не так, как все, и найти его потом
+   * можно только глазами. Значение продублировано из `--ease-out` намеренно:
+   * `@theme inline` подставляет значения в утилиты, а не публикует переменную,
+   * и ссылка на неё отсюда разрешалась бы в пустоту.
+   */
+  --default-transition-duration: 160ms;
+  --default-transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@layer base {
+  html {
+    background-color: var(--canvas);
+    -webkit-text-size-adjust: 100%;
+
+    /*
+     * Место под полосу прокрутки держится всегда, даже когда прокручивать
+     * нечего. Без этого короткий раздел рисуется без полосы, длинный — с
+     * полосой, и всё центрированное содержимое прыгает вбок на её половину при
+     * каждом таком переходе. Семь пикселей, но их видно: заголовок и вкладки
+     * дёргаются ровно в момент, когда человек смотрит именно на них.
+     *
+     * На macOS с наложенными полосами разницы нет, поэтому баг легко не
+     * заметить у себя и получить его у всех остальных.
+     */
+    scrollbar-gutter: stable;
+  }
+
+  body {
+    @apply min-h-dvh bg-canvas font-sans text-text antialiased;
+  }
+
+  /* Фокус виден всегда и одинаково: клавиатура — основной путь, не запасной. */
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-accent;
+  }
+
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    appearance: none;
+    margin: 0;
+  }
+
+  input[type='number'] {
+    appearance: textfield;
+  }
+
+  /*
+   * Появления оверлеев. Названы по движению, а не по компоненту: одним и тем
+   * же «sheet-up» пользуются лист, палитра и любой будущий нижний слой.
+   *
+   * Ни одно не стартует со `scale(0)`: в жизни ничто не возникает из ничего,
+   * и элемент, вырастающий из точки, читается как сбой.
+   */
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes sheet-up {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /*
+   * Выезд листа от нижнего края. Процент, а не пиксели: он считается от
+   * СОБСТВЕННОЙ высоты элемента, поэтому лист любого размера стартует ровно
+   * из-за края экрана, а не «примерно оттуда».
+   *
+   * Прозрачность тут не меняется намеренно: лист — предмет, который
+   * придвинули, а не проявили. Полупрозрачный на въезде он выглядел бы
+   * призраком, и заодно просвечивал бы затемнение под собой.
+   */
+  @keyframes sheet-in {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+
+  /*
+   * ТОЛЬКО масштаб — центрирование сюда добавлять нельзя, и это не вкусовщина.
+   *
+   * Tailwind 4 пишет `-translate-x-1/2` в отдельное свойство `translate`, а не
+   * в `transform`. Пока кадры содержали свой `translate(-50%,-50%)`, сдвиг
+   * применялся ДВАЖДЫ: диалог всё время анимации стоял смещённым на пол-размера
+   * и на последнем кадре прыгал на место — тем заметнее, чем он крупнее.
+   *
+   * Разделение свойств и есть решение: `translate` держит раскладку, `transform`
+   * свободен под анимацию, и одно не спорит с другим.
+   */
+  @keyframes pop-in {
+    from {
+      opacity: 0;
+      transform: scale(0.96);
+    }
+
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes rise-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /*
+   * Появление У ТРИГГЕРА. Смещения здесь нет намеренно: положение слоя целиком
+   * считает поппер, а любой свой `translate` подрался бы с его `transform`.
+   * Работает только вместе с `transform-origin` из переменной примитива —
+   * иначе слой вырастет из своего центра, то есть из случайной точки экрана.
+   */
+  @keyframes scale-in {
+    from {
+      opacity: 0;
+      transform: scale(0.96);
+    }
+
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  /*
+   * Штрих иконок. `lucide` рисует двойкой — на кремовом по графиту это чуть
+   * жирнее, чем нужно рядом с текстом. Правило одно на весь кит и на модули:
+   * иначе вес пришлось бы повторять пропом на каждой из полутора сотен иконок,
+   * и одна забытая читалась бы как выделенная. Где нужен другой вес —
+   * `[stroke-width:1]` на самой иконке: утилита лежит слоем выше и перебивает.
+   */
+  .lucide {
+    stroke-width: 1.8;
+  }
+}
+
+/* Табличные цифры: числа в списках не прыгают при обновлении. */
+@utility tnum {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* Волосяная линия там, где рамка должна разделять, но не рисоваться. */
+@utility hairline {
+  border-color: var(--line);
+}
+
+/*
+ * Плавающая поверхность: полупрозрачная подложка с размытием того, что под
+ * ней. Именно `backdrop-filter` даёт глубину — без него это просто другой
+ * цвет; браузеру без его поддержки достаётся honest-fallback сплошным фоном.
+ */
+@utility glass {
+  background-color: var(--glass);
+  border-color: var(--glass-line);
+
+  @supports (backdrop-filter: blur(1px)) {
+    backdrop-filter: blur(16px) saturate(1.4);
+  }
+
+  @supports not (backdrop-filter: blur(1px)) {
+    background-color: var(--raised);
+  }
+}
+
+/*
+ * Нажатие. Кнопка обязана отвечать телу раньше, чем данным: 140 мс и лёгкое
+ * сжатие говорят «услышал» до того, как что-либо произошло.
+ *
+ * Цвет переходит ЗДЕСЬ ЖЕ, а не отдельным `transition-colors` рядом. Две
+ * утилиты, каждая со своим `transition-property`, на одном элементе не
+ * складываются: побеждает та, что оказалась ниже в собранном файле, и вторая
+ * молча пропадает. Порядок классов в шаблоне на это не влияет — значит,
+ * договориться можно только внутри одного объявления.
+ */
+@utility pressable {
+  transition-property: transform, color, background-color, border-color;
+  transition-duration: var(--duration-press);
+  transition-timing-function: var(--ease-out);
+
+  &:active {
+    transform: scale(0.97);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    /* Движение убираем, смену цвета оставляем: она объясняет состояние, а не
+       развлекает. */
+    transition-property: color, background-color, border-color;
+
+    &:active {
+      transform: none;
+    }
+  }
+}
+
+/* Наведение — только там, где есть чем наводить: на тач-экране `:hover`
+   срабатывает от касания и залипает. */
+@utility hoverable {
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      background-color: var(--sunken);
+    }
+  }
+}
+
+/* Появление содержимого с лесенкой. Задержка малая — длинная читается как
+   тормоз, а не как изящество. */
+@utility stagger {
+  animation: rise-in 260ms var(--ease-out) both;
+  animation-delay: calc(var(--stagger-index, 0) * 40ms);
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: fade-in 160ms ease both;
+  }
+}
+
+/*
+ * ─── Типографский контраст ───────────────────────────────────────────────────
+ *
+ * Две гарнитуры вместо одной системной. Не украшательство: когда весь экран
+ * набран одним шрифтом одного веса, иерархию приходится строить только
+ * размером, и всё сливается в «аккуратно, но никак». Unbounded — геометрический
+ * гротеск с широкими формами и кириллицей, он держит крупные числа и заголовки;
+ * Onest несёт текст и интерфейс.
+ *
+ * Обе — вариативные и подключаются подмножеством: платим за один файл на
+ * гарнитуру, а не за восемь начертаний.
+ */
+@theme inline {
+  --font-display: 'Unbounded Variable', 'Unbounded', var(--font-sans);
+  --font-text: 'Onest Variable', 'Onest', var(--font-sans);
+}
+
+@layer base {
+  body {
+    font-family: var(--font-text);
+  }
+}
+
+/*
+ * ─── Свет по времени суток ───────────────────────────────────────────────────
+ *
+ * Подпись приложения. Холст несёт мягкое световое пятно, чей угол и тепло
+ * зависят от ЧАСА: утром низкое тёплое солнце слева, днём ровно и нейтрально,
+ * вечером густеет индиго, ночью остаётся почти чёрный с еле заметным свечением.
+ *
+ * Это не декорация ради декорации — периферийным зрением видно время суток, и
+ * страница, открытая утром, не выглядит так же, как открытая в полночь. Цена:
+ * два радиальных градиента и одна переменная, которую ставит скрипт раз в час.
+ * Ни канваса, ни шейдеров, ни кадров в секунду.
+ *
+ * Хрома у света НАМЕРЕННО почти нулевая (0.03 вместо 0.14). На графите заметно
+ * цветное пятно — первое, что превращает его обратно в «фиолетовую панель»:
+ * это должен быть свет, падающий на серое, а не подсветка.
+ */
+@layer base {
+  :root {
+    /* Угол и тепло света. Значения ставит `initAmbient()`; дефолт — полдень. */
+    --light-x: 50%;
+    --light-y: -10%;
+    --light-hue: 275;
+    --light-strength: 0.05;
+  }
+
+  .ambient {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .ambient::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(
+        70rem 45rem at var(--light-x) var(--light-y),
+        oklch(75% 0.035 var(--light-hue) / calc(var(--light-strength) * 1.5)) 0%,
+        transparent 68%
+      ),
+      radial-gradient(
+        45rem 32rem at calc(100% - var(--light-x)) 112%,
+        oklch(65% 0.03 calc(var(--light-hue) + 40) / var(--light-strength)) 0%,
+        transparent 72%
+      );
+    /* Переход длинный намеренно: свет меняется вместе с часом, и рывок здесь
+       читался бы как сбой, а не как рассвет. */
+    transition:
+      background 2s linear,
+      opacity 2s linear;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ambient::before {
+      transition: none;
+    }
+  }
+}
+
+/*
+ * Пятно под курсором. Карточка светлеет там, куда смотрят, — глубина без
+ * теней, которые в тёмной теме всё равно не читаются.
+ *
+ * Только для мыши: на тач-экране координат нет, и правило просто не включится.
+ */
+@utility spotlight {
+  position: relative;
+  isolation: isolate;
+
+  @media (hover: hover) and (pointer: fine) {
+    &::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      border-radius: inherit;
+      opacity: 0;
+      transition: opacity 240ms var(--ease-out);
+      background: radial-gradient(
+        18rem circle at var(--spot-x, 50%) var(--spot-y, 50%),
+        oklch(80% 0.02 var(--light-hue) / 9%) 0%,
+        transparent 60%
+      );
+    }
+
+    &:hover::before {
+      opacity: 1;
+    }
+  }
+}
+
+/* Крупные числа: широкий геометрический гротеск и плотный трекинг. */
+@utility text-display {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: -0.03em;
+}

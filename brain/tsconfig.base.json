@@ -1,0 +1,6 @@
+{
+  "extends": "@robonen/tsconfig/tsconfig.dom.json",
+  "compilerOptions": {
+    "types": ["node", "vite/client"]
+  }
+}

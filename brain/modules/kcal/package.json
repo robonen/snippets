@@ -1,0 +1,38 @@
+{
+  "name": "@brain/kcal",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Модуль дневника питания: калории, БЖУ, вес, каталог продуктов.",
+  "exports": {
+    ".": "./src/kcal/module.ts",
+    "./kcal.css": "./src/kcal/kcal.css"
+  },
+  "scripts": {
+    "typecheck": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "@brain/module-kit": "workspace:*",
+    "@brain/std": "workspace:*",
+    "@brain/ui": "workspace:*",
+    "@robonen/stdlib": "catalog:",
+    "@robonen/vue": "catalog:",
+    "@sync/core": "link:../../../sync-crdt/packages/core",
+    "@sync/vue": "link:../../../sync-crdt/packages/vue",
+    "barcode-detector": "^3.2.2",
+    "lucide-vue-next": "catalog:",
+    "zxing-wasm": "3.1.1"
+  },
+  "peerDependencies": {
+    "vue": "catalog:",
+    "vue-router": "catalog:"
+  },
+  "devDependencies": {
+    "@robonen/tsconfig": "catalog:",
+    "typescript": "catalog:",
+    "vite-layers": "link:../../../vite-layers",
+    "vue": "catalog:",
+    "vue-router": "catalog:",
+    "vue-tsc": "catalog:"
+  }
+}

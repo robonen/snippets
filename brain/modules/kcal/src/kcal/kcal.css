@@ -1,0 +1,46 @@
+/*
+ * Цвета данных дневника. Живут в МОДУЛЕ, а не в ките: белок, жиры и углеводы —
+ * домен, и общий кит, куда каждый модуль дописывает свои цвета, перестал бы
+ * быть общим.
+ *
+ * У каждого цвета две версии: на светлом фоне нужен тёмный тон, на тёмном —
+ * светлый. Один тон на обе темы означал бы, что в одной из них полосы либо
+ * выцветают, либо режут глаз.
+ *
+ * Пары проверены на CVD-разделимость и контраст к своей поверхности.
+ */
+:root {
+  --macro-protein: #0d7a63;
+  --macro-fat: #8a6300;
+  --macro-carbs: #3a5fb8;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --macro-protein: #45c3a5;
+    --macro-fat: #d9a63c;
+    --macro-carbs: #7f9ee8;
+  }
+}
+
+:root[data-theme='dark'] {
+  --macro-protein: #45c3a5;
+  --macro-fat: #d9a63c;
+  --macro-carbs: #7f9ee8;
+}
+
+@layer components {
+  /* Дуга кольца доезжает до нового значения, а не прыгает: цифра меняется
+     мгновенно, форма — за время, которое глаз успевает проследить. */
+  .ring-arc {
+    transition:
+      stroke-dashoffset 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+      stroke 0.4s ease;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ring-arc {
+      transition: none;
+    }
+  }
+}

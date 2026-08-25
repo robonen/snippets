@@ -1,0 +1,30 @@
+{
+  "name": "@brain/ui",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "UI-кит brain: токены оформления и компоненты поверх @robonen/primitives.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./tokens.css": "./src/theme/tokens.css"
+  },
+  "scripts": {
+    "typecheck": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "@fontsource-variable/onest": "catalog:",
+    "@fontsource-variable/unbounded": "catalog:",
+    "@robonen/primitives": "catalog:",
+    "@robonen/vue": "catalog:",
+    "lucide-vue-next": "catalog:"
+  },
+  "peerDependencies": {
+    "vue": "catalog:"
+  },
+  "devDependencies": {
+    "@robonen/tsconfig": "catalog:",
+    "typescript": "catalog:",
+    "vue": "catalog:",
+    "vue-tsc": "catalog:"
+  }
+}

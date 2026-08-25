@@ -1,0 +1,21 @@
+{
+  "name": "brain",
+  "short_name": "brain",
+  "description": "Личное пространство: заметки, задачи, дневник питания. Данные живут на устройстве.",
+  "lang": "ru",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fbfaf9",
+  "theme_color": "#fbfaf9",
+  "share_target": {
+    "action": "/share",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  }
+}

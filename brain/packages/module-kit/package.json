@@ -1,0 +1,30 @@
+{
+  "name": "@brain/module-kit",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Контракт модуля brain: декларация, чеканка лендов, сборка пространств, реестр.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@brain/auth": "workspace:*",
+    "@brain/std": "workspace:*",
+    "@sync/core": "link:../../../sync-crdt/packages/core",
+    "@sync/vue": "link:../../../sync-crdt/packages/vue"
+  },
+  "peerDependencies": {
+    "@robonen/vue": "catalog:",
+    "vue": "catalog:",
+    "vue-router": "catalog:"
+  },
+  "devDependencies": {
+    "@robonen/tsconfig": "catalog:",
+    "typescript": "catalog:",
+    "vue": "catalog:",
+    "vue-router": "catalog:"
+  }
+}

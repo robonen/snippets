@@ -1,0 +1,26 @@
+{
+  "name": "brain",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Second brain: модульное local-first пространство на @sync (CRDT) — заметки, задачи, дневник питания.",
+  "scripts": {
+    "dev": "pnpm --filter @brain/web dev",
+    "build": "pnpm --filter @brain/web build",
+    "preview": "pnpm --filter @brain/web preview",
+    "typecheck": "pnpm -r --parallel typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
+  },
+  "devDependencies": {
+    "@robonen/eslint": "catalog:",
+    "@robonen/tsconfig": "catalog:",
+    "@types/node": "catalog:",
+    "eslint": "catalog:",
+    "jiti": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

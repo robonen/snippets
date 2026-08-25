@@ -1,0 +1,17 @@
+{
+  "name": "@brain/auth",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Доступ и шифрование: конверт DEK/KEK, passkey, фраза восстановления, замок.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@robonen/tsconfig": "catalog:",
+    "typescript": "catalog:"
+  }
+}

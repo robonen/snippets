@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "paths": {
+      // Пакеты подключены симлинками и тянут свою vue из devDependencies:
+      // без этого в проекте две Vue на типах, как и в бандле без `resolve.dedupe`.
+      "vue": ["../../node_modules/vue"],
+      "@vue/*": ["../../node_modules/@vue/*"]
+    }
+  },
+  "include": ["src"]
+}

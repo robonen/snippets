@@ -1,0 +1,7 @@
+{
+  "extends": "@robonen/tsconfig/tsconfig.dom.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": ["*.ts", "support/**/*.ts"]
+}

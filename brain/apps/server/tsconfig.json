@@ -1,0 +1,7 @@
+{
+  "extends": "@robonen/tsconfig/tsconfig.node.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": ["routes", "utils", "nitro.config.ts"]
+}

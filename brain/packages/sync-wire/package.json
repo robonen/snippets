@@ -1,0 +1,17 @@
+{
+  "name": "@brain/sync-wire",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Проводной формат синка: бинарные кадры WebSocket и кодирование кусков журнала.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@robonen/tsconfig": "catalog:",
+    "typescript": "catalog:"
+  }
+}
