@@ -27,6 +27,22 @@ if ('serviceWorker' in navigator) {
   registerSW({ immediate: true });
 }
 
+// WebCrypto (`crypto.subtle`) браузер отдаёт только в защищённом контексте —
+// HTTPS или localhost. По голому http://<ip> его просто нет, и без проверки
+// первый же вызов падал бы криптическим «reading 'generateKey'». Полифилла не
+// существует по построению: нужен TLS перед сервером (docs/04-server.md §3).
+if (globalThis.crypto?.subtle === undefined) {
+  const root = document.querySelector('#app');
+  if (root !== null) {
+    root.textContent = 'Приложению нужен защищённый контекст: откройте его по HTTPS '
+      + '(или на localhost). По обычному http:// браузер не даёт WebCrypto, '
+      + 'а без него нечем шифровать данные.';
+    root.setAttribute('role', 'alert');
+    root.setAttribute('style', 'display:grid;min-height:100dvh;place-items:center;padding:2rem;text-align:center');
+  }
+  throw new Error('WebCrypto is unavailable: insecure context (serve over HTTPS or use localhost)');
+}
+
 try {
   const { spaces, registry } = await bootBrain();
 
