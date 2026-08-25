@@ -1,0 +1,97 @@
+import { describe, expect, test } from 'vitest';
+import { createSalt, randomBytes } from './crypto';
+import { createKeyring, decodeSecrets, dropKeyring, unlockKeyring } from './keyring';
+import type { RingStore } from './keyring';
+
+/**
+ * Гейт корректности связки (docs/01-security.md ревизия 3): мастер стабилен,
+ * связка мутабельна, чужой KEK не подходит, замок затирает.
+ */
+
+function memoryStore(): RingStore {
+  const map = new Map<string, string>();
+  return {
+    getItem: key => map.get(key) ?? null,
+    setItem: (key, value) => void map.set(key, value),
+    removeItem: key => void map.delete(key),
+  };
+}
+
+const META = { kind: 'passphrase' as const, label: 'фраза', salt: createSalt() };
+
+describe('связка ключей', () => {
+  test('секрет заводится один раз и переживает цикл «завернуть → открыть»', async () => {
+    const store = memoryStore();
+    const ring = await createKeyring(store);
+    const first = await ring.ensure('notes');
+    expect(await ring.ensure('notes')).toBe(first);
+    expect(ring.secretOf('notes')).toBe(first);
+    expect(ring.secretOf('tasks')).toBeNull();
+
+    const kek = randomBytes(32);
+    const wrap = await ring.wrapFor(kek, META);
+    const raw = ring.rawOf('notes');
+
+    const reopened = await unlockKeyring(wrap, kek, store);
+    expect(reopened.lands()).toEqual(['notes']);
+    expect(reopened.rawOf('notes')).toEqual(raw);
+  });
+
+  test('новый ленд после обёртки: старая обёртка открывает и его', async () => {
+    const store = memoryStore();
+    const ring = await createKeyring(store);
+    const kek = randomBytes(32);
+    const wrap = await ring.wrapFor(kek, META); // обёртка выдана ДО появления лендов
+
+    await ring.ensure('notes');
+    await ring.ensure('kcal');
+
+    // Тот же wrap открывает связку с обоими секретами: мастер не менялся.
+    const reopened = await unlockKeyring(wrap, kek, store);
+    expect(new Set(reopened.lands())).toEqual(new Set(['notes', 'kcal']));
+  });
+
+  test('чужой KEK не открывает', async () => {
+    const store = memoryStore();
+    const ring = await createKeyring(store);
+    await ring.ensure('notes');
+    const wrap = await ring.wrapFor(randomBytes(32), META);
+    await expect(unlockKeyring(wrap, randomBytes(32), store)).rejects.toThrow();
+  });
+
+  test('adopt принимает чужие секреты и спорит при расхождении', async () => {
+    const store = memoryStore();
+    const ring = await createKeyring(store);
+    await ring.ensure('notes');
+    const mine = ring.rawOf('notes') as Uint8Array;
+
+    const foreign = decodeSecrets((await (async () => {
+      const other = await createKeyring(memoryStore());
+      await other.ensure('tasks');
+      return other.exportSecrets();
+    })()));
+    await ring.adopt(foreign);
+    expect(new Set(ring.lands())).toEqual(new Set(['notes', 'tasks']));
+
+    // Совпадающий секрет — не конфликт; другой секрет того же ленда — конфликт.
+    await ring.adopt(new Map([['notes', mine]]));
+    await expect(ring.adopt(new Map([['notes', randomBytes(16)]]))).rejects.toThrow(/расходится/);
+  });
+
+  test('rotate перевыпускает секреты, замок затирает', async () => {
+    const store = memoryStore();
+    const ring = await createKeyring(store);
+    await ring.ensure('notes');
+    const before = ring.rawOf('notes');
+    await ring.rotate(['notes']);
+    expect(ring.rawOf('notes')).not.toEqual(before);
+
+    ring.lock();
+    expect(ring.secretOf('notes')).toBeNull();
+    expect(() => ring.exportSecrets()).not.toThrow(); // пустая связка — не бросок
+    await expect(ring.wrapFor(randomBytes(32), META)).rejects.toThrow(/заперта/);
+
+    dropKeyring(store);
+    expect(store.getItem('brain.keys.ring')).toBeNull();
+  });
+});

@@ -1,9 +1,6 @@
-import { Land, createSpace, idbStore, openVault, randomSession, syncTabs } from '@sync/core';
-import type { Clock, LandId, Link, ModelName, Space, UnitStore } from '@sync/core';
-import type { OpenVault } from '@brain/auth';
+import { Land, createSpace, idbStore, openVault, randomSession, sealedStore, syncTabs } from '@sync/core';
+import type { Clock, LandId, Link, SecretRing, Space, UnitStore } from '@sync/core';
 import { devicePeer, landId, wallClock } from './land';
-import { idbChest, sealedStore } from './sealed';
-import type { Chest, SealedStore } from './sealed';
 import type { BrainModule } from './module';
 
 /**
@@ -14,51 +11,28 @@ import type { BrainModule } from './module';
  * кит поверх — это `open`: пространство одного модуля умеет открыть соседнее,
  * и на этом держатся ссылки `[[…]]` через границы модулей.
  *
- * ─── Почему ленды открываются В ДВА ЗАХОДА ──────────────────────────────────
+ * ─── Шифрование здесь — одна строка ──────────────────────────────────────────
  *
- * Мета-ленд лежит на диске ОТКРЫТЫМ: в нём обёрнутые копии ключа, и они обязаны
- * читаться до того, как ключ появился, — иначе курица и яйцо. Все остальные
- * ленды запечатаны, и открыть их нечем, пока замок не снят.
- *
- * Отсюда форма: `openSpaces` поднимает только мета-ленд и возвращается сразу —
- * оболочка успевает показать экран замка, пока данных ещё нет и быть не может.
- * Модульные ленды приезжают в {@link Spaces.unseal}, а {@link Spaces.seal}
- * убирает их обратно: заперто — значит расшифрованного в памяти вкладки нет.
+ * Payload юнитов запечатывает само ядро (`sealedStore` из `@sync/core`), ключи
+ * подаёт связка (`SecretRing`). Прежних двух заходов — «открытый мета-ленд,
+ * потом остальные по ключу» — больше нет: обёртки ключей живут вне лендов
+ * (`security/keys.ts`), поэтому ВСЕ ленды поднимаются одинаково и только после
+ * снятия замка. Заперто — значит `unseal` ещё не звали или `seal` уже отзвали:
+ * расшифрованных лендов в памяти вкладки нет.
  */
 
-/**
- * Открытый ленд. Внутренняя запись сборки: наружу отдаётся только `Space`.
- *
- * Две карты держат одну и ту же запись с разных сторон — по имени модуля и по
- * адресу ленда, — поэтому владельца видно по обеим.
- */
+/** Открытый ленд. Внутренняя запись сборки: наружу отдаётся только `Space`. */
 interface LandHandle {
   /** Идентификатор модуля, чей это ленд. */
   readonly id: string;
   readonly space: Space;
 }
 
-/** Системный ленд оболочки: настройки и обёртки ключа — то, что не принадлежит модулю. */
-export interface SystemLand {
-  readonly root: ModelName;
-  readonly seed?: (space: Space) => void;
-}
-
-/**
- * Ленд оболочки, который шифруется наравне с модульными.
- *
- * Отдельно от {@link SystemLand} потому, что различие не в хозяине, а в том,
- * лежит ленд на диске текстом или шифртекстом. Инбокс — пользовательские данные
- * (пойманные мысли и ссылки), и оставить их рядом с обёртками ключа значило бы
- * сделать работу наполовину.
- */
+/** Ленд оболочки — инбокс и служебные. Шифруется ли он, решает связка ключей. */
 export interface ShellLand {
   readonly id: string;
   readonly seed?: (space: Space) => void;
 }
-
-/** Имя системного ленда. Оболочка — такой же владелец ленда, как модуль. */
-export const SYSTEM_ID = 'meta';
 
 export interface Spaces {
   /**
@@ -66,36 +40,30 @@ export interface Spaces {
    * опечатка, не данные, — и на ещё запечатанном ленде.
    */
   space(moduleId: string): Space;
-  /** Пространство мета-ленда. Бросает, если системный ленд не заказан. */
-  system(): Space;
   /** Модуль, которому принадлежит ленд. Для показа ссылок на чужие сущности. */
   ownerOf(land: LandId): string | undefined;
-  /** Открыты ли шифрованные ленды: до снятия замка их нет. */
+  /** Ленд модуля — синхронизации нужен доступ к `Land.apply`/`tap`. */
+  landOf(moduleId: string): Land;
+  /** Подняты ли ленды: до снятия замка их нет. */
   readonly open: boolean;
-  /** Распечатать ленды модулей и оболочки. Зовётся после снятия замка. */
-  unseal(vault: OpenVault): Promise<void>;
-  /** Убрать их обратно: дописать несохранённое и забыть расшифрованное. */
+  /** Поднять ленды по связке ключей. Зовётся после снятия замка. */
+  unseal(ring: SecretRing): Promise<void>;
+  /**
+   * Стереть ленды с носителя. Только под замком (`seal` уже отзвали):
+   * присоединение к чужому пространству заменяет локальные данные его копией.
+   */
+  wipe(ids: readonly string[]): Promise<void>;
+  /** Убрать их: дописать несохранённое, дождаться носителя и забыть открытое. */
   seal(): Promise<void>;
-  close(): void;
+  close(): Promise<void>;
 }
 
 export interface OpenSpacesOptions {
   readonly modules: readonly BrainModule[];
-  /**
-   * Мета-ленд. Отдельный от модулей по той же причине, по которой ленды вообще
-   * разделены, плюс одна своя: он единственный лежит на диске открытым, потому
-   * что несёт обёртки ключа.
-   */
-  readonly system?: SystemLand;
-  /** Ленды оболочки, которые шифруются наравне с модульными, — инбокс. */
+  /** Ленды оболочки — инбокс и служебные. */
   readonly shell?: readonly ShellLand[];
-  /**
-   * Хранилище ОТКРЫТЫХ лендов: в нём живёт только мета-ленд. По умолчанию —
-   * IndexedDB `brain`.
-   */
+  /** Внутреннее хранилище ПОД печатью. По умолчанию — IndexedDB `brain-lands`. */
   readonly store?: UnitStore;
-  /** Носитель запечатанных лендов. По умолчанию — IndexedDB `brain-sealed`. */
-  readonly chest?: Chest;
   /** Идентичность устройства. По умолчанию — из localStorage. */
   readonly peer?: Link;
   readonly clock?: Clock;
@@ -105,25 +73,27 @@ export interface OpenSpacesOptions {
   readonly report?: (error: unknown) => void;
 }
 
-const DB_NAME = 'brain';
+/**
+ * База запечатанных лендов. НЕ `brain` и не `brain-sealed`: обе принадлежат
+ * прежней схеме и читаются только одноразовым переездом (`migrate-legacy`).
+ */
+const DB_NAME = 'brain-lands';
 
-export async function openSpaces(options: OpenSpacesOptions): Promise<Spaces> {
+export function openSpaces(options: OpenSpacesOptions): Spaces {
   const { modules, report } = options;
   const clock = options.clock ?? wallClock;
   const peer = options.peer ?? devicePeer(options.storage ?? localStorage);
-  const plain = options.store ?? idbStore({ name: DB_NAME });
   const withTabs = options.tabs ?? true;
-  // Сундук заводится ЛЕНИВО, при первом распечатывании: до снятия замка он не
-  // нужен, а `idbChest()` в среде без IndexedDB бросает сразу — и уронил бы
-  // сборку, которой шифрованные ленды могут вовсе не понадобиться.
-  let chest: Chest | null = options.chest ?? null;
+
+  const inner = options.store ?? idbStore({ name: DB_NAME });
 
   const byModule = new Map<string, LandHandle>();
   const byLand = new Map<string, LandHandle>();
-  /** Как закрыть открытое: мета-ленд отдельно от шифрованных — их снимают порознь. */
+  const lands = new Map<string, Land>();
   const closers: Array<() => void> = [];
-  const sealedClosers: Array<() => void> = [];
-  let sealed: SealedStore | null = null;
+  /** Записи носителя, начатые сборкой: `seal` обязан их дождаться до забвения ключа. */
+  let settling = new Set<Promise<unknown>>();
+  let opened = false;
 
   /**
    * Соседний ленд. Ищется ЛЕНИВО, в момент вызова: модули открываются циклом, и
@@ -133,156 +103,146 @@ export async function openSpaces(options: OpenSpacesOptions): Promise<Spaces> {
   const open = (at: LandId): Space => {
     const found = byLand.get(at.str);
     if (found === undefined) {
-      throw new Error(
-        `ленд «${at.str}» не открыт: ссылка ведёт в модуль, которого нет в сборке`,
-      );
+      throw new Error(`ленд «${at.str}» не открыт: ссылка ведёт в модуль, которого нет в сборке`);
     }
     return found.space;
   };
 
-  /** Поднять набор лендов на одном хранилище. Общее для открытого и запечатанного. */
-  const mount = async (
-    entries: ReadonlyArray<{ id: string; seed?: (space: Space) => void }>,
-    store: UnitStore,
-    stop: Array<() => void>,
-  ): Promise<void> => {
-    const opened: Array<Promise<void>> = [];
+  /**
+   * Хранилище со следом незавершённых записей. Ключ забывается сразу после
+   * `seal`, а запись идёт микрозадачей — без ожидания последняя пачка легла бы
+   * в носитель уже без ключа.
+   */
+  const tracked = (store: UnitStore): UnitStore => ({
+    load: land => store.load(land),
+    save(land, pack) {
+      const done = Promise.resolve(store.save(land, pack));
+      settling.add(done);
+      done.catch(() => undefined).finally(() => settling.delete(done));
+      return done;
+    },
+    ball: (land, shot) => store.ball(land, shot),
+    drop: land => store.drop(land),
+    lands: () => store.lands(),
+  });
 
-    for (const entry of entries) {
-      // Ленд оболочки и модуль с одним именем писали бы в один ленд, а карта
-      // молча оставила бы последнего — столкновение обязано быть громким.
-      if (byModule.has(entry.id)) {
-        throw new Error(`имя «${entry.id}» занято другим лендом сборки: выберите другое`);
-      }
-      const at = landId(entry.id);
-      // Сеанс — свой у КАЖДОГО одновременно живого ленда (ADR-017): общий сеанс
-      // означал бы одинаковые id юнитов в разных лендах одного устройства.
-      const land = new Land(peer, clock, { session: randomSession() });
-      const vault = openVault({ store, id: at, land, ...(report && { report }) });
-      const space = createSpace({ land, id: at, ready: vault.ready, open });
-
-      const handle: LandHandle = { id: entry.id, space };
-      byModule.set(entry.id, handle);
-      byLand.set(at.str, handle);
-
-      stop.push(() => {
-        // Сначала дописать, потом отписаться: сохранение идёт в микрозадаче, и
-        // закрытие без `save()` теряет правки последнего кадра — ровно те, что
-        // пользователь сделал перед уходом со страницы.
-        vault.save();
-        vault.close();
-        byModule.delete(entry.id);
-        byLand.delete(at.str);
-      });
-      if (withTabs) {
-        const tabs = syncTabs({ land, id: at, ...(report && { report }) });
-        stop.push(() => {
-          tabs.close();
-        });
-      }
-      opened.push(vault.opened());
-    }
-
-    await Promise.all(opened);
-
-    // Посев — только после гидрации: до неё ленд пуст не потому, что новый, а
-    // потому, что данные ещё едут, и «пусто — сею» посеяло бы поверх своего же.
-    for (const entry of entries) {
-      const handle = byModule.get(entry.id);
-      if (handle !== undefined) entry.seed?.(handle.space);
-    }
-  };
-
-  if (options.system !== undefined) {
-    await mount(
-      [{ id: SYSTEM_ID, ...(options.system.seed && { seed: options.system.seed }) }],
-      plain,
-      closers,
-    );
-  }
-
-  const unwind = (stop: Array<() => void>): void => {
+  const unwind = (): void => {
     // В обратном порядке: канал вкладок снимается раньше хранилища, иначе
     // пришедшая пачка успеет записаться в уже закрытый vault.
-    for (const close of stop.toReversed()) close();
-    stop.length = 0;
+    for (const close of closers.toReversed()) close();
+    closers.length = 0;
+    byModule.clear();
+    byLand.clear();
+    lands.clear();
+    opened = false;
   };
 
   return {
-    space: moduleId => spaceOf(byModule, moduleId, sealed !== null).space,
-    system: () => {
-      const found = byModule.get(SYSTEM_ID);
-      if (found === undefined) {
-        throw new Error('системный ленд не заказан: передайте `system` в openSpaces');
-      }
-      return found.space;
-    },
+    space: moduleId => handleOf(byModule, moduleId, opened).space,
     ownerOf: at => byLand.get(at.str)?.id,
+    landOf: (moduleId) => {
+      const found = lands.get(moduleId);
+      if (found === undefined) throw new Error(`ленд «${moduleId}» не поднят`);
+      return found;
+    },
     get open(): boolean {
-      return sealed !== null;
+      return opened;
     },
 
-    async unseal(vault: OpenVault): Promise<void> {
-      if (sealed !== null) return;
-      chest ??= idbChest();
-      // Хранилище заводится своё на каждое открытие: в нём лежит расшифрованный
-      // образ каждого ленда, и переживать замок он не имеет права.
-      const store = sealedStore({ vault, chest });
-      sealed = store;
+    async unseal(ring: SecretRing): Promise<void> {
+      if (opened) return;
+      const store = tracked(sealedStore(inner, ring));
+
+      const entries = [
+        ...(options.shell ?? []).map(land => ({ id: land.id, ...(land.seed && { seed: land.seed }) })),
+        ...modules.map(module => ({ id: module.id, ...(module.land.seed && { seed: module.land.seed }) })),
+      ];
+
       try {
-        await mount(
-          [
-            ...(options.shell ?? []).map(land => ({
-              id: land.id,
-              ...(land.seed && { seed: land.seed }),
-            })),
-            ...modules.map(module => ({
-              id: module.id,
-              ...(module.land.seed && { seed: module.land.seed }),
-            })),
-          ],
-          store,
-          sealedClosers,
-        );
+        const hydrating: Array<Promise<void>> = [];
+        for (const entry of entries) {
+          // Ленд оболочки и модуль с одним именем писали бы в один ленд, а
+          // карта молча оставила бы последнего — столкновение обязано быть громким.
+          if (byModule.has(entry.id)) {
+            throw new Error(`имя «${entry.id}» занято другим лендом сборки: выберите другое`);
+          }
+          const at = landId(entry.id);
+          // Сеанс — свой у КАЖДОГО одновременно живого ленда (ADR-017): общий
+          // сеанс означал бы одинаковые id юнитов в разных лендах устройства.
+          const land = new Land(peer, clock, { session: randomSession() });
+          const vault = openVault({ store, id: at, land, ...(report && { report }) });
+          const space = createSpace({ land, id: at, ready: vault.ready, open });
+
+          const handle: LandHandle = { id: entry.id, space };
+          byModule.set(entry.id, handle);
+          byLand.set(at.str, handle);
+          lands.set(entry.id, land);
+
+          closers.push(() => {
+            // Сначала дописать, потом отписаться: сохранение идёт в микрозадаче,
+            // и закрытие без `save()` теряет правки последнего кадра.
+            vault.save();
+            vault.close();
+          });
+          if (withTabs) {
+            const tabs = syncTabs({ land, id: at, ...(report && { report }) });
+            closers.push(() => {
+              tabs.close();
+            });
+          }
+          hydrating.push(vault.opened());
+        }
+
+        await Promise.all(hydrating);
+
+        // Посев — только после гидрации: до неё ленд пуст не потому, что новый,
+        // а потому, что данные ещё едут, и «пусто — сею» посеяло бы поверх.
+        for (const entry of entries) {
+          const handle = byModule.get(entry.id);
+          if (handle !== undefined) entry.seed?.(handle.space);
+        }
+
+        opened = true;
       }
       catch (error) {
         // Полуоткрытая сборка хуже закрытой: экран показал бы часть модулей и
         // посеял бы поверх непрочитанного.
-        unwind(sealedClosers);
-        sealed = null;
+        unwind();
         throw error;
       }
     },
 
-    async seal(): Promise<void> {
-      if (sealed === null) return;
-      const store = sealed;
-      sealed = null;
-      unwind(sealedClosers);
-      // Дождаться, пока дописанное действительно уедет в сундук: ключ забывают
-      // сразу после этого вызова, а запечатать пачку без ключа нельзя.
-      await store.settled();
+    async wipe(ids: readonly string[]): Promise<void> {
+      if (opened) throw new Error('стирать ленды можно только под замком: сначала seal()');
+      for (const id of ids) await inner.drop(landId(id));
     },
 
-    close() {
-      unwind(sealedClosers);
-      sealed = null;
-      unwind(closers);
+    async seal(): Promise<void> {
+      if (!opened) return;
+      unwind();
+      // Дождаться, пока дописанное действительно уедет в носитель: ключ
+      // забывают сразу после этого вызова, а запечатать пачку без ключа нельзя.
+      const pending = settling;
+      settling = new Set();
+      await Promise.allSettled(pending);
+    },
+
+    async close(): Promise<void> {
+      unwind();
+      await Promise.allSettled(settling);
     },
   };
 }
 
-function spaceOf(
+function handleOf(
   byModule: ReadonlyMap<string, LandHandle>,
   moduleId: string,
-  unsealed: boolean,
+  opened: boolean,
 ): LandHandle {
   const found = byModule.get(moduleId);
   if (found === undefined) {
-    if (!unsealed) {
-      throw new Error(
-        `ленд «${moduleId}» ещё запечатан: пространства модулей появляются после снятия замка`,
-      );
+    if (!opened) {
+      throw new Error(`ленд «${moduleId}» ещё заперт: пространства модулей появляются после снятия замка`);
     }
     throw new Error(`модуль «${moduleId}» не собран: пространства у него нет`);
   }

@@ -2,11 +2,9 @@ import { expect, test } from 'vitest';
 import { createSSRApp, defineComponent, h } from 'vue';
 import { renderToString } from 'vue/server-renderer';
 import { RouterView, createMemoryHistory, createRouter } from 'vue-router';
-import { Link, atom, fixedClock, memoryStore, model, t } from '@sync/core';
-import { createDek, openWith } from '@brain/auth';
+import { Link, atom, fixedClock, memoryStore, mintSecret, model, secretKey, t } from '@sync/core';
 import { useDoc } from '@sync/vue';
 import { createRegistry } from './registry';
-import { memoryChest } from './sealed';
 import { openSpaces } from './spaces';
 import { installBrain } from './context';
 import { defineModule } from './module';
@@ -64,15 +62,15 @@ const modules = [
 ];
 
 async function boot(): Promise<{ spaces: Spaces; visit: (path: string) => Promise<string> }> {
-  const spaces = await openSpaces({
+  const spaces = openSpaces({
     modules,
     store: memoryStore(),
-    chest: memoryChest(),
     tabs: false,
     peer: Link.peer(new Uint8Array(8).fill(0x31)),
     clock: fixedClock(1000),
   });
-  await spaces.unseal(openWith(createDek()));
+  const key = await secretKey(mintSecret());
+  await spaces.unseal({ secretOf: () => key });
   const registry = createRegistry(modules);
 
   const router = createRouter({

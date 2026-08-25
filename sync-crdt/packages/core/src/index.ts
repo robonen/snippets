@@ -93,6 +93,25 @@ export {
 } from './store/index'
 
 /**
+ * Крипта (стадия S6, конфиденциальность): секрет ленда, запечатывание payload
+ * на уровне юнита (заголовки открыты — пир без ключа сливает и досылает ленд,
+ * который не может прочитать), обёртка хранилища и обмен секретами через ECDH.
+ * Подписи (`Seal`) и ранги — следующий шаг той же стадии (docs/07).
+ */
+export { mintSecret, secretKey, SECRET_BYTES } from './crypto/secret'
+export type { SubtleKey, SubtleKeyPair } from './crypto/keys'
+export { CryptoError, openPack, sealPack, type PackKeys, type SecretRing } from './crypto/sealed'
+export { sealedStore } from './crypto/store'
+export {
+  identityOf,
+  mintExchangePair,
+  unwrapSecret,
+  wrapSecret,
+  type ExchangeAlgo,
+  type Identity,
+} from './crypto/identity'
+
+/**
  * Синхронизация вкладок (стадия S7, wire-bc): сырые пачки через
  * `BroadcastChannel`, привет фейсами, дельта по водяному знаку с `Fail Summ`.
  * Каждый одновременно живой ленд одного пира обязан получить свой

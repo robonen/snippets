@@ -1,12 +1,10 @@
 import { expect, test } from 'vitest';
-import { Link, atom, fixedClock, memoryStore, model, t } from '@sync/core';
-import { createDek, openWith } from '@brain/auth';
+import { Link, atom, fixedClock, memoryStore, mintSecret, model, secretKey, t } from '@sync/core';
+import type { SecretRing, SubtleKey, UnitStore } from '@sync/core';
 import { defineComponent } from 'vue';
 import { openSpaces } from './spaces';
-import { memoryChest } from './sealed';
 import { defineModule } from './module';
 import { landId } from './land';
-import type { Chest } from './sealed';
 import type { BrainModule } from './module';
 import type { Spaces } from './spaces';
 
@@ -42,27 +40,29 @@ function kcal(seed?: BrainModule['land']['seed']): BrainModule {
 
 const PEER = Link.peer(new Uint8Array(8).fill(0x31));
 
-/** Свежее хранилище ключа. Настоящее, а не подделка: WebCrypto есть и в Node. */
-function vault() {
-  return openWith(createDek());
+/**
+ * Связка на один общий ключ: секреты по лендам проверяет `@brain/auth`, здесь
+ * важна сама граница «в памяти открыто, на носителе шифртекст».
+ */
+async function ring(): Promise<SecretRing> {
+  const key: SubtleKey = await secretKey(mintSecret());
+  return { secretOf: () => key };
 }
 
-/**
- * Сборка на памяти: без IndexedDB, без канала вкладок, с неподвижными часами.
- *
- * Ленды поднимаются в два захода, как в приложении: `openSpaces` открывает
- * только мета-ленд, остальное приезжает по ключу.
- */
-async function open(modules: readonly BrainModule[], chest: Chest = memoryChest()): Promise<Spaces> {
-  const spaces = await openSpaces({
+/** Сборка на памяти: без IndexedDB, без канала вкладок, с неподвижными часами. */
+function build(modules: readonly BrainModule[], store: UnitStore = memoryStore()): Spaces {
+  return openSpaces({
     modules,
-    store: memoryStore(),
-    chest,
+    store,
     tabs: false,
     peer: PEER,
     clock: fixedClock(1000),
   });
-  await spaces.unseal(vault());
+}
+
+async function open(modules: readonly BrainModule[]): Promise<Spaces> {
+  const spaces = build(modules);
+  await spaces.unseal(await ring());
   return spaces;
 }
 
@@ -80,7 +80,7 @@ test('у каждого модуля своё пространство на св
   expect(a.root(Notes).note()).toBe('своё');
   expect(b.root(Foods).food()).toBe('');
 
-  spaces.close();
+  await spaces.close();
 });
 
 test('пространство модуля открывает соседний ленд — на этом держатся ссылки [[…]]', async () => {
@@ -92,21 +92,19 @@ test('пространство модуля открывает соседний 
   expect(neighbour.root(Foods).food()).toBe('гречка');
   expect(neighbour).toBe(spaces.space('kcal'));
 
-  spaces.close();
+  await spaces.close();
 });
 
 test('ссылка вперёд работает так же, как назад: сосед ищется в момент вызова', async () => {
-  // «notes» открывается ПЕРВЫМ и ссылается на «kcal», которого в этот момент
-  // ещё нет в карте — поиск обязан быть ленивым.
   const spaces = await open([notes(), kcal()]);
   expect(() => spaces.space('notes').of(landId('kcal'))).not.toThrow();
-  spaces.close();
+  await spaces.close();
 });
 
 test('ссылка в несобранный модуль отказывается громко', async () => {
   const spaces = await open([notes()]);
   expect(() => spaces.space('notes').of(landId('tasks'))).toThrow(/не открыт/);
-  spaces.close();
+  await spaces.close();
 });
 
 test('посев зовётся после гидрации и ровно один раз', async () => {
@@ -122,51 +120,18 @@ test('посев зовётся после гидрации и ровно оди
 
   expect(calls).toEqual(['notes', 'kcal']);
   expect(spaces.space('notes').root(Notes).note()).toBe('посеяно');
-  spaces.close();
+  await spaces.close();
 });
 
-test('системный ленд открывается рядом с модульными и живёт отдельно', async () => {
-  const spaces = await openSpaces({
-    modules: [notes()],
-    system: { root: 'kit/foods' },
-    store: memoryStore(),
-    chest: memoryChest(),
-    tabs: false,
-    peer: PEER,
-    clock: fixedClock(1000),
-  });
-  await spaces.unseal(vault());
-
-  const meta = spaces.system();
-  expect(meta.land.str).toBe(landId('meta').str);
-  expect(meta).not.toBe(spaces.space('notes'));
-
-  // Оболочка и модуль пишут в РАЗНЫЕ ленды: инбокс переживёт выключение модуля.
-  meta.root(Foods).food('инбокс');
-  spaces.space('notes').root(Notes).note('заметка');
-  expect(meta.root(Foods).food()).toBe('инбокс');
-
-  // Ленд оболочки виден модулю как сосед — ссылки ходят и туда.
-  expect(spaces.space('notes').of(landId('meta'))).toBe(meta);
-
-  spaces.close();
-});
-
-test('замок убирает расшифрованное, а ключ возвращает данные на место', async () => {
+test('замок убирает расшифрованное, а связка возвращает данные на место', async () => {
   const store = memoryStore();
-  const chest = memoryChest();
-  const dek = createDek();
-  const spaces = await openSpaces({
-    modules: [notes()],
-    system: { root: 'kit/foods' },
-    store,
-    chest,
-    tabs: false,
-    peer: PEER,
-    clock: fixedClock(1000),
-  });
+  const keys = await ring();
+  const spaces = build([notes()], store);
 
-  await spaces.unseal(openWith(dek));
+  expect(spaces.open).toBeFalsy();
+  expect(() => spaces.space('notes')).toThrow(/заперт/);
+
+  await spaces.unseal(keys);
   spaces.space('notes').edit(() => {
     spaces.space('notes').root(Notes).note('до замка');
   });
@@ -174,43 +139,27 @@ test('замок убирает расшифрованное, а ключ воз
   await spaces.seal();
   // Заперто — расшифрованного в этой вкладке нет вовсе, а не спрятано за `v-if`.
   expect(spaces.open).toBeFalsy();
-  expect(() => spaces.space('notes')).toThrow(/запечатан/);
-  // Мета-ленд при этом остаётся: из него читаются обёртки ключа.
-  expect(() => spaces.system()).not.toThrow();
+  expect(() => spaces.space('notes')).toThrow(/заперт/);
 
-  await spaces.unseal(openWith(dek));
+  await spaces.unseal(keys);
   expect(spaces.space('notes').root(Notes).note()).toBe('до замка');
-  spaces.close();
+  await spaces.close();
 });
 
-test('без системного ленда обращение к нему отказывается громко', async () => {
-  const spaces = await open([notes()]);
-  expect(() => spaces.system()).toThrow(/не заказан/);
-  spaces.close();
-});
+test('на носителе шифртекст: внутреннее хранилище не содержит открытого текста', async () => {
+  const store = memoryStore();
+  const keys = await ring();
+  const spaces = build([notes()], store);
+  await spaces.unseal(keys);
 
-test('мета-ленд поднимается раньше модульных: он открыт, они ещё запечатаны', async () => {
-  const order: string[] = [];
-  const spaces = await openSpaces({
-    modules: [notes(() => order.push('notes'))],
-    system: { root: 'kit/foods', seed: () => order.push('meta') },
-    shell: [{ id: 'inbox', seed: () => order.push('inbox') }],
-    store: memoryStore(),
-    chest: memoryChest(),
-    tabs: false,
-    peer: PEER,
-    clock: fixedClock(1000),
+  spaces.space('notes').edit(() => {
+    spaces.space('notes').root(Notes).note('сугубо личная запись');
   });
+  await spaces.seal();
 
-  // До ключа открыт ровно один ленд — тот, в котором лежат обёртки ключа.
-  expect(order).toEqual(['meta']);
-  expect(spaces.open).toBeFalsy();
-  expect(() => spaces.space('notes')).toThrow(/запечатан/);
-
-  await spaces.unseal(vault());
-  expect(order).toEqual(['meta', 'inbox', 'notes']);
-  expect(spaces.open).toBeTruthy();
-  spaces.close();
+  const raw = await store.load(landId('notes'));
+  const needle = new TextEncoder().encode('личная').join(',');
+  expect(raw.join(',').includes(needle)).toBeFalsy();
 });
 
 test('незнакомый модуль — опечатка: space бросает', async () => {
@@ -218,5 +167,5 @@ test('незнакомый модуль — опечатка: space бросае
   expect(() => spaces.space('tasks')).toThrow(/не собран/);
   expect(spaces.ownerOf(landId('notes'))).toBe('notes');
   expect(spaces.ownerOf(landId('tasks'))).toBeUndefined();
-  spaces.close();
+  await spaces.close();
 });

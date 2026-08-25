@@ -1,5 +1,6 @@
 import vue from '@vitejs/plugin-vue';
 import tailwind from '@tailwindcss/vite';
+import { VitePWA } from 'vite-plugin-pwa';
 import { defineLayerConfig } from 'vite-layers';
 
 /**
@@ -43,28 +44,39 @@ export default defineLayerConfig({
   },
 
   vite: {
-    plugins: [vue(), tailwind()],
+    plugins: [
+      vue(),
+      tailwind(),
+      /**
+       * Офлайн-оболочка: local-first без холодного старта офлайн — декларация.
+       * Прекэш по хэшам сборки, `index.html` как navigation fallback; манифест
+       * остаётся рукописным в public/ (share_target и иконки — там).
+       */
+      ...VitePWA({
+        registerType: 'autoUpdate',
+        manifest: false,
+        workbox: {
+          globPatterns: ['**/*.{js,css,html,svg,webmanifest}'],
+          navigateFallback: '/index.html',
+          // Кадры синка и админ-ручки не перехватываются воркером.
+          navigateFallbackDenylist: [/^\/sync/, /^\/lands/],
+        },
+      }),
+    ],
     server: {
       fs: {
         // Пакеты @sync подключены симлинками из соседнего репозитория — за корнем.
         allow: ['../..', '../../../sync-crdt'],
       },
       /**
-       * Единый origin в dev (план Р1): HttpOnly-cookie сессии и rpId passkey
-       * живут только при одном origin, а vite и nitro в dev — два разных
-       * порта. Прокси делает их одним для браузера: вкладка открыта на
-       * порту vite, а `/sync`, `/auth`, `/account` уходят на сервер синка так,
-       * будто он и есть текущий origin.
-       *
-       * `4877` — порт сервера синка по умолчанию (`utils/origin.ts` в
-       * `apps/server`, `PUBLIC_ORIGIN=http://localhost:4877`); свой порт
-       * сервера — свой `PORT` при запуске И правка этого числа здесь
-       * (docs/04-server.md «Запуск на своём сервере»).
+       * Единый origin в dev: вкладка открыта на порту vite, а `/sync` (WS) и
+       * `/lands` (админ-ручка отзыва) уходят на сервер синка так, будто он и
+       * есть текущий origin. `4877` — порт сервера по умолчанию
+       * (`runtimeConfig` в `apps/server/nitro.config.ts`).
        */
       proxy: {
         '/sync': { target: 'http://localhost:4877', ws: true },
-        '/auth': { target: 'http://localhost:4877' },
-        '/account': { target: 'http://localhost:4877' },
+        '/lands': { target: 'http://localhost:4877' },
       },
     },
     optimizeDeps: {
@@ -104,7 +116,7 @@ export default defineLayerConfig({
 
   tsConfig: {
     compilerOptions: {
-      types: ['vite/client', 'node'],
+      types: ['vite/client', 'node', 'vite-plugin-pwa/client'],
     },
   },
 });

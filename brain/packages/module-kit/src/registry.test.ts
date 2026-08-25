@@ -38,11 +38,6 @@ test('разные имена с одним адресом ленда отвер
   expect(() => createRegistry([stub('ab'), stub('abab')])).toThrow(/один адрес ленда/);
 });
 
-test('имя «meta» занято лендом оболочки', () => {
-  // Иначе модуль писал бы в ленд с инбоксом и настройками.
-  expect(() => createRegistry([stub('meta')])).toThrow(/занято лендом оболочки/);
-});
-
 test('имя не по форме отвергается: из него строятся пути и адрес', () => {
   expect(() => createRegistry([stub('Notes')])).toThrow(/не годится/);
   expect(() => createRegistry([stub('my notes')])).toThrow(/не годится/);

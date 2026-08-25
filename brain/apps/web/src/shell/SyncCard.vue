@@ -1,135 +1,44 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { Button, Card, Sheet, TextField, useToast } from '@brain/ui';
-import { useSyncSettings } from '@/sync';
-import {
-  bindAccount,
-  completeJoin,
-  joinLogin,
-  unwrapViaPasskey,
-  unwrapViaPhrase,
-} from '@/security/account';
-import type { LoginOutcome } from '@/security/account';
+import { restartSync, useSyncSettings } from '@/sync';
 
 /**
- * Карточка «Синхронизация»: привязка (устройство с данными становится первым
- * bound-устройством) и присоединение (свежее устройство подключается к уже
- * привязанному аккаунту) — docs/01-security.md §3/§7, план Р-4.
+ * Карточка «Синхронизация»: адрес личного сервера и его токен.
  *
- * Токен здесь — ПОЛЕ ФОРМЫ, не настройка: он живёт в `ref` этого компонента,
- * уходит в `bindAccount` и нигде не сохраняется (план Р2). Адрес — единственное,
- * что попадает в `sync/settings.ts`, и то не отсюда напрямую, а как побочный
- * эффект успешной привязки/присоединения (`saveSyncSettings` внутри `security/account.ts`).
+ * Аккаунтов на сервере больше нет — он слепой пир с одним общим секретом
+ * (`SYNC_TOKEN`). Подключение сервера и подключение ВТОРОГО УСТРОЙСТВА — разные
+ * вещи: сервер даёт транспорт и внешнюю копию шифртекста, а доступ к данным
+ * второе устройство получает на экране «Доступ» (сверка отпечатков, выдача
+ * секретов — `security/pairing.ts`).
  */
-const { settings, configured, live } = useSyncSettings();
+const { settings, configured, live, save } = useSyncSettings();
 const { show: toast } = useToast();
 
-const busy = ref(false);
-const error = ref('');
+const open = ref(false);
+const url = ref('');
+const token = ref('');
 
-// ── Привязка ──────────────────────────────────────────────────────────────
-const bindOpen = ref(false);
-const bindUrl = ref('');
-const bindToken = ref('');
-
-function openBind(): void {
-  error.value = '';
-  bindUrl.value = settings.value.url;
-  bindToken.value = '';
-  bindOpen.value = true;
+function openForm(): void {
+  url.value = settings.value.url;
+  token.value = settings.value.token;
+  open.value = true;
 }
 
-async function submitBind(): Promise<void> {
-  error.value = '';
-  busy.value = true;
-  try {
-    const outcome = await bindAccount(bindUrl.value.trim(), bindToken.value.trim());
-    bindOpen.value = false;
-    bindToken.value = '';
-    if (!outcome.prf) {
-      toast({
-        title: 'Сервер привязан',
-        description: 'Этот passkey не поддерживает PRF — без фразы восстановления другое устройство '
-          + 'не сможет войти. Настройте фразу в разделе «Доступ».',
-        tone: 'neutral',
-        duration: 10_000,
-      });
-    }
-    else {
-      toast({ title: 'Сервер привязан', tone: 'positive' });
-    }
-  }
-  catch (caught) {
-    error.value = caught instanceof Error ? caught.message : 'не удалось привязать сервер';
-  }
-  finally {
-    busy.value = false;
-  }
+function submit(): void {
+  save({ url: url.value, token: token.value });
+  open.value = false;
+  restartSync();
+  toast({
+    title: settings.value.url === '' ? 'Синхронизация выключена' : 'Сервер подключён',
+    tone: 'positive',
+  });
 }
 
-// ── Присоединение ─────────────────────────────────────────────────────────
-type JoinStep = 'address' | 'phrase';
-
-const joinOpen = ref(false);
-const joinStep = ref<JoinStep>('address');
-const joinUrl = ref('');
-const joinPhrase = ref('');
-/** Итог `joinLogin` — сессия уже есть, дальше выбираем путь к DEK. */
-const pendingLogin = ref<LoginOutcome | null>(null);
-
-function openJoin(): void {
-  error.value = '';
-  joinStep.value = 'address';
-  joinUrl.value = settings.value.url;
-  joinPhrase.value = '';
-  pendingLogin.value = null;
-  joinOpen.value = true;
-}
-
-async function startJoin(): Promise<void> {
-  error.value = '';
-  busy.value = true;
-  try {
-    const url = joinUrl.value.trim();
-    const login = await joinLogin(url);
-    // Путь (а): совпавший credential → PRF. Молчаливый `null` — путь просто
-    // не подошёл (нет обёртки под этим credential'ом или PRF не отдал
-    // значение), это не отказ — переходим к фразе, а не показываем ошибку.
-    const viaPasskey = await unwrapViaPasskey(login);
-    if (viaPasskey !== null) {
-      await completeJoin(url, viaPasskey);
-      joinOpen.value = false;
-      toast({ title: 'Устройство присоединено', tone: 'positive' });
-      return;
-    }
-    pendingLogin.value = login;
-    joinStep.value = 'phrase';
-  }
-  catch (caught) {
-    error.value = caught instanceof Error ? caught.message : 'не удалось присоединиться';
-  }
-  finally {
-    busy.value = false;
-  }
-}
-
-async function finishJoinByPhrase(): Promise<void> {
-  if (pendingLogin.value === null) return;
-  error.value = '';
-  busy.value = true;
-  try {
-    const vault = await unwrapViaPhrase(joinPhrase.value, pendingLogin.value);
-    await completeJoin(joinUrl.value.trim(), vault);
-    joinOpen.value = false;
-    joinPhrase.value = '';
-    toast({ title: 'Устройство присоединено', tone: 'positive' });
-  }
-  catch (caught) {
-    error.value = caught instanceof Error ? caught.message : 'фраза не подошла';
-  }
-  finally {
-    busy.value = false;
-  }
+function disconnect(): void {
+  save({ url: '', token: '' });
+  restartSync();
+  open.value = false;
 }
 
 const statusText = computed(() => {
@@ -143,8 +52,8 @@ const statusText = computed(() => {
   <Card title="Синхронизация">
     <div class="flex flex-col gap-3">
       <p class="text-xs text-text-faint">
-        Свой сервер хранит ленды <strong class="font-medium text-text-soft">шифртекстом</strong>:
-        ключ остаётся на устройстве, и прочитать данные сервер не может.
+        Свой сервер видит ленды <strong class="font-medium text-text-soft">шифртекстом</strong>:
+        полезная нагрузка каждой записи запечатана ключами, которые сервера не покидали.
       </p>
 
       <div class="flex items-center justify-between gap-3">
@@ -152,110 +61,42 @@ const statusText = computed(() => {
           <p class="truncate text-sm text-text">{{ configured ? settings.url : 'Сервер не подключён' }}</p>
           <p class="mt-0.5 text-xs" :class="live ? 'text-success' : 'text-text-faint'">{{ statusText }}</p>
         </div>
-      </div>
-
-      <div v-if="!configured" class="flex gap-2">
-        <Button size="sm" tone="primary" @click="openBind">Привязать сервер</Button>
-        <Button size="sm" @click="openJoin">Присоединиться</Button>
+        <Button size="sm" :tone="configured ? 'ghost' : 'primary'" @click="openForm">
+          {{ configured ? 'Изменить' : 'Подключить' }}
+        </Button>
       </div>
     </div>
 
-    <!-- Привязка: устройство С ДАННЫМИ становится первым bound-устройством. -->
     <Sheet
-      v-model:open="bindOpen"
-      title="Привязать сервер"
-      description="Одноразовый токен спрашивается сейчас и нигде не сохраняется"
+      v-model:open="open"
+      title="Свой сервер"
+      description="Адрес и общий секрет личного сервера синхронизации"
     >
-      <form class="flex flex-col gap-3" @submit.prevent="submitBind">
+      <form class="flex flex-col gap-3" @submit.prevent="submit">
         <TextField
-          v-model="bindUrl"
+          v-model="url"
           label="Адрес сервера"
           type="url"
           inputmode="url"
           placeholder="https://brain.example.com"
           autocomplete="off"
+          hint="Пусто — синхронизация выключена, приложение полностью локально"
         />
         <TextField
-          v-model="bindToken"
+          v-model="token"
           label="Токен доступа"
           type="password"
           autocomplete="off"
           hint="Тот же секрет, что в SYNC_TOKEN на сервере"
         />
-        <p v-if="error" role="alert" class="text-xs text-danger">{{ error }}</p>
       </form>
       <template #footer>
-        <div class="flex justify-end gap-2">
-          <Button size="sm" @click="bindOpen = false">Отмена</Button>
-          <Button
-            tone="primary"
-            size="sm"
-            :loading="busy"
-            :disabled="bindUrl.trim() === '' || bindToken.trim() === ''"
-            @click="submitBind"
-          >
-            Привязать
-          </Button>
-        </div>
-      </template>
-    </Sheet>
-
-    <!-- Присоединение: свежее устройство подключается к уже привязанному аккаунту. -->
-    <Sheet
-      v-model:open="joinOpen"
-      title="Присоединиться"
-      :description="joinStep === 'address'
-        ? 'Вход через passkey — свой или синхронизированный платформой'
-        : 'Этот passkey не открыл обёртку — введите фразу восстановления'"
-    >
-      <form v-if="joinStep === 'address'" class="flex flex-col gap-3" @submit.prevent="startJoin">
-        <TextField
-          v-model="joinUrl"
-          label="Адрес сервера"
-          type="url"
-          inputmode="url"
-          placeholder="https://brain.example.com"
-          autocomplete="off"
-        />
-        <p v-if="error" role="alert" class="text-xs text-danger">{{ error }}</p>
-      </form>
-
-      <form v-else class="flex flex-col gap-3" @submit.prevent="finishJoinByPhrase">
-        <textarea
-          v-model="joinPhrase"
-          rows="3"
-          placeholder="двенадцать слов через пробел"
-          aria-label="Фраза восстановления"
-          autocomplete="off"
-          class="glass w-full resize-none rounded-control border px-3.5 py-2.5 text-sm text-text
-                 transition-[border-color] placeholder:text-text-faint focus:border-accent focus:outline-none"
-        />
-        <p v-if="error" role="alert" class="text-xs text-danger">{{ error }}</p>
-      </form>
-
-      <template #footer>
-        <div class="flex justify-end gap-2">
-          <Button size="sm" @click="joinOpen = false">Отмена</Button>
-          <Button
-            v-if="joinStep === 'address'"
-            tone="primary"
-            size="sm"
-            :loading="busy"
-            :disabled="joinUrl.trim() === ''"
-            @click="startJoin"
-          >
-            Продолжить
-          </Button>
-          <Button
-            v-else
-            tone="primary"
-            size="sm"
-            :loading="busy"
-            :disabled="joinPhrase.trim() === ''"
-            @click="finishJoinByPhrase"
-          >
-            Открыть
-          </Button>
+        <div class="flex justify-between gap-2">
+          <Button v-if="configured" size="sm" tone="danger" @click="disconnect">Отключить</Button>
+          <div class="ml-auto flex gap-2">
+            <Button size="sm" @click="open = false">Отмена</Button>
+            <Button tone="primary" size="sm" @click="submit">Сохранить</Button>
+          </div>
         </div>
       </template>
     </Sheet>

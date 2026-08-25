@@ -18,14 +18,12 @@
     "@brain/module-kit": "workspace:*",
     "@brain/notes": "workspace:*",
     "@brain/std": "workspace:*",
-    "@brain/sync-wire": "workspace:*",
     "@brain/tasks": "workspace:*",
     "@brain/ui": "workspace:*",
     "@robonen/platform": "catalog:",
     "@robonen/stdlib": "catalog:",
     "@robonen/vue": "catalog:",
     "@sync/core": "link:../../../sync-crdt/packages/core",
-    "@sync/fiber": "link:../../../sync-crdt/packages/fiber",
     "@sync/vue": "link:../../../sync-crdt/packages/vue",
     "date-fns": "catalog:",
     "lucide-vue-next": "catalog:",
@@ -40,6 +38,8 @@
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
+    "vite-plugin-pwa": "^1.3.0",
+    "workbox-window": "^7.3.0",
     "vite-layers": "link:../../../vite-layers",
     "vue-tsc": "catalog:"
   }

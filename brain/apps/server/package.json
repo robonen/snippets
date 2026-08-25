@@ -3,15 +3,14 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "Сервер синка brain: слепой журнал запечатанных кусков на своём железе (docs/04-server.md).",
+  "description": "Сервер синка brain: пир @sync/core над запечатанными юнитами (docs/04-server.md).",
   "scripts": {
     "dev": "nitro dev",
     "build": "nitro build",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@brain/sync-wire": "workspace:*",
-    "@simplewebauthn/server": "^13.3.2",
+    "@sync/core": "link:../../../sync-crdt/packages/core",
     "nitro": "3.0.260610-beta",
     "unstorage": "2.0.0-alpha.7"
   },

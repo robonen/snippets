@@ -1,30 +1,24 @@
 /**
- * `@brain/auth` — доступ и шифрование: конверт DEK/KEK, passkey, фраза
- * восстановления, замок.
+ * `@brain/auth` — доступ: связка ключей лендов, passkey, фраза восстановления.
  *
- * Разбор решений и модель угроз — docs/01-security.md. Граница внутри пакета
- * проведена по проверяемости: `crypto`, `recovery` и `vault` — чистая логика
- * над WebCrypto, гоняется в Node и покрыта тестами; `passkey` — тонкий край над
- * платформой, который в Node не запускается и потому не содержит логики.
+ * Шифрование ДАННЫХ здесь больше не живёт: payload юнитов запечатывает само
+ * ядро `@sync/core` (уровень юнита, заголовки открыты — docs/01-security.md
+ * ревизия 3). Пакету остались ключи: 16-байтовые секреты лендов в связке,
+ * мастер связки в обёртках способов доступа, вывод KEK из WebAuthn PRF и из
+ * фразы, неизвлекаемый ключ устройства.
+ *
+ * Граница внутри пакета проведена по проверяемости: `crypto`, `recovery` и
+ * `keyring` — чистая логика над WebCrypto, гоняется в Node и покрыта тестами;
+ * `passkey` и `device` — тонкие края над платформой без собственной логики.
  */
 
-/*
- * Голых `seal`/`open`/`unwrapDek` наружу НЕТ намеренно. Снаружи данные ленда
- * шифруются только через `sealPack`/`openPack`, которые сами кладут адрес ленда
- * в AAD; публичный примитив позволял бы зашифровать пачку без этой привязки —
- * то есть обойти защиту от подстановки шифртекста одного ленда вместо другого
- * (docs/01-security.md §4).
- */
 export {
-  createDek,
-  createDeviceKek,
   createSalt,
   decodeBytes,
   encodeBytes,
   kekFromPassphrase,
   kekFromPrf,
   randomBytes,
-  wrapDek,
 } from './crypto';
 export type { Sealed, WrappedDek } from './crypto';
 
@@ -39,8 +33,13 @@ export {
   quizIndexes,
 } from './recovery';
 
-export { openWith, unlock } from './vault';
-export type { OpenVault } from './vault';
+export {
+  createKeyring,
+  decodeSecrets,
+  dropKeyring,
+  unlockKeyring,
+} from './keyring';
+export type { Keyring, RingStore } from './keyring';
 
 export {
   authenticate,
@@ -51,4 +50,4 @@ export {
 } from './passkey';
 export type { Assertion, PasskeyOptions, RegisteredPasskey } from './passkey';
 
-export { packWrap, unpackWrap } from './wire';
+export { openLegacyChunk, unwrapLegacyDek } from './legacy';

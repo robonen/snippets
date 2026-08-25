@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { computedAsync, useSupported } from '@robonen/vue';
 import {
   Button,
@@ -12,8 +12,8 @@ import {
 } from '@brain/ui';
 import {
   createPhrase,
+  encodeBytes,
   hasPlatformAuthenticator,
-  isKnownPhrase,
   isSupported,
   kekFromAssertion,
   kekFromPassphrase,
@@ -22,29 +22,26 @@ import {
   randomBytes,
   register,
   authenticate as signIn,
-  unlock as unlockVault,
 } from '@brain/auth';
-import { useSyncSettings } from '@/sync';
-import { pushWrapsToServer, revokeAccess } from '@/security/account';
+import { useValue } from '@sync/vue';
+import { useSpaces } from '@brain/module-kit';
+import { joinSpace, pendingGrant, revokeDevice, trustDevice } from '@/app/boot';
 import { addAccess, freshSalt, removeAccess, useLock } from '../security/lock';
-import { Fingerprint, KeyRound, Lock, TriangleAlert } from 'lucide-vue-next';
-import type { RevokeRemaining } from '@/security/account';
+import { KEYS_ID, deviceIdentity, fingerprint, listDevices } from '../security/pairing';
+import { Fingerprint, KeyRound, Lock, MonitorSmartphone, TriangleAlert } from 'lucide-vue-next';
+import type { PairedDevice } from '../security/pairing';
 import type { WrappedDek } from '@brain/auth';
 
 /**
- * Настройка доступа: passkey и фраза восстановления.
+ * Настройка доступа: passkey, фраза восстановления, устройства пространства.
  *
- * Работает БЕЗ сервера, и это не заглушка: ключ шифрования выводится из passkey
- * прямо на устройстве через PRF, серверу в этой схеме нечего проверять
- * (docs/01-security.md §3). Сервер понадобится для синхронизации, а не для
- * того, чтобы данные были зашифрованы.
+ * Работает БЕЗ сервера, и это не заглушка: ключи выводятся на устройстве
+ * (passkey → PRF → KEK, фраза → PBKDF2), серверу в этой схеме нечего проверять.
+ * Сервер нужен только доставке: обёртки секретов между устройствами едут
+ * обычным синком в служебном ленде (`security/pairing.ts`).
  *
- * Ключ данных здесь НЕ заводится. Он уже есть — приложение завело его на первом
- * запуске и держит завёрнутым в ключ устройства (§5.1); настройка лишь
- * добавляет ещё одну обёртку ТОГО ЖЕ ключа через `wrapFor`. Прежняя редакция
- * звала `createDek()` на каждый способ доступа, и это был не стилистический
- * промах, а потеря данных: фраза восстановления заворачивала ключ, которым
- * ничего не зашифровано, то есть открывала пустоту.
+ * Способ доступа заворачивает МАСТЕР связки, а не данные: добавление способа —
+ * ещё одна обёртка того же мастера (`addAccess` → `Keyring.wrapFor`).
  */
 
 const supported = useSupported(isSupported);
@@ -53,7 +50,6 @@ const supported = useSupported(isSupported);
 // которого не сдержать, а обратная ошибка стоит лишь строчки текста.
 const platform = computedAsync(hasPlatformAuthenticator, false);
 const { access: wraps, configured, lock } = useLock();
-const { settings: syncSettings, configured: syncBound } = useSyncSettings();
 const { show: toast } = useToast();
 const busy = ref('');
 const error = ref('');
@@ -74,33 +70,8 @@ const quizPassed = computed(() =>
 const RP_NAME = 'brain';
 const rpId = globalThis.location.hostname;
 
-/**
- * Ярлык обёртки для показа человеку. У passkey, заведённого через привязку
- * сервера (`bindAccount`, `security/account.ts`), метка — id credential'а
- * (нужен, чтобы присоединение узнавало «свой» credential среди чужих,
- * docs/01-security.md §7), а не то, что стоит печатать на экране. Локальный
- * `addPasskey` ниже по-прежнему кладёт литеральное `'passkey'` — оно короткое
- * и уже читаемо, эвристика его не трогает.
- */
 function displayLabel(wrap: WrappedDek): string {
   return wrap.kind === 'passkey' && wrap.label.length > 20 ? 'Passkey' : wrap.label;
-}
-
-/** После добавления способа доступа — если сервер привязан, обновить его копию обёрток. */
-async function syncWrapsIfBound(): Promise<void> {
-  if (!syncBound.value) return;
-  try {
-    await pushWrapsToServer(syncSettings.value.url);
-  }
-  catch (caught) {
-    // Локальный способ уже добавлен и рабочий — отказ синка с сервером сюда
-    // не должен откатывать его, только предупредить.
-    toast({
-      title: 'Не удалось обновить обёртки на сервере',
-      description: caught instanceof Error ? caught.message : String(caught),
-      tone: 'danger',
-    });
-  }
 }
 
 async function addPasskey(): Promise<void> {
@@ -131,7 +102,6 @@ async function addPasskey(): Promise<void> {
     }
 
     await addAccess(kek, { kind: 'passkey', label: 'passkey', salt });
-    await syncWrapsIfBound();
   }
   catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'не получилось создать ключ';
@@ -156,7 +126,6 @@ async function confirmPhrase(): Promise<void> {
     const kek = await kekFromPassphrase(phrase.value.join(' '), salt);
     await addAccess(kek, { kind: 'passphrase', label: 'фраза', salt });
     phrase.value = null;
-    await syncWrapsIfBound();
   }
   catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'не получилось сохранить фразу';
@@ -166,122 +135,102 @@ async function confirmPhrase(): Promise<void> {
   }
 }
 
-// ── Отзыв ─────────────────────────────────────────────────────────────────
-//
-// Без сервера «убрать» — локальное действие (`removeAccess`), как и было.
-// С сервером убрать способ мало: снятая ранее копия обёртки продолжила бы
-// подходить (docs/01-security.md §7) — нужны новый DEK, перепечатка лендов и
-// замена журналов на сервере (`revokeAccess`, `security/account.ts`). Для
-// ЭТОГО ей нужны свежие KEK всех ОСТАЛЬНЫХ способов — их неоткуда взять, кроме
-// как переспросить: `OpenVault` не хранит, каким KEK его открыли, а текст
-// фразы нигде не сохраняется по построению (§6). Очередь ниже проводит
-// человека через оставшиеся способы один за другим.
+// Убрать способ доступа — локальное действие: обёртка мастера этого устройства
+// стирается из localStorage. Честная граница записана в подписи карточки:
+// снятая ЗАРАНЕЕ копия обёртки продолжила бы подходить, поэтому кража копии +
+// способа — это компрометация, а не «убрал и забыл».
+const confirmRemove = ref<WrappedDek | null>(null);
+const removeDialogOpen = ref(false);
 
-const revokeDialogOpen = ref(false);
-const confirmRevoke = ref<WrappedDek | null>(null);
-const revokeQueue = ref<WrappedDek[]>([]);
-const revokeCollected = ref<RevokeRemaining[]>([]);
-const revokePhrase = ref('');
-const revokeBusy = ref(false);
-
-const revokeCurrent = computed(() => revokeQueue.value[0] ?? null);
-
-function remove(label: string): void {
+function askRemove(label: string): void {
   const wrap = wraps.value.find(w => w.label === label);
   if (wrap === undefined) return;
-
-  if (!syncBound.value) {
-    try {
-      removeAccess(label);
-    }
-    catch (caught) {
-      error.value = caught instanceof Error ? caught.message : 'не получилось убрать способ доступа';
-    }
-    return;
-  }
-
-  confirmRevoke.value = wrap;
-  revokeDialogOpen.value = true;
+  confirmRemove.value = wrap;
+  removeDialogOpen.value = true;
 }
 
-/** Зовётся `@confirm` у диалога — ДО того, как примитив его закроет. */
-function startRevokeQueue(): void {
-  if (confirmRevoke.value === null) return;
-  const removed = confirmRevoke.value.label;
-  revokeQueue.value = wraps.value.filter(w => w.label !== removed);
-  revokeCollected.value = [];
-  revokePhrase.value = '';
-  error.value = '';
-}
-
-function cancelRevoke(): void {
-  confirmRevoke.value = null;
-  revokeQueue.value = [];
-  revokeCollected.value = [];
-  revokePhrase.value = '';
-  error.value = '';
-}
-
-/** Шаг очереди: passkey — просто переспросить биометрией, KEK не нужно вводить. */
-async function confirmRevokeStepPasskey(): Promise<void> {
-  const wrap = revokeCurrent.value;
-  if (wrap === null) return;
-  revokeBusy.value = true;
-  error.value = '';
+function doRemove(): void {
+  if (confirmRemove.value === null) return;
   try {
-    const assertion = await signIn({ rpId, challenge: randomBytes(32) }, wrap.salt);
-    const kek = await kekFromAssertion(assertion, wrap.salt);
-    if (kek === null) throw new Error('этот ключ не отдал PRF — отзыв остановлен');
-    revokeCollected.value = [...revokeCollected.value, { wrap, kek }];
-    revokeQueue.value = revokeQueue.value.slice(1);
+    removeAccess(confirmRemove.value.label);
   }
   catch (caught) {
-    error.value = caught instanceof Error ? caught.message : 'не получилось подтвердить passkey';
+    error.value = caught instanceof Error ? caught.message : 'не получилось убрать способ доступа';
   }
-  finally {
-    revokeBusy.value = false;
-  }
+  confirmRemove.value = null;
 }
 
-/** Шаг очереди: фраза — вводится заново; проверяется РЕАЛЬНЫМ снятием обёртки, а не только словарём. */
-async function confirmRevokeStepPhrase(): Promise<void> {
-  const wrap = revokeCurrent.value;
-  if (wrap === null) return;
-  if (!isKnownPhrase(revokePhrase.value)) {
-    error.value = 'в этой фразе есть слова не из словаря';
-    return;
-  }
-  revokeBusy.value = true;
-  error.value = '';
-  try {
-    const kek = await kekFromPassphrase(normalizePhrase(revokePhrase.value), wrap.salt);
-    await unlockVault(wrap, kek); // бросает, если фраза не та — до похода в revokeAccess
-    revokeCollected.value = [...revokeCollected.value, { wrap, kek }];
-    revokeQueue.value = revokeQueue.value.slice(1);
-    revokePhrase.value = '';
-  }
-  catch {
-    error.value = 'фраза не подошла';
-  }
-  finally {
-    revokeBusy.value = false;
-  }
-}
+// ── Устройства пространства ─────────────────────────────────────────────────
 
-async function finishRevoke(): Promise<void> {
-  if (confirmRevoke.value === null) return;
-  revokeBusy.value = true;
-  error.value = '';
+const spaces = useSpaces();
+const myPub = ref('');
+onMounted(async () => {
+  myPub.value = encodeBytes((await deviceIdentity()).pub);
+});
+
+const devices = useValue(() =>
+  spaces.open && myPub.value !== '' ? listDevices(spaces.space(KEYS_ID), myPub.value) : []);
+const others = computed(() => (devices.value ?? []).filter(device => !device.mine));
+
+/** Ждёт ли нас чужая обёртка — свежему устройству предлагается присоединиться. */
+const grantReady = ref(false);
+onMounted(async () => {
+  grantReady.value = await pendingGrant();
+});
+
+const deviceBusy = ref('');
+const confirmDevice = ref<PairedDevice | null>(null);
+const trustDialogOpen = ref(false);
+const revokeDeviceTarget = ref<PairedDevice | null>(null);
+const revokeDeviceOpen = ref(false);
+const joinDialogOpen = ref(false);
+
+async function doTrust(): Promise<void> {
+  const device = confirmDevice.value;
+  if (device === null) return;
+  deviceBusy.value = device.pub;
   try {
-    await revokeAccess(syncSettings.value.url, confirmRevoke.value.label, revokeCollected.value);
-    confirmRevoke.value = null;
-    toast({ title: 'Способ доступа отозван', tone: 'positive' });
+    await trustDevice(device);
+    toast({ title: 'Доступ выдан', description: 'Второе устройство может присоединиться.', tone: 'positive' });
   }
   catch (caught) {
-    error.value = caught instanceof Error ? caught.message : 'не удалось отозвать способ доступа';
+    error.value = caught instanceof Error ? caught.message : 'не получилось выдать доступ';
   }
   finally {
-    revokeBusy.value = false;
+    deviceBusy.value = '';
+    confirmDevice.value = null;
+  }
+}
+
+async function doJoin(): Promise<void> {
+  deviceBusy.value = 'join';
+  try {
+    await joinSpace();
+    grantReady.value = false;
+    toast({ title: 'Устройство присоединено', description: 'Данные пространства едут с сервера.', tone: 'positive' });
+  }
+  catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'не получилось присоединиться';
+  }
+  finally {
+    deviceBusy.value = '';
+  }
+}
+
+async function doRevokeDevice(): Promise<void> {
+  const device = revokeDeviceTarget.value;
+  if (device === null) return;
+  deviceBusy.value = device.pub;
+  try {
+    await revokeDevice(device);
+    toast({ title: 'Устройство отозвано', description: 'Секреты перевыпущены, ленды перепечатаны.', tone: 'positive' });
+  }
+  catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'не получилось отозвать устройство';
+  }
+  finally {
+    deviceBusy.value = '';
+    revokeDeviceTarget.value = null;
   }
 }
 </script>
@@ -322,6 +271,22 @@ async function finishRevoke(): Promise<void> {
             хранит сам браузер. Настройте passkey или фразу — тогда появится
             замок, и данные откроются только вам.
           </p>
+        </div>
+      </Card>
+
+      <Card v-if="grantReady">
+        <div class="flex items-start gap-3">
+          <MonitorSmartphone class="mt-0.5 size-5 shrink-0 text-accent" />
+          <div class="min-w-0 flex-1">
+            <p class="text-sm text-text">Этому устройству выдан доступ к пространству</p>
+            <p class="mt-0.5 text-xs text-text-faint">
+              Присоединение заменит местные данные пространством: заготовки этого
+              устройства будут стёрты, настоящие данные приедут с сервера.
+            </p>
+          </div>
+          <Button tone="primary" size="sm" :loading="deviceBusy === 'join'" @click="joinDialogOpen = true">
+            Присоединиться
+          </Button>
         </div>
       </Card>
 
@@ -423,7 +388,7 @@ async function finishRevoke(): Promise<void> {
               v-if="wraps.length > 1"
               tone="danger"
               size="sm"
-              @click="remove(wrap.label)"
+              @click="askRemove(wrap.label)"
             >
               Убрать
             </Button>
@@ -434,63 +399,47 @@ async function finishRevoke(): Promise<void> {
         </p>
       </Card>
 
-      <!-- Очередь отзыва: способ подтверждён к удалению, сервер привязан —
-           нужны свежие KEK всех остальных способов, чтобы перевыпустить их
-           под новым DEK (docs/01-security.md §7). -->
-      <Card v-if="confirmRevoke !== null" title="Отзыв доступа">
-        <div class="flex flex-col gap-3">
-          <p class="text-sm text-text-soft">
-            Убираем «{{ displayLabel(confirmRevoke) }}». Ленды будут перепечатаны под новым ключом,
-            а сервер обязан подтвердить каждый — это требует сети.
-          </p>
-
-          <div v-if="revokeCurrent !== null" class="flex flex-col gap-2">
-            <p class="text-xs text-text-faint">
-              Подтвердите оставшийся способ «{{ displayLabel(revokeCurrent) }}» — им перевыпустят доступ:
-            </p>
-            <Button
-              v-if="revokeCurrent.kind === 'passkey'"
-              tone="primary"
-              size="sm"
-              :loading="revokeBusy"
-              @click="confirmRevokeStepPasskey"
-            >
-              Подтвердить passkey
-            </Button>
-            <template v-else>
-              <textarea
-                v-model="revokePhrase"
-                rows="3"
-                placeholder="двенадцать слов через пробел"
-                aria-label="Фраза восстановления"
-                autocomplete="off"
-                class="glass w-full resize-none rounded-control border px-3.5 py-2.5 text-sm text-text
-                       transition-[border-color] placeholder:text-text-faint focus:border-accent focus:outline-none"
-              />
-              <Button
-                tone="primary"
-                size="sm"
-                :disabled="revokePhrase.trim() === ''"
-                :loading="revokeBusy"
-                @click="confirmRevokeStepPhrase"
-              >
-                Подтвердить фразу
-              </Button>
-            </template>
-          </div>
-
-          <Button
-            v-else
-            tone="danger"
-            size="sm"
-            :loading="revokeBusy"
-            @click="finishRevoke"
+      <!-- Устройства пространства: список из служебного ленда `keys`.
+           Новое устройство объявляется само; человек сверяет отпечатки на двух
+           экранах и жмёт «Доверять» — секреты уезжают обёрткой через сервер. -->
+      <Card v-if="spaces.open && others.length > 0" title="Устройства">
+        <ul class="flex flex-col divide-y divide-line">
+          <li
+            v-for="device in others"
+            :key="device.pub"
+            class="flex items-center gap-3 py-2 first:pt-0 last:pb-0"
           >
-            Завершить отзыв
-          </Button>
-
-          <Button size="sm" tone="ghost" :disabled="revokeBusy" @click="cancelRevoke">Отмена</Button>
-        </div>
+            <MonitorSmartphone class="size-4 shrink-0 text-text-faint" />
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-sm text-text">
+                {{ device.label }}
+                <span v-if="device.revoked" class="text-danger">— отозвано</span>
+              </p>
+              <p class="text-xs text-text-faint">отпечаток {{ fingerprint(device.pub) }}</p>
+            </div>
+            <Button
+              v-if="!device.revoked"
+              size="sm"
+              :loading="deviceBusy === device.pub"
+              @click="confirmDevice = device; trustDialogOpen = true"
+            >
+              Доверять
+            </Button>
+            <Button
+              v-if="!device.revoked"
+              tone="danger"
+              size="sm"
+              :loading="deviceBusy === device.pub"
+              @click="revokeDeviceTarget = device; revokeDeviceOpen = true"
+            >
+              Отозвать
+            </Button>
+          </li>
+        </ul>
+        <p class="mt-3 text-xs text-text-faint">
+          Отпечаток этого устройства: {{ myPub === '' ? '…' : fingerprint(myPub) }}.
+          Сверяйте отпечатки на обоих экранах перед выдачей доступа.
+        </p>
       </Card>
 
       <!-- Явная команда из docs/01-security.md §5. Показывается только с
@@ -508,14 +457,42 @@ async function finishRevoke(): Promise<void> {
     </div>
 
     <ConfirmDialog
-      v-if="confirmRevoke !== null"
-      v-model:open="revokeDialogOpen"
-      title="Отозвать способ доступа?"
-      :description="`Убрав «${displayLabel(confirmRevoke)}», вы перепечатаете все ленды под новым ключом `
-        + 'и замените журналы на сервере — снятая раньше копия обёртки перестанет подходить. '
-        + 'Нужна сеть: сервер обязан подтвердить каждый ленд.'"
-      confirm-label="Продолжить"
-      @confirm="startRevokeQueue"
+      v-if="confirmRemove !== null"
+      v-model:open="removeDialogOpen"
+      title="Убрать способ доступа?"
+      :description="`Обёртка «${displayLabel(confirmRemove)}» будет стёрта с этого устройства. `
+        + 'Если её копию сняли раньше вместе с самим способом — это компрометация, '
+        + 'и правильный ответ на неё: отозвать устройство, а не убрать способ.'"
+      confirm-label="Убрать"
+      @confirm="doRemove"
+    />
+
+    <ConfirmDialog
+      v-if="confirmDevice !== null"
+      v-model:open="trustDialogOpen"
+      title="Доверять устройству?"
+      :description="`Сверьте отпечаток на втором экране: ${fingerprint(confirmDevice.pub)}. `
+        + 'После подтверждения оно получит секреты всех лендов и полный доступ к пространству.'"
+      confirm-label="Доверять"
+      @confirm="doTrust"
+    />
+
+    <ConfirmDialog
+      v-if="revokeDeviceTarget !== null"
+      v-model:open="revokeDeviceOpen"
+      title="Отозвать устройство?"
+      :description="'Секреты всех лендов будут перевыпущены, данные перепечатаны и перезалиты на сервер. '
+        + 'Что устройство успело прочитать — при нём и останется; нового оно не увидит. Нужна сеть.'"
+      confirm-label="Отозвать"
+      @confirm="doRevokeDevice"
+    />
+
+    <ConfirmDialog
+      v-model:open="joinDialogOpen"
+      title="Присоединиться к пространству?"
+      description="Местные данные этого устройства будут заменены данными пространства. Всё, что вы успели записать здесь до присоединения, будет стёрто."
+      confirm-label="Присоединиться"
+      @confirm="doJoin"
     />
   </Page>
 </template>

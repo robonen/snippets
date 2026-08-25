@@ -20,6 +20,13 @@ initTheme();
 // Свет по часу — до отрисовки, чтобы страница не перекрашивалась на глазах.
 initAmbient();
 
+// Офлайн-оболочка: воркер прекэширует сборку, и холодный старт без сети
+// перестаёт быть белым экраном. В dev виртуальный модуль отдаёт заглушку.
+if ('serviceWorker' in navigator) {
+  const { registerSW } = await import('virtual:pwa-register');
+  registerSW({ immediate: true });
+}
+
 try {
   const { spaces, registry } = await bootBrain();
 

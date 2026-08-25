@@ -1,0 +1,262 @@
+import { atom, identityOf, mintExchangePair, model, parts, t } from '@sync/core';
+import { decodeBytes, decodeSecrets, encodeBytes } from '@brain/auth';
+import type { Doc, ExchangeAlgo, Identity, Space, SubtleKeyPair } from '@sync/core';
+import type { Keyring } from '@brain/auth';
+
+/**
+ * Подключение устройств: секреты лендов едут ВНУТРИ пространства.
+ *
+ * Служебный ленд `keys` — единственный ОТКРЫТЫЙ (связка отдаёт для него
+ * `null`, и ядро везёт его как есть). В нём два вида записей:
+ *
+ *   устройство — публичная половина ECDH-пары (X25519/P-256) плюс имя;
+ *   обёртка    — связка секретов, зашифрованная ВЗАИМНЫМ ключом пары
+ *                «датель ↔ получатель» (AES-GCM поверх ECDH+HKDF).
+ *
+ * Сервер видит этот ленд целиком — и не видит в нём ничего полезного: публичные
+ * ключи публичны, а обёртку открывают только приватные половины двух устройств,
+ * которые сервера не покидали никогда. Это тот же довод, что у прежних обёрток
+ * в открытом мета-ленде («секрета в них нет»), только теперь он работает и на
+ * доставку между устройствами: обёртка едет обычным синком, отдельного
+ * `/account/wraps` не существует.
+ *
+ * Протокольные gift-юниты (`@sync/core` формат) остаются целевой формой на
+ * стадии подписей: там та же криптография ляжет в 48 байт юнита. Сегодняшний
+ * ленд — то же самое средствами слоя моделей, без правок горячего пути ядра.
+ *
+ * ─── Поток подключения ───────────────────────────────────────────────────────
+ *
+ *   новое устройство   объявляется в `keys` (свой pub) и ждёт;
+ *   старое устройство  видит запись, человек сверяет отпечатки на обоих
+ *                      экранах, жмёт «Доверять» — обёртка уезжает в ленд;
+ *   новое устройство   видит обёртку, снимает её взаимным ключом, ЗАМЕНЯЕТ
+ *                      свои секреты и данные пространством (см. `claimGrant`).
+ *
+ * Оба устройства онлайн одновременно — суть, а не недостаток: сервер выдать
+ * доступ не может по построению.
+ */
+
+export const KEYS_ID = 'keys';
+
+export const DeviceModel = model('keys/device', {
+  /** Человеку: «телефон», «рабочий ноутбук». */
+  label: atom(t.string),
+  algo: atom(t.enum(['x25519', 'p256'] as const).or('x25519')),
+  /** base64url сырого публичного ключа. Он же — id записи. */
+  pub: atom(t.string),
+  addedAt: atom(t.number),
+  /** Ноль — устройство живо. Метка, а не удаление: отзыв должен быть виден. */
+  revokedAt: atom(t.number),
+});
+
+export const GrantModel = model('keys/grant', {
+  /** Получатель: base64url его публичного ключа. Он же — id записи. */
+  to: atom(t.string),
+  /** Датель: по его публичному ключу получатель выводит взаимный ключ. */
+  from: atom(t.string),
+  nonce: atom(t.string),
+  cipher: atom(t.string),
+  at: atom(t.number),
+});
+
+export const KeysModel = model('keys/root', {
+  devices: parts(t.string, 'keys/device'),
+  grants: parts(t.string, 'keys/grant'),
+});
+
+declare module '@sync/core' {
+  interface Models {
+    'keys/device': typeof DeviceModel;
+    'keys/grant': typeof GrantModel;
+    'keys/root': typeof KeysModel;
+  }
+}
+
+const GRANT_AAD = 'brain/pair/v1';
+
+// ── ECDH-пара устройства ─────────────────────────────────────────────────────
+//
+// Живёт в той же базе, что ключ устройства (`@brain/auth` device.ts): приватная
+// половина — неизвлекаемый CryptoKey, структурным клоном в IndexedDB.
+
+const DB_NAME = 'brain-device';
+const STORE = 'keys';
+const PAIR_KEY = 'exchange/v1';
+
+interface StoredPair {
+  readonly algo: ExchangeAlgo;
+  readonly pair: SubtleKeyPair;
+}
+
+export async function deviceIdentity(): Promise<Identity> {
+  const db = await openDb();
+  try {
+    const found = await ask<StoredPair | undefined>(db.transaction(STORE, 'readonly').objectStore(STORE).get(PAIR_KEY));
+    if (found !== undefined) return identityOf(found.algo, found.pair);
+
+    const fresh = await mintExchangePair();
+    const tx = db.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).put({ algo: fresh.algo, pair: fresh.pair } satisfies StoredPair, PAIR_KEY);
+    await ended(tx);
+    return identityOf(fresh.algo, fresh.pair);
+  }
+  finally {
+    db.close();
+  }
+}
+
+// ── Записи в ленде ───────────────────────────────────────────────────────────
+
+export interface PairedDevice {
+  readonly pub: string;
+  readonly label: string;
+  readonly algo: ExchangeAlgo;
+  readonly addedAt: number;
+  readonly revoked: boolean;
+  readonly mine: boolean;
+}
+
+export function listDevices(space: Space, myPub: string): PairedDevice[] {
+  const root = space.root(KeysModel);
+  return root.devices.keys().map((pub) => {
+    const doc = root.devices(pub);
+    return {
+      pub,
+      label: doc.label(),
+      algo: doc.algo(),
+      addedAt: doc.addedAt(),
+      revoked: doc.revokedAt() > 0,
+      mine: pub === myPub,
+    };
+  }).sort((a, b) => a.addedAt - b.addedAt);
+}
+
+/** Объявить себя в пространстве. Идемпотентно: запись одна на устройство. */
+export function announceDevice(space: Space, identity: Identity, label: string): void {
+  const pub = encodeBytes(identity.pub);
+  const root = space.root(KeysModel);
+  if (root.devices.has(pub)) return;
+  space.edit(() => {
+    const doc = root.devices(pub);
+    doc.label(label);
+    doc.algo(identity.algo);
+    doc.pub(pub);
+    doc.addedAt(Date.now());
+  });
+}
+
+/**
+ * Отпечаток для сверки на двух экранах: восемь слов не нужно — хватает восьми
+ * символов base64url публичного ключа, они и так на обоих устройствах.
+ */
+export function fingerprint(pub: string): string {
+  return `${pub.slice(0, 4)}-${pub.slice(4, 8)}`.toLowerCase();
+}
+
+/** Доверить устройству пространство: завернуть секреты связки взаимным ключом. */
+export async function grantTo(
+  space: Space,
+  ring: Keyring,
+  identity: Identity,
+  device: PairedDevice,
+): Promise<void> {
+  const mutual = await identity.mutualSealed(device.algo, decodeBytes(device.pub));
+  const nonce = crypto.getRandomValues(new Uint8Array(12));
+  const aad = new TextEncoder().encode(`${GRANT_AAD}:${device.pub}:${encodeBytes(identity.pub)}`);
+  const blob = ring.exportSecrets();
+  const cipher = new Uint8Array(await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv: nonce, additionalData: aad },
+    mutual,
+    blob.slice().buffer as ArrayBuffer,
+  ));
+
+  const root = space.root(KeysModel);
+  space.edit(() => {
+    const doc = root.grants(device.pub);
+    doc.to(device.pub);
+    doc.from(encodeBytes(identity.pub));
+    doc.nonce(encodeBytes(nonce));
+    doc.cipher(encodeBytes(cipher));
+    doc.at(Date.now());
+  });
+}
+
+/**
+ * Обёртка для НАС уже в ленде? Снять её и вернуть секреты пространства.
+ * `null` — ещё не выдана. Замену данных проводит вызывающий (`joinSpace` в
+ * `app/boot.ts`): здесь только криптография.
+ */
+export async function claimGrant(
+  space: Space,
+  identity: Identity,
+): Promise<Map<string, Uint8Array> | null> {
+  const myPub = encodeBytes(identity.pub);
+  const root = space.root(KeysModel);
+  if (!root.grants.has(myPub)) return null;
+
+  const doc: Doc<'keys/grant'> = root.grants(myPub);
+  const fromPub = doc.from();
+  const from = root.devices.has(fromPub) ? root.devices(fromPub) : null;
+  if (from === null || from.revokedAt() > 0) return null;
+
+  const mutual = await identity.mutualSealed(from.algo(), decodeBytes(fromPub));
+  const aad = new TextEncoder().encode(`${GRANT_AAD}:${myPub}:${fromPub}`);
+  const blob = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: decodeBytes(doc.nonce()).slice().buffer as ArrayBuffer, additionalData: aad },
+    mutual,
+    decodeBytes(doc.cipher()).slice().buffer as ArrayBuffer,
+  );
+  return decodeSecrets(new Uint8Array(blob));
+}
+
+/**
+ * Первая половина отзыва: пометить устройство и забрать его обёртку.
+ *
+ * Перевыпуск секретов, перепечатка лендов и повторные обёртки живым
+ * устройствам — у вызывающего (`app/boot.ts`, `revokeDevice`): порядок там
+ * несущий, между шагами лежит перезапуск лендов.
+ */
+export function markRevoked(space: Space, device: PairedDevice): void {
+  const root = space.root(KeysModel);
+  space.edit(() => {
+    root.devices(device.pub).revokedAt(Date.now());
+    root.grants.delete(device.pub);
+  });
+}
+
+/** Вторая половина: выдать ПЕРЕВЫПУЩЕННЫЕ секреты всем живым устройствам заново. */
+export async function regrantAll(space: Space, ring: Keyring, identity: Identity): Promise<void> {
+  for (const peer of listDevices(space, encodeBytes(identity.pub))) {
+    if (peer.mine || peer.revoked) continue;
+    await grantTo(space, ring, identity, peer);
+  }
+}
+
+// ── Мелкий IndexedDB-край (тот же, что у @brain/auth device.ts) ──────────────
+
+function openDb(): Promise<IDBDatabase> {
+  return new Promise((done, fail) => {
+    const request = indexedDB.open(DB_NAME, 1);
+    request.onupgradeneeded = (): void => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
+    };
+    request.onsuccess = (): void => done(request.result);
+    request.onerror = (): void => fail(request.error ?? new Error('IndexedDB отклонил открытие'));
+  });
+}
+
+function ask<T>(request: IDBRequest<T>): Promise<T> {
+  return new Promise((done, fail) => {
+    request.onsuccess = (): void => done(request.result);
+    request.onerror = (): void => fail(request.error ?? new Error('запрос IndexedDB отклонён'));
+  });
+}
+
+function ended(tx: IDBTransaction): Promise<void> {
+  return new Promise((done, fail) => {
+    tx.oncomplete = (): void => done();
+    tx.onerror = (): void => fail(tx.error ?? new Error('транзакция IndexedDB отклонена'));
+    tx.onabort = (): void => fail(tx.error ?? new Error('транзакция IndexedDB отменена'));
+  });
+}

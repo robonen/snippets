@@ -1,46 +1,76 @@
-import type { NitroConfig } from 'nitro/types';
+import { defineConfig } from 'nitro/config';
 
 /**
  * Сервер синка — отдельный nitro-проект, а не часть сборки оболочки.
  *
- * У kcal сервер жил внутри vite-приложения и собирался Vercel-пресетом. Здесь
- * пресет НЕ vercel, и это решение, а не пропуск: сервер стоит на своём железе
+ * Пресет НЕ vercel, и это решение, а не пропуск: сервер стоит на своём железе
  * (docs/04-server.md), собирается штатным `nitro build` в node-server и
  * запускается `node .output/server/index.mjs` — без платформенной обвязки,
  * эфемерных ФС и лимитов на время соединения.
  */
-const config: NitroConfig = {
-  // Наш проект и есть сервер: routes/ и utils/ лежат в корне пакета,
-  // а не в подкаталоге server/ (тот же приём, что в kcal).
+export default defineConfig({
+  // Наш проект и есть сервер: routes/ и utils/ лежат в корне пакета.
   serverDir: '.',
-  compatibilityDate: '2026-08-24',
+  compatibilityDate: '2026-08-25',
   features: {
-    // Живой транспорт: один WebSocket на все ленды (routes/sync/index.ts).
+    // Живой транспорт: один WebSocket на все ленды (routes/sync.ts).
     websocket: true,
   },
+
   /**
-   * Единый origin (план Р1): сервер отдаёт СОБРАННУЮ PWA, а не только API.
-   * HttpOnly-cookie и rpId passkey живут только при одном origin — раздельные
-   * дев-порты web/server работали бы для API, но не для входа.
+   * Конфигурация рантайма — через штатный runtimeConfig: значения ниже это
+   * умолчания, на рантайме их переопределяет окружение. `envPrefix: ''`
+   * оставляет ПЛОСКИЕ имена переменных (`SYNC_TOKEN`, `DATA_DIR`,
+   * `PUBLIC_ORIGIN` — как в docs/04 и systemd-юните); `NITRO_`-префикс
+   * работает как второй путь сам по себе.
+   */
+  runtimeConfig: {
+    nitro: { envPrefix: '' },
+    /** Общий секрет личного сервера. Пусто — сервер отказывает всем. */
+    syncToken: '',
+    /** Origin для сверки заголовка `Origin` на WS-рукопожатии. */
+    publicOrigin: 'http://localhost:4877',
+    /** Каталог данных для файлового хранилища. Пусто — маунт из `storage` ниже. */
+    dataDir: '',
+    /**
+     * Продакшен-хранилище: Cloudflare KV по REST (`cloudflare-kv-http`).
+     * Заполнены все три поля — плагин перемонтирует `data:` на KV.
+     * Env: CLOUDFLARE_KV_ACCOUNT_ID, CLOUDFLARE_KV_NAMESPACE_ID,
+     * CLOUDFLARE_KV_API_TOKEN (плоские имена — envPrefix выше).
+     */
+    cloudflareKv: {
+      accountId: '',
+      namespaceId: '',
+      apiToken: '',
+    },
+  },
+
+  /**
+   * Данные сервера: образы лендов и пир — маунт `data:`. База по умолчанию
+   * задаётся здесь (конфиг — build-time); рантаймовые значения — Cloudflare KV
+   * или `DATA_DIR` — перемонтируют её в plugins/storage.ts: ровно
+   * документированная схема «статичное в конфиге, секреты в плагине».
+   */
+  storage: {
+    data: { driver: 'fs', base: './.data' },
+  },
+  devStorage: {
+    data: { driver: 'fs', base: './.data-dev' },
+  },
+
+  /**
+   * Единый origin: сервер отдаёт СОБРАННУЮ PWA, а не только API.
    *
-   * `dir` — это `apps/web/dist/web`, СОБРАННЫЙ соседним `vite build`
-   * (`pnpm --filter @brain/web build`, гейт запускает его ДО `--filter
-   * @brain/server build`). Не `apps/web/dist` — vite-layers кладёт сборку в
-   * подкаталог по имени СЛОЯ (`defineLayerConfig({ name: 'web' })` в
-   * `apps/web/app.config.ts`), то есть `dist/web/index.html`, а не
-   * `dist/index.html` (проверено самой сборкой, не документацией). nitro
-   * копирует содержимое в `.output/public` на своей сборке — собранный сервер
-   * самодостаточен, `apps/web/dist` ему рядом уже не нужен (docs/04-server.md
-   * «Запуск на своём сервере»).
+   * `dir` — это `apps/web/dist/web`, собранный соседним `vite build`
+   * (vite-layers кладёт сборку в подкаталог по имени слоя). nitro копирует
+   * содержимое в `.output/public` на своей сборке — собранный сервер
+   * самодостаточен.
    *
-   * `maxAge` — скромные 5 минут, а не год: у файлов сборки нет сервис-воркера,
-   * который умел бы починить протухший кэш сам, а имена без хеша (`index.html`,
-   * `manifest.webmanifest`) переживают передеплой раньше, чем истечёт кэш
-   * браузера. Короткий кэш — компромисс, а не то, чем стоило бы гордиться.
+   * `maxAge` длинный: хешированные ассеты бессмертны по построению, а
+   * `index.html` и файлы без хеша обслуживает service worker приложения —
+   * протухший кэш чинит он, а не короткий TTL.
    */
   publicAssets: [
-    { baseURL: '/', dir: '../web/dist/web', maxAge: 300 },
+    { baseURL: '/', dir: '../web/dist/web', maxAge: 3600 },
   ],
-};
-
-export default config;
+});

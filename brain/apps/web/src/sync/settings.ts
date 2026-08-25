@@ -2,36 +2,39 @@ import { computed, shallowRef } from 'vue';
 import type { ComputedRef, ShallowRef } from 'vue';
 
 /**
- * Адрес сервера — на УСТРОЙСТВЕ, в localStorage.
+ * Настройки синка — на УСТРОЙСТВЕ, в localStorage: адрес и токен.
  *
- * Токена здесь больше НЕТ (план Р2): раньше `SYNC_TOKEN` жил тут же и уходил
- * на КАЖДЫЙ синк-запрос — ровно тот класс поверхности, которого
- * docs/01-security.md §3 просит избежать («токен в localStorage не кладём»).
- * После входа синк авторизуется HttpOnly-cookie, которую браузер прикладывает
- * сам; токен нужен только ОДИН РАЗ — при привязке нового сервера
- * (`security/account.ts`, `bindAccount`) — и НЕ переживает эту функцию: поле
- * ввода в UI существует, поле хранения — нет.
+ * Токен вернулся (ревизия 3): серверного WebAuthn-входа больше нет — сервер
+ * стал слепым пиром без аккаунтов, и его единственная авторизация — общий
+ * секрет личного сервера. Токен в localStorage достаёт XSS — это честно
+ * записано в модели угроз: он открывает ШИФРТЕКСТ и метаданные, но не данные
+ * (payload юнитов запечатан ключами, которых на сервере нет). Подпись
+ * identity-ключом вместо токена — следующий шаг вместе с подписями протокола.
  *
  * Адрес живёт в localStorage по той же причине, что и раньше: это настройка
  * ЭТОГО устройства (домашний сервер снаружи и внутри сети зовётся по-разному),
  * а не общее свойство пространства.
  *
- * Пусто — синк выключен. Приложение остаётся полностью local-first: сервер
- * добавляет внешнюю копию шифртекста, но ничего не держит.
+ * Пусто — синк выключен. Приложение остаётся полностью local-first.
  */
 
 const URL_KEY = 'brain.sync.url';
+const TOKEN_KEY = 'brain.sync.token';
 
 export interface SyncSettings {
   readonly url: string;
+  readonly token: string;
 }
 
-const settings = shallowRef<SyncSettings>({ url: '' });
+const settings = shallowRef<SyncSettings>({ url: '', token: '' });
 /** Живо ли соединение. Не настройка — состояние, но показывается там же. */
 const live = shallowRef(false);
 
 export function loadSyncSettings(storage: Pick<Storage, 'getItem'> = localStorage): SyncSettings {
-  settings.value = { url: storage.getItem(URL_KEY) ?? '' };
+  settings.value = {
+    url: storage.getItem(URL_KEY) ?? '',
+    token: storage.getItem(TOKEN_KEY) ?? '',
+  };
   return settings.value;
 }
 
@@ -42,15 +45,12 @@ export function saveSyncSettings(
   // Хвостовой слэш режется здесь, а не при сборке адреса: иначе «сохранил
   // одно — вижу другое» на экране настроек.
   const url = next.url.trim().replace(/\/+$/, '');
+  const token = next.token.trim();
   storage.setItem(URL_KEY, url);
-  settings.value = { url };
+  storage.setItem(TOKEN_KEY, token);
+  settings.value = { url, token };
 }
 
-/**
- * Настроен ли синк. Только адрес: авторизация теперь на cookie, а не на
- * хранимом секрете, — её наличие или отсутствие проверяется САМИМ соединением
- * (сервер откажет на рукопожатии, если сессии нет), а не заранее по localStorage.
- */
 export function syncConfigured(value: SyncSettings): boolean {
   return value.url !== '';
 }

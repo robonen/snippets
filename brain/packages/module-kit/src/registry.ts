@@ -4,7 +4,6 @@ import type { Component, PropType } from 'vue';
 import type { RouteRecordRaw } from 'vue-router';
 import { useSpaces } from './context';
 import { landId } from './land';
-import { SYSTEM_ID } from './spaces';
 import type { BrainModule, ModuleCommand, ModuleWidget } from './module';
 import { provideSpace } from '@sync/vue';
 
@@ -48,9 +47,6 @@ export function createRegistry(modules: readonly BrainModule[]): Registry {
         `имя модуля «${module.id}» не годится: строчная латиница, цифры и дефис, до 16 символов — `
         + 'из имени чеканится адрес ленда и строятся пути маршрутов',
       );
-    }
-    if (module.id === SYSTEM_ID) {
-      throw new Error(`имя «${SYSTEM_ID}» занято лендом оболочки: выберите другое`);
     }
     if (byId.has(module.id)) {
       throw new Error(`модуль «${module.id}» объявлен дважды`);

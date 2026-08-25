@@ -1,51 +1,56 @@
 import { decodeBytes, encodeBytes } from '@brain/auth';
 import type { WrappedDek } from '@brain/auth';
-import type { Doc, Space } from '@sync/core';
-import { MetaModel } from '../db/meta';
 
 /**
- * Обёртки ключа в ленде: чтение, запись, удаление.
+ * Обёртки мастера связки — в localStorage ЭТОГО устройства.
  *
- * Слой существует ради одного перевода — байты ↔ base64url. Атом держит
- * строку, а криптография работает с байтами, и делать это преобразование в
- * каждом вызывающем месте значило бы рано или поздно перепутать сторону.
+ * Раньше обёртки жили в открытом мета-ленде, чтобы доезжать до второго
+ * устройства. Больше не нужно: каждое устройство заворачивает мастер СВОИМИ
+ * способами доступа (его passkey, его ключ устройства), а между устройствами
+ * секреты едут ECDH-обёртками внутри пространства (`security/pairing.ts`).
+ * Секрета здесь нет — без KEK обёртка бесполезна, — поэтому localStorage
+ * честен: синхронно читается на старте и не тянет за собой ленд.
  */
 
-export function listWraps(space: Space): WrappedDek[] {
-  const root = space.root(MetaModel);
-  return root.keys.keys().map(id => readWrap(id, root.keys(id)));
+const KEY = 'brain.keys.wraps';
+
+type Store = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
+
+interface StoredWrap {
+  readonly kind: WrappedDek['kind'];
+  readonly label: string;
+  readonly salt: string;
+  readonly nonce: string;
+  readonly cipher: string;
 }
 
-export function saveWrap(space: Space, wrapped: WrappedDek): void {
-  const root = space.root(MetaModel);
-  space.edit(() => {
-    const doc = root.keys(wrapped.label);
-    doc.kind(wrapped.kind);
-    doc.label(wrapped.label);
-    doc.salt(encodeBytes(wrapped.salt));
-    doc.nonce(encodeBytes(wrapped.nonce));
-    doc.cipher(encodeBytes(wrapped.cipher));
-    if (doc.createdAt() === 0) doc.createdAt(Date.now());
-  });
+export function listWraps(store: Store = localStorage): WrappedDek[] {
+  const raw = store.getItem(KEY);
+  if (raw === null) return [];
+  return (JSON.parse(raw) as StoredWrap[]).map(wrap => ({
+    kind: wrap.kind,
+    label: wrap.label,
+    salt: decodeBytes(wrap.salt),
+    nonce: decodeBytes(wrap.nonce),
+    cipher: decodeBytes(wrap.cipher),
+  }));
 }
 
-/**
- * Убрать способ доступа.
- *
- * ВНИМАНИЕ: это лишь половина отзыва. Пока данные не перешифрованы под новым
- * DEK, снятая ранее копия обёртки продолжает подходить (docs/01-security.md §7).
- * Перешифрование приедет вместе с сервером.
- */
-export function dropWrap(space: Space, label: string): void {
-  space.root(MetaModel).keys.delete(label);
+export function saveWrap(wrapped: WrappedDek, store: Store = localStorage): void {
+  const rest = listWraps(store).filter(wrap => wrap.label !== wrapped.label);
+  writeAll([...rest, wrapped], store);
 }
 
-function readWrap(id: string, doc: Doc<'meta/key'>): WrappedDek {
-  return {
-    kind: doc.kind(),
-    label: doc.label() === '' ? id : doc.label(),
-    salt: decodeBytes(doc.salt()),
-    nonce: decodeBytes(doc.nonce()),
-    cipher: decodeBytes(doc.cipher()),
-  };
+export function dropWrap(label: string, store: Store = localStorage): void {
+  writeAll(listWraps(store).filter(wrap => wrap.label !== label), store);
+}
+
+function writeAll(wraps: readonly WrappedDek[], store: Store): void {
+  store.setItem(KEY, JSON.stringify(wraps.map(wrap => ({
+    kind: wrap.kind,
+    label: wrap.label,
+    salt: encodeBytes(wrap.salt),
+    nonce: encodeBytes(wrap.nonce),
+    cipher: encodeBytes(wrap.cipher),
+  } satisfies StoredWrap))));
 }
