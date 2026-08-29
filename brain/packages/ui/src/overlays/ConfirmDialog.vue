@@ -54,6 +54,9 @@ const open = defineModel<boolean>('open', { default: false });
           {{ description }}
         </AlertDialogDescription>
 
+        <!-- Дополнительное содержимое: поле подтверждения и подобное. -->
+        <slot />
+
         <footer class="mt-5 flex justify-end gap-2">
           <AlertDialogCancel
             class="pressable inline-flex h-10 shrink-0 select-none items-center justify-center rounded-control

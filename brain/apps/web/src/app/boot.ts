@@ -6,12 +6,13 @@ import type { Keyring, SpaceMaterial, WrappedDek } from '@brain/auth';
 import { loadModules } from '@/app/modules';
 import { INBOX_ID } from '@/db/inbox';
 import {
+  assertKnownPhrase,
   deviceKek,
-  isKnownPhrase,
   kekFromPassphrase,
   keyringFromMaterial,
   normalizePhrase,
   openSpaceVault,
+  unlockKeyring,
 } from '@brain/auth';
 import { DEVICE_LABEL, armLock, currentKeyring, refreshWraps, swapRing } from '@/security/lock';
 import { dropWrap, listWraps, saveWrap } from '@/security/keys';
@@ -159,7 +160,7 @@ export async function joinSpace(): Promise<void> {
  * обычной синхронизацией открытого ленда.
  */
 export async function joinByPhrase(phrase: string): Promise<void> {
-  if (!isKnownPhrase(phrase)) throw new Error('this phrase contains words outside the wordlist');
+  assertKnownPhrase(phrase);
   const spaces = need();
   const vault = readVault(spaces.space(KEYS_ID));
   if (vault.phrase === null || vault.ring === null) {
@@ -271,6 +272,19 @@ export interface RevokeConfirm {
 }
 
 export async function revokeDevice(device: PairedDevice, confirm?: RevokeConfirm): Promise<void> {
+  // Подтверждение проверяется ДО разрушающих шагов: неверная фраза не должна
+  // ни ротировать секреты, ни завернуть новый мастер в невоспроизводимый ключ.
+  if (confirm !== undefined) {
+    const proof = listWraps().find(wrap => wrap.kind === confirm.meta.kind);
+    if (proof !== undefined) {
+      try {
+        (await unlockKeyring(proof, confirm.kek, localStorage)).lock();
+      }
+      catch {
+        throw new Error('the confirmation does not open the master key — check the phrase');
+      }
+    }
+  }
   const spaces = need();
   const ring = ringNow();
   const identity = await deviceIdentity();

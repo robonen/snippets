@@ -2,6 +2,7 @@ import { expect, test } from 'vitest';
 import {
   PHRASE_LENGTH,
   WORDS,
+  assertKnownPhrase,
   createPhrase,
   isKnownPhrase,
   normalizePhrase,
@@ -55,6 +56,19 @@ test('A foreign or incomplete phrase is detected before the expensive KDF', () =
   expect(isKnownPhrase(phrase.slice(0, 11))).toBeFalsy();
   expect(isKnownPhrase([...phrase.slice(0, 11), 'абракадабра'])).toBeFalsy();
   expect(isKnownPhrase(phrase.join('  ').toUpperCase())).toBeTruthy();
+});
+
+test('Normalization strips numbering and punctuation from a written-down note', () => {
+  // Фразу переписывают из блокнота: с номерами, запятыми и точками от
+  // мобильной клавиатуры. Ключ выводится из слов — остальное не считается.
+  expect(normalizePhrase('1. акула, 2) берег; 3 — вилка.')).toBe('акула берег вилка');
+  expect(isKnownPhrase('1. акула 2. алмаз', 2)).toBeTruthy();
+});
+
+test('assertKnownPhrase names the words it does not recognize', () => {
+  expect(() => assertKnownPhrase('акула абракадабра берег', 3)).toThrow('абракадабра');
+  expect(() => assertKnownPhrase('акула берег', 3)).toThrow('got 2');
+  expect(() => assertKnownPhrase(createPhrase())).not.toThrow();
 });
 
 test('Check indices are distinct and within phrase bounds', () => {

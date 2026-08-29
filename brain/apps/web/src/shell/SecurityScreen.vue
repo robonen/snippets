@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue';
-import { computedAsync, useSupported } from '@robonen/vue';
+import { computedAsync, useClipboard, useSupported } from '@robonen/vue';
 import {
   Button,
   Card,
@@ -11,6 +11,7 @@ import {
   useToast,
 } from '@brain/ui';
 import {
+  assertKnownPhrase,
   createPhrase,
   encodeBytes,
   hasPlatformAuthenticator,
@@ -58,6 +59,10 @@ const error = ref('');
 const phrase = ref<string[] | null>(null);
 const quiz = ref<number[]>([]);
 const answers = ref<Record<number, string>>({});
+
+// Копирование фразы: удобнее, чем диктовать себе в блокнот с опечатками.
+// Буфер обмена — не хранилище: вставили в менеджер паролей — сотрите.
+const { copy: copyPhrase, copied: phraseCopied, isSupported: canCopy } = useClipboard();
 
 const hasPasskey = computed(() => wraps.value.some(wrap => wrap.kind === 'passkey'));
 const hasPhrase = computed(() => wraps.value.some(wrap => wrap.kind === 'passphrase'));
@@ -123,7 +128,7 @@ async function confirmPhrase(): Promise<void> {
   busy.value = 'phrase';
   try {
     const salt = freshSalt();
-    const kek = await kekFromPassphrase(phrase.value.join(' '), salt);
+    const kek = await kekFromPassphrase(normalizePhrase(phrase.value), salt);
     await addAccess(kek, { kind: 'passphrase', label: 'фраза', salt });
     // Та же фраза открывает пространство с ЛЮБОГО устройства: мастер под её
     // KEK'ом публикуется в сейфе ленда `keys` (модель crus).
@@ -250,6 +255,9 @@ async function doJoin(): Promise<void> {
 }
 
 const revokePhrase = ref('');
+/** Без passkey новый мастер заворачивается фразой — её и подтверждаем в диалоге. */
+const needRevokePhrase = computed(() =>
+  !wraps.value.some(w => w.kind === 'passkey') && wraps.value.some(w => w.kind === 'passphrase'));
 
 async function doRevokeDevice(): Promise<void> {
   const device = revokeDeviceTarget.value;
@@ -269,6 +277,7 @@ async function doRevokeDevice(): Promise<void> {
     }
     else if (phraseWrap !== undefined) {
       const clean = normalizePhrase(revokePhrase.value);
+      assertKnownPhrase(clean);
       const kek = await kekFromPassphrase(clean, phraseWrap.salt);
       confirm = { kek, meta: { kind: 'passphrase' as const, label: phraseWrap.label, salt: phraseWrap.salt }, phrase: clean };
     }
@@ -359,6 +368,9 @@ async function doRevokeDevice(): Promise<void> {
             placeholder="двенадцать слов через пробел"
             aria-label="Фраза пространства"
             autocomplete="off"
+            autocapitalize="off"
+            autocorrect="off"
+            spellcheck="false"
             class="glass w-full resize-none rounded-control border px-3.5 py-2.5 text-sm text-text
                    transition-[border-color] placeholder:text-text-faint focus:border-accent focus:outline-none"
           />
@@ -431,6 +443,15 @@ async function doRevokeDevice(): Promise<void> {
               {{ word }}
             </li>
           </ol>
+
+          <div v-if="canCopy" class="flex items-center justify-between gap-3">
+            <p class="text-xs text-text-faint">
+              Вставили из буфера в надёжное место — сотрите его.
+            </p>
+            <Button size="sm" @click="copyPhrase(phrase?.join(' ') ?? '')">
+              {{ phraseCopied ? 'Скопировано' : 'Скопировать' }}
+            </Button>
+          </div>
 
           <div class="flex flex-col gap-2">
             <p class="text-xs text-text-faint">Проверка: введите эти слова.</p>
@@ -571,7 +592,25 @@ async function doRevokeDevice(): Promise<void> {
         + 'Что устройство успело прочитать — при нём и останется; нового оно не увидит. Нужна сеть.'"
       confirm-label="Отозвать"
       @confirm="doRevokeDevice"
-    />
+    >
+      <div v-if="needRevokePhrase" class="mt-3 flex flex-col gap-1.5">
+        <p class="text-xs text-text-faint">
+          Подтвердите фразой восстановления: ею будет завёрнут новый мастер.
+        </p>
+        <textarea
+          v-model="revokePhrase"
+          rows="2"
+          placeholder="двенадцать слов через пробел"
+          aria-label="Фраза восстановления"
+          autocomplete="off"
+          autocapitalize="off"
+          autocorrect="off"
+          spellcheck="false"
+          class="glass w-full resize-none rounded-control border px-3.5 py-2.5 text-sm text-text
+                 transition-[border-color] placeholder:text-text-faint focus:border-accent focus:outline-none"
+        />
+      </div>
+    </ConfirmDialog>
 
     <ConfirmDialog
       v-model:open="joinPhraseOpen"

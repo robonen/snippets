@@ -75,11 +75,17 @@ export function createPhrase(length: number = PHRASE_LENGTH): string[] {
   return [...source].map(byte => WORDS[byte]!);
 }
 
-/** Каноническая запись: нижний регистр, одиночные пробелы, без хвостов. */
+/**
+ * Каноническая запись: нижний регистр, одиночные пробелы, только буквы.
+ *
+ * Всё, что не буква, вычищается: человек диктует фразу себе в блокнот с
+ * нумерацией («1. акула, 2. алмаз»), а мобильная клавиатура сама ставит
+ * точки. Ключ выводится из слов, и только слова здесь и остаются.
+ */
 export function normalizePhrase(phrase: string | readonly string[]): string {
   const words = typeof phrase === 'string' ? phrase.split(/\s+/u) : phrase;
   return words
-    .map(word => word.trim().toLowerCase().replaceAll('ё', 'е'))
+    .map(word => word.toLowerCase().replaceAll('ё', 'е').replaceAll(/[^\p{Script=Cyrillic}a-z]+/gu, ''))
     .filter(word => word !== '')
     .join(' ');
 }
@@ -92,6 +98,22 @@ export function isKnownPhrase(phrase: string | readonly string[], length: number
   const words = normalizePhrase(phrase).split(' ');
   if (words.length !== length) return false;
   return words.every(word => DICTIONARY.has(word));
+}
+
+/**
+ * То же, но с ЧЕЛОВЕЧЕСКИМ отказом: какие именно слова не из словаря или
+ * сколько слов не хватает. «Что-то не так с фразой» не даёт исправить запись
+ * в блокноте; список слов — даёт.
+ */
+export function assertKnownPhrase(phrase: string | readonly string[], length: number = PHRASE_LENGTH): void {
+  const words = normalizePhrase(phrase).split(' ').filter(word => word !== '');
+  if (words.length !== length) {
+    throw new Error(`the phrase must be ${length} words, got ${words.length}`);
+  }
+  const unknown = words.filter(word => !DICTIONARY.has(word));
+  if (unknown.length > 0) {
+    throw new Error(`not dictionary words: ${unknown.join(', ')} — check them against your note`);
+  }
 }
 
 /**

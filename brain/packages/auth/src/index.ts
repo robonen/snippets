@@ -28,6 +28,7 @@ export {
   PHRASE_LENGTH,
   WORDS,
   createPhrase,
+  assertKnownPhrase,
   isKnownPhrase,
   normalizePhrase,
   quizIndexes,

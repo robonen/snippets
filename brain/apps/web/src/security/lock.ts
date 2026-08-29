@@ -1,11 +1,11 @@
 import { computed, readonly, shallowRef } from 'vue';
 import {
+  assertKnownPhrase,
   authenticate,
   createKeyring,
   createSalt,
   deviceKek,
   dropDeviceKek,
-  isKnownPhrase,
   kekFromAssertion,
   kekFromPassphrase,
   normalizePhrase,
@@ -192,7 +192,7 @@ export async function unlockByPhrase(phrase: string): Promise<void> {
     .filter(wrap => wrap.kind === 'passphrase');
   const wrap = candidates[0];
   if (wrap === undefined) throw new Error('recovery phrase is not set up');
-  if (!isKnownPhrase(phrase)) throw new Error('this phrase contains words outside the wordlist');
+  assertKnownPhrase(phrase);
 
   const kek = await kekFromPassphrase(normalizePhrase(phrase), wrap.salt);
   await openWithKek(candidates, kek);

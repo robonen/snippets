@@ -88,6 +88,9 @@ async function attempt(open: () => Promise<void>): Promise<void> {
           placeholder="двенадцать слов через пробел"
           aria-label="Фраза восстановления"
           autocomplete="off"
+          autocapitalize="off"
+          autocorrect="off"
+          spellcheck="false"
           class="glass w-full resize-none rounded-control border px-3.5 py-2.5 text-sm text-text
                  transition-[border-color] placeholder:text-text-faint focus:border-accent focus:outline-none"
         />
