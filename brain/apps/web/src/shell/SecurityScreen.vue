@@ -28,7 +28,7 @@ import { useValue } from '@sync/vue';
 import { useSpaces } from '@brain/module-kit';
 import { joinByPhrase, joinSpace, pendingGrant, publishPhraseAccess, revokeDevice, trustDevice } from '@/app/boot';
 import { addAccess, freshSalt, removeAccess, useLock } from '../security/lock';
-import { KEYS_ID, deviceIdentity, fingerprint, listDevices } from '../security/pairing';
+import { KEYS_ID, deviceIdentity, fingerprint, listDevices, readVault } from '../security/pairing';
 import { Fingerprint, KeyRound, Lock, MonitorSmartphone, TriangleAlert } from 'lucide-vue-next';
 import type { PairedDevice } from '../security/pairing';
 import type { WrappedDek } from '@brain/auth';
@@ -184,16 +184,22 @@ const others = computed(() => (devices.value ?? []).filter(device => !device.min
 // сейф (мастер под KEK'ом фразы + секреты под мастером) приезжает синком.
 const joinPhrase = ref('');
 const joinPhraseOpen = ref(false);
+const joinPhraseError = ref('');
+// Сейф пространства — реактивно из ленда `keys`: пока фразовый вход не
+// приехал синком, кнопка честно выключена, а не «жмётся в пустоту».
+const vault = useValue(() => spaces.open ? readVault(spaces.space(KEYS_ID)) : null);
+const vaultReady = computed(() => (vault.value?.phrase ?? null) !== null);
 
 async function doJoinByPhrase(): Promise<void> {
   deviceBusy.value = 'phrase-join';
+  joinPhraseError.value = '';
   try {
     await joinByPhrase(joinPhrase.value);
     joinPhrase.value = '';
     toast({ title: 'Устройство подключено', description: 'Данные пространства едут с сервера.', tone: 'positive' });
   }
   catch (caught) {
-    error.value = caught instanceof Error ? caught.message : 'не получилось подключиться фразой';
+    joinPhraseError.value = caught instanceof Error ? caught.message : 'не получилось подключиться фразой';
   }
   finally {
     deviceBusy.value = '';
@@ -374,11 +380,19 @@ async function doRevokeDevice(): Promise<void> {
             class="glass w-full resize-none rounded-control border px-3.5 py-2.5 text-sm text-text
                    transition-[border-color] placeholder:text-text-faint focus:border-accent focus:outline-none"
           />
+          <p v-if="!vaultReady" class="text-xs text-warning">
+            Фразовый вход ещё не приехал с сервера. Проверьте синхронизацию в
+            Настройках; если фраза создана давно — откройте ею первое
+            устройство один раз, оно опубликует вход.
+          </p>
+          <p v-if="joinPhraseError" role="alert" class="text-xs text-danger">
+            {{ joinPhraseError }}
+          </p>
           <div class="flex justify-end">
             <Button
               tone="primary"
               size="sm"
-              :disabled="joinPhrase.trim() === ''"
+              :disabled="joinPhrase.trim() === '' || !vaultReady"
               :loading="deviceBusy === 'phrase-join'"
               @click="joinPhraseOpen = true"
             >

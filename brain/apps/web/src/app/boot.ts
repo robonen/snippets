@@ -95,6 +95,14 @@ export async function bootBrain(): Promise<{ spaces: Spaces; registry: Registry 
       stopSync();
       await spaces.seal();
     },
+    phraseUnlocked: async (kek, salt) => {
+      // Старые установки: фраза создана ДО сейфа пространства. Первое же
+      // успешное открытие этой фразой публикует фразовый вход — именно с
+      // него подключаются новые устройства.
+      const space = spaces.space(KEYS_ID);
+      if (readVault(space).phrase !== null) return;
+      publishPhraseWrap(space, await ringNow().wrapFor(kek, { kind: 'passphrase', label: SPACE_PHRASE_LABEL, salt }));
+    },
   });
 
   return { spaces, registry };
@@ -163,8 +171,11 @@ export async function joinByPhrase(phrase: string): Promise<void> {
   assertKnownPhrase(phrase);
   const spaces = need();
   const vault = readVault(spaces.space(KEYS_ID));
-  if (vault.phrase === null || vault.ring === null) {
-    throw new Error('the space vault is empty here yet — check the token and wait for sync');
+  if (vault.ring === null) {
+    throw new Error('the space vault has not arrived yet — check the sync address and token in Settings');
+  }
+  if (vault.phrase === null) {
+    throw new Error('the vault has no phrase entry — unlock the first device with its phrase once, or re-create the phrase there');
   }
 
   const kek = await kekFromPassphrase(normalizePhrase(phrase), vault.phrase.salt);

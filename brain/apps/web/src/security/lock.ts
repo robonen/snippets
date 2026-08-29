@@ -48,6 +48,12 @@ export interface LockBind {
   readonly reveal: (ring: Keyring) => Promise<void>;
   /** Убрать открытое: дописать несохранённое и закрыть ленды. */
   readonly conceal: () => Promise<void>;
+  /**
+   * Данные открыты именно фразой. Единственный момент, когда KEK фразы в
+   * руках без лишнего вопроса, — сборка успевает доопубликовать фразовый
+   * вход в сейф пространства, если фраза создана до его появления.
+   */
+  readonly phraseUnlocked?: (kek: Uint8Array, salt: Uint8Array) => Promise<void>;
 }
 
 const state = shallowRef<LockState>('locked');
@@ -196,6 +202,13 @@ export async function unlockByPhrase(phrase: string): Promise<void> {
 
   const kek = await kekFromPassphrase(normalizePhrase(phrase), wrap.salt);
   await openWithKek(candidates, kek);
+  try {
+    await bound?.phraseUnlocked?.(kek, wrap.salt);
+  }
+  catch (caught) {
+    // Долечивание сейфа — не причина считать вход неудавшимся.
+    console.warn('[brain] failed to publish the phrase entry to the vault', caught);
+  }
 }
 
 /**
