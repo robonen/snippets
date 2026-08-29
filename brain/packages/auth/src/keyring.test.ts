@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { createSalt, randomBytes } from './crypto';
-import { createKeyring, decodeSecrets, dropKeyring, unlockKeyring } from './keyring';
+import { createKeyring, decodeGrant, decodeSecrets, dropKeyring, keyringFromMaterial, openSpaceVault, unlockKeyring } from './keyring';
 import type { RingStore } from './keyring';
 
 /**
@@ -94,4 +94,60 @@ describe('Keyring', () => {
     dropKeyring(store);
     expect(store.getItem('brain.keys.ring')).toBeNull();
   });
+});
+
+test('Grant v2 carries the master: the receiver opens the published blob', async () => {
+  const a = await createKeyring(memoryStore());
+  await a.ensure('notes');
+  const material = decodeGrant(a.exportForGrant());
+  expect(material.master).not.toBeNull();
+
+  const b = await keyringFromMaterial(
+    { master: material.master as Uint8Array, secrets: material.secrets },
+    memoryStore(),
+  );
+  // Один мастер: блоб, опубликованный одним, открывается другим.
+  const blob = await a.sealedSecrets();
+  const opened = await b.openBlob(blob);
+  expect([...opened.keys()]).toEqual(['notes']);
+  // Грант v1 (только секреты) разбирается тем же декодером.
+  expect(decodeGrant(a.exportSecrets()).master).toBeNull();
+});
+
+test('The phrase vault opens the space without the granting device', async () => {
+  const owner = await createKeyring(memoryStore());
+  await owner.ensure('notes');
+  await owner.ensure('kcal');
+
+  const salt = createSalt();
+  const kekPhrase = randomBytes(32); // KEK, выведенный из фразы, — вход по PBKDF2 проверяет crypto.test
+  const wrapped = await owner.wrapFor(kekPhrase, { kind: 'passphrase', label: 'space', salt });
+  const blob = await owner.sealedSecrets();
+
+  const joined = await openSpaceVault(wrapped, kekPhrase, blob);
+  expect(new Set(joined.secrets.keys())).toEqual(new Set(['notes', 'kcal']));
+  expect(joined.master).toEqual((decodeGrant(owner.exportForGrant()).master));
+
+  // Чужой KEK (не та фраза) — честный отказ GCM.
+  await expect(openSpaceVault(wrapped, randomBytes(32), blob)).rejects.toThrow();
+});
+
+test('rotateMaster invalidates old wraps and old blobs', async () => {
+  const store = memoryStore();
+  const ring = await createKeyring(store);
+  await ring.ensure('notes');
+  const kek = randomBytes(32);
+  const oldWrap = await ring.wrapFor(kek, META);
+  const oldBlob = await ring.sealedSecrets();
+
+  await ring.rotateMaster();
+
+  // Старая обёртка открывает СТАРЫЙ мастер, которым новый блоб не открыть.
+  await expect(unlockKeyring(oldWrap, kek, store)).rejects.toThrow();
+  // Новый мастер не открывает блоб, запечатанный старым.
+  await expect(ring.openBlob(oldBlob)).rejects.toThrow();
+  // Новая обёртка + новый блоб — рабочая пара.
+  const freshWrap = await ring.wrapFor(kek, META);
+  const reopened = await unlockKeyring(freshWrap, kek, store);
+  expect(reopened.lands()).toEqual(['notes']);
 });

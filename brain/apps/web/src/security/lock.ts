@@ -37,7 +37,7 @@ import { legacyPresent, migrateLegacy, readLegacyWraps } from './migrate-legacy'
 export type LockState = 'locked' | 'open';
 
 /** Метка обёртки под ключом устройства. Она одна на устройство. */
-const DEVICE_LABEL = 'это устройство';
+export const DEVICE_LABEL = 'это устройство';
 
 /**
  * Чем замок связан с данными. Инъекция, а не импорт: замок отвечает за ключи,
@@ -220,6 +220,23 @@ export async function addAccess(
 /** Связка — модулям безопасности (пейринг заворачивает её секреты для других устройств). */
 export function currentKeyring(): Keyring | null {
   return ring.value;
+}
+
+/**
+ * Заменить связку в памяти — присоединение к пространству (грант v2 или вход
+ * фразой) приносит ЧУЖОЙ мастер, и прежний объект связки становится ничьим.
+ * Замок остаётся открытым: замена происходит из уже разблокированного экрана.
+ */
+export function swapRing(next: Keyring): void {
+  const old = ring.value;
+  ring.value = next;
+  if (old !== null && old !== next) old.lock();
+  refresh();
+}
+
+/** Перечитать обёртки после внешней правки (`security/keys.ts` напрямую). */
+export function refreshWraps(): void {
+  refresh();
 }
 
 /** Убрать способ доступа. Последний убрать нельзя — данные стали бы недоступны. */

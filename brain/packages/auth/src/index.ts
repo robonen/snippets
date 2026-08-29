@@ -35,11 +35,14 @@ export {
 
 export {
   createKeyring,
+  decodeGrant,
   decodeSecrets,
   dropKeyring,
+  keyringFromMaterial,
+  openSpaceVault,
   unlockKeyring,
 } from './keyring';
-export type { Keyring, RingStore } from './keyring';
+export type { Keyring, RingStore, SpaceMaterial } from './keyring';
 
 export {
   authenticate,

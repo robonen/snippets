@@ -2,18 +2,32 @@ import { packDecode, packEncode } from '@sync/core';
 import { createRegistry, landId, openSpaces } from '@brain/module-kit';
 import type { LandId, Roster, SecretRing, Signer } from '@sync/core';
 import type { Registry, Spaces } from '@brain/module-kit';
-import type { Keyring } from '@brain/auth';
+import type { Keyring, SpaceMaterial, WrappedDek } from '@brain/auth';
 import { loadModules } from '@/app/modules';
 import { INBOX_ID } from '@/db/inbox';
-import { armLock, currentKeyring } from '@/security/lock';
+import {
+  deviceKek,
+  isKnownPhrase,
+  kekFromPassphrase,
+  keyringFromMaterial,
+  normalizePhrase,
+  openSpaceVault,
+} from '@brain/auth';
+import { DEVICE_LABEL, armLock, currentKeyring, refreshWraps, swapRing } from '@/security/lock';
+import { dropWrap, listWraps, saveWrap } from '@/security/keys';
 import {
   KEYS_ID,
+  SPACE_PHRASE_LABEL,
   announceDevice,
   claimGrant,
+  clearPhraseWrap,
   deviceIdentity,
   grantTo,
   livePeers,
   markRevoked,
+  publishPhraseWrap,
+  publishRing,
+  readVault,
   regrantAll,
 } from '@/security/pairing';
 import type { PairedDevice } from '@/security/pairing';
@@ -67,6 +81,10 @@ export async function bootBrain(): Promise<{ spaces: Spaces; registry: Registry 
       // его печатям.
       const identity = await deviceIdentity();
       announceDevice(spaces.space(KEYS_ID), identity, signer.peer.str, deviceLabel());
+
+      // Связка — синхронизируемое состояние пространства: слить с сейфом в
+      // ленде `keys` (секреты новых лендов доезжают до всех устройств сами).
+      await syncSpaceRing(ring);
 
       startSync({ spaces, secure: secureOf(ring, signer), lands: [KEYS_ID, ...dataLands] });
     },
@@ -129,21 +147,106 @@ function deviceLabel(): string {
  */
 export async function joinSpace(): Promise<void> {
   const spaces = need();
-  const ring = ringNow();
-  const identity = await deviceIdentity();
+  const material = await claimGrant(spaces.space(KEYS_ID), await deviceIdentity());
+  if (material === null) throw new Error('no grant issued for this device yet');
+  await adoptSpace(material);
+}
 
-  const secrets = await claimGrant(spaces.space(KEYS_ID), identity);
-  if (secrets === null) throw new Error('no grant issued for this device yet');
+/**
+ * Подключиться к пространству ОДНОЙ фразой — модель crus: мастер, завёрнутый
+ * KEK'ом фразы, и блоб секретов лежат в сейфе ленда `keys`; другое устройство
+ * для этого не нужно онлайн. Требуется настроенный синк: сейф приезжает
+ * обычной синхронизацией открытого ленда.
+ */
+export async function joinByPhrase(phrase: string): Promise<void> {
+  if (!isKnownPhrase(phrase)) throw new Error('this phrase contains words outside the wordlist');
+  const spaces = need();
+  const vault = readVault(spaces.space(KEYS_ID));
+  if (vault.phrase === null || vault.ring === null) {
+    throw new Error('the space vault is empty here yet — check the token and wait for sync');
+  }
+
+  const kek = await kekFromPassphrase(normalizePhrase(phrase), vault.phrase.salt);
+  // Неверная фраза честно бьётся об GCM внутри.
+  const material = await openSpaceVault(vault.phrase, kek, vault.ring);
+  await adoptSpace({ master: material.master, secrets: material.secrets });
+}
+
+/**
+ * Опубликовать фразовый вход в сейф пространства. Зовётся сразу после
+ * создания фразы (`SecurityScreen`): KEK ещё в руках, второй раз фразу не
+ * спрашиваем.
+ */
+export async function publishPhraseAccess(kek: Uint8Array, salt: Uint8Array): Promise<void> {
+  const wrapped = await ringNow().wrapFor(kek, { kind: 'passphrase', label: SPACE_PHRASE_LABEL, salt });
+  publishPhraseWrap(need().space(KEYS_ID), wrapped);
+}
+
+/**
+ * Принять материал пространства (грант v2 либо фраза): ЗАМЕНИТЬ локальные
+ * заготовки. Грант v1 (без мастера) заменяет только секреты — устройство
+ * остаётся на своём мастере и сейф публиковать не может.
+ */
+async function adoptSpace(material: SpaceMaterial): Promise<void> {
+  const spaces = need();
 
   stopSync();
   await spaces.seal();
   await spaces.wipe(dataLands);
-  await ring.replaceAll(secrets);
-  // Ленды, которых у дателя нет (новый модуль этой сборки), получают свои.
+
+  let ring = ringNow();
+  if (material.master !== null) {
+    const fresh = await keyringFromMaterial({ master: material.master, secrets: material.secrets }, localStorage);
+    // Прежний мастер этой связки больше ничего не значит: локальные обёртки
+    // протухли, заворачиваем НОВЫЙ мастер ключом устройства. Passkey и фразу
+    // человек добавит заново — честнее, чем молча оставить обёртки-пустышки.
+    for (const wrap of listWraps()) dropWrap(wrap.label);
+    const kek = await deviceKek();
+    if (kek !== null) {
+      saveWrap(await fresh.wrapFor(kek, { kind: 'device', label: DEVICE_LABEL, salt: new Uint8Array(0) }));
+    }
+    refreshWraps();
+    swapRing(fresh);
+    ring = fresh;
+  }
+  else {
+    await ring.replaceAll(material.secrets);
+  }
+
+  // Ленды, которых у пространства ещё нет (новый модуль этой сборки).
   for (const name of dataLands) await ring.ensure(landId(name).str);
 
   await spaces.unseal(secretsOf(ring));
+  const identity = await deviceIdentity();
+  announceDevice(spaces.space(KEYS_ID), identity, signerNow().peer.str, deviceLabel());
+  if (material.master !== null) await publishRing(spaces.space(KEYS_ID), ring);
   startSync({ spaces, secure: secureOf(ring, signerNow()), lands: [KEYS_ID, ...dataLands] });
+}
+
+/** Слить связку с сейфом пространства; см. вызов в reveal. */
+async function syncSpaceRing(ring: Keyring): Promise<void> {
+  const space = need().space(KEYS_ID);
+  const vault = readVault(space);
+
+  if (vault.ring === null) {
+    await publishRing(space, ring);
+    return;
+  }
+
+  let published: Map<string, Uint8Array>;
+  try {
+    published = await ring.openBlob(vault.ring);
+  }
+  catch {
+    // Сейф под другим мастером: либо это свежее устройство до подключения,
+    // либо мастер ротирован отзывом. И то и другое лечится грантом/фразой.
+    console.warn('[brain] сейф пространства запечатан другим мастером — подключитесь: грант или фраза');
+    return;
+  }
+
+  await ring.adopt(published);
+  const covered = ring.lands().every(land => published.has(land));
+  if (!covered) await publishRing(space, ring);
 }
 
 /**
@@ -159,7 +262,15 @@ export async function joinSpace(): Promise<void> {
  * Отозванное устройство сохраняет то, что УСПЕЛО прочитать, — отобрать
  * прочитанное не может никакая криптография. Новые правки ему недоступны.
  */
-export async function revokeDevice(device: PairedDevice): Promise<void> {
+export interface RevokeConfirm {
+  /** KEK способа доступа, подтверждённого прямо в диалоге отзыва. */
+  readonly kek: Uint8Array;
+  readonly meta: { kind: WrappedDek['kind']; label: string; salt: Uint8Array };
+  /** Нормализованная фраза, если подтверждали ею, — чтобы перевыпустить сейф. */
+  readonly phrase?: string;
+}
+
+export async function revokeDevice(device: PairedDevice, confirm?: RevokeConfirm): Promise<void> {
   const spaces = need();
   const ring = ringNow();
   const identity = await deviceIdentity();
@@ -177,6 +288,9 @@ export async function revokeDevice(device: PairedDevice): Promise<void> {
   await spaces.seal();
   await spaces.wipe(dataLands);
   await ring.rotate(dataLands.map(name => landId(name).str));
+  // Мастер тоже ротируется: отозванный знает старый и открыл бы новый сейф.
+  await ring.rotateMaster();
+  await rewrapAfterMasterChange(ring, confirm);
 
   await spaces.unseal(secretsOf(ring));
   for (const [name, { pack }] of kept) {
@@ -187,8 +301,43 @@ export async function revokeDevice(device: PairedDevice): Promise<void> {
   }
 
   await regrantAll(spaces.space(KEYS_ID), ring, identity);
+  await publishRing(spaces.space(KEYS_ID), ring);
+  // Фразовая обёртка мастера в сейфе — под СТАРЫМ мастером: либо перевыпуск
+  // той же фразой (подтверждена в диалоге), либо честное «пересоздайте фразу».
+  if (confirm?.phrase !== undefined) {
+    const vault = readVault(spaces.space(KEYS_ID));
+    const salt = vault.phrase?.salt ?? confirm.meta.salt;
+    const kek = await kekFromPassphrase(confirm.phrase, salt);
+    await publishPhraseAccess(kek, salt);
+  }
+  else {
+    clearPhraseWrap(spaces.space(KEYS_ID));
+  }
   await wipeServerLands();
   startSync({ spaces, secure: secureOf(ring, signerNow()), lands: [KEYS_ID, ...dataLands] });
+}
+
+/**
+ * После смены мастера все локальные обёртки протухли. Молча пересоздать можно
+ * только обёртку ключа устройства; способ, который спрашивает человека,
+ * обязан быть подтверждён в диалоге отзыва (`confirm`).
+ */
+async function rewrapAfterMasterChange(ring: Keyring, confirm?: RevokeConfirm): Promise<void> {
+  const wraps = listWraps();
+  const keyed = wraps.some(wrap => wrap.kind !== 'device');
+  if (keyed && confirm === undefined) {
+    throw new Error('confirm an access method to re-wrap the new master key');
+  }
+  for (const wrap of wraps) dropWrap(wrap.label);
+  if (confirm !== undefined) {
+    saveWrap(await ring.wrapFor(confirm.kek, confirm.meta));
+  }
+  else {
+    const kek = await deviceKek();
+    if (kek === null) throw new Error('device key is unavailable: cannot re-wrap the master key');
+    saveWrap(await ring.wrapFor(kek, { kind: 'device', label: DEVICE_LABEL, salt: new Uint8Array(0) }));
+  }
+  refreshWraps();
 }
 
 /** Стереть серверные копии лендов данных — перед перезаливкой перепечатанного. */

@@ -1,7 +1,7 @@
 import { Link, atom, identityOf, mintExchangePair, model, parts, t } from '@sync/core';
-import { decodeBytes, decodeSecrets, encodeBytes } from '@brain/auth';
+import { decodeBytes, decodeGrant, encodeBytes } from '@brain/auth';
 import type { Doc, ExchangeAlgo, Identity, Space, SubtleKeyPair } from '@sync/core';
-import type { Keyring } from '@brain/auth';
+import type { Keyring, Sealed, SpaceMaterial, WrappedDek } from '@brain/auth';
 
 /**
  * Подключение устройств: секреты лендов едут ВНУТРИ пространства.
@@ -65,18 +65,45 @@ export const GrantModel = model('keys/grant', {
   at: atom(t.number),
 });
 
+/**
+ * Сейф пространства (модель crus: зашифрованный ключ хранится в базе, вход —
+ * паролем). Обе записи — шифртекст, в открытом ленде им ничего не грозит:
+ *
+ *   `salt/nonce/cipher`     — МАСТЕР, завёрнутый KEK'ом фразы восстановления:
+ *                             второе устройство подключается одной фразой,
+ *                             первое для этого не нужно онлайн;
+ *   `ringNonce/ringCipher`  — секреты лендов, запечатанные мастером: связка —
+ *                             синхронизируемое состояние пространства, секрет
+ *                             нового ленда доезжает до всех устройств сам.
+ */
+export const VaultModel = model('keys/vault', {
+  salt: atom(t.string),
+  nonce: atom(t.string),
+  cipher: atom(t.string),
+  ringNonce: atom(t.string),
+  ringCipher: atom(t.string),
+  at: atom(t.number),
+});
+
 export const KeysModel = model('keys/root', {
   devices: parts(t.string, 'keys/device'),
   grants: parts(t.string, 'keys/grant'),
+  vault: parts(t.string, 'keys/vault'),
 });
 
 declare module '@sync/core' {
   interface Models {
     'keys/device': typeof DeviceModel;
     'keys/grant': typeof GrantModel;
+    'keys/vault': typeof VaultModel;
     'keys/root': typeof KeysModel;
   }
 }
+
+/** Запись сейфа одна на пространство. */
+const VAULT_ID = 'space';
+/** Метка фразовой обёртки мастера: AAD `wrapDek` привязывает kind и label. */
+export const SPACE_PHRASE_LABEL = 'space';
 
 const GRANT_AAD = 'brain/pair/v1';
 
@@ -179,6 +206,70 @@ export function fingerprint(pub: string): string {
   return `${pub.slice(0, 4)}-${pub.slice(4, 8)}`.toLowerCase();
 }
 
+// ── Сейф пространства ────────────────────────────────────────────────────────
+
+/** Опубликовать связку: секреты под мастером. Зовётся после каждого изменения. */
+export async function publishRing(space: Space, ring: Keyring): Promise<void> {
+  const sealed = await ring.sealedSecrets();
+  const root = space.root(KeysModel);
+  space.edit(() => {
+    const doc = root.vault(VAULT_ID);
+    doc.ringNonce(encodeBytes(sealed.nonce));
+    doc.ringCipher(encodeBytes(sealed.cipher));
+    doc.at(Date.now());
+  });
+}
+
+/** Опубликовать мастер под KEK'ом фразы — вход в пространство одной фразой. */
+export function publishPhraseWrap(space: Space, wrapped: WrappedDek): void {
+  const root = space.root(KeysModel);
+  space.edit(() => {
+    const doc = root.vault(VAULT_ID);
+    doc.salt(encodeBytes(wrapped.salt));
+    doc.nonce(encodeBytes(wrapped.nonce));
+    doc.cipher(encodeBytes(wrapped.cipher));
+    doc.at(Date.now());
+  });
+}
+
+/** Стереть фразовую обёртку — после смены мастера она открывала бы пустоту. */
+export function clearPhraseWrap(space: Space): void {
+  const root = space.root(KeysModel);
+  if (!root.vault.has(VAULT_ID)) return;
+  space.edit(() => {
+    const doc = root.vault(VAULT_ID);
+    doc.salt('');
+    doc.nonce('');
+    doc.cipher('');
+  });
+}
+
+export interface SpaceVault {
+  /** Мастер под KEK'ом фразы. `null` — фразовый вход не опубликован. */
+  readonly phrase: WrappedDek | null;
+  /** Секреты под мастером. `null` — связку ещё не публиковали. */
+  readonly ring: Sealed | null;
+}
+
+export function readVault(space: Space): SpaceVault {
+  const root = space.root(KeysModel);
+  if (!root.vault.has(VAULT_ID)) return { phrase: null, ring: null };
+  const doc = root.vault(VAULT_ID);
+  const phrase: WrappedDek | null = doc.cipher() === ''
+    ? null
+    : {
+        kind: 'passphrase',
+        label: SPACE_PHRASE_LABEL,
+        salt: decodeBytes(doc.salt()),
+        nonce: decodeBytes(doc.nonce()),
+        cipher: decodeBytes(doc.cipher()),
+      };
+  const ring: Sealed | null = doc.ringCipher() === ''
+    ? null
+    : { nonce: decodeBytes(doc.ringNonce()), cipher: decodeBytes(doc.ringCipher()) };
+  return { phrase, ring };
+}
+
 /** Доверить устройству пространство: завернуть секреты связки взаимным ключом. */
 export async function grantTo(
   space: Space,
@@ -189,7 +280,7 @@ export async function grantTo(
   const mutual = await identity.mutualSealed(device.algo, decodeBytes(device.pub));
   const nonce = crypto.getRandomValues(new Uint8Array(12));
   const aad = new TextEncoder().encode(`${GRANT_AAD}:${device.pub}:${encodeBytes(identity.pub)}`);
-  const blob = ring.exportSecrets();
+  const blob = ring.exportForGrant();
   const cipher = new Uint8Array(await crypto.subtle.encrypt(
     { name: 'AES-GCM', iv: nonce, additionalData: aad },
     mutual,
@@ -215,7 +306,7 @@ export async function grantTo(
 export async function claimGrant(
   space: Space,
   identity: Identity,
-): Promise<Map<string, Uint8Array> | null> {
+): Promise<SpaceMaterial | null> {
   const myPub = encodeBytes(identity.pub);
   const root = space.root(KeysModel);
   if (!root.grants.has(myPub)) return null;
@@ -232,7 +323,7 @@ export async function claimGrant(
     mutual,
     decodeBytes(doc.cipher()).slice().buffer as ArrayBuffer,
   );
-  return decodeSecrets(new Uint8Array(blob));
+  return decodeGrant(new Uint8Array(blob));
 }
 
 /**

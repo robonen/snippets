@@ -25,7 +25,7 @@ import {
 } from '@brain/auth';
 import { useValue } from '@sync/vue';
 import { useSpaces } from '@brain/module-kit';
-import { joinSpace, pendingGrant, revokeDevice, trustDevice } from '@/app/boot';
+import { joinByPhrase, joinSpace, pendingGrant, publishPhraseAccess, revokeDevice, trustDevice } from '@/app/boot';
 import { addAccess, freshSalt, removeAccess, useLock } from '../security/lock';
 import { KEYS_ID, deviceIdentity, fingerprint, listDevices } from '../security/pairing';
 import { Fingerprint, KeyRound, Lock, MonitorSmartphone, TriangleAlert } from 'lucide-vue-next';
@@ -125,6 +125,9 @@ async function confirmPhrase(): Promise<void> {
     const salt = freshSalt();
     const kek = await kekFromPassphrase(phrase.value.join(' '), salt);
     await addAccess(kek, { kind: 'passphrase', label: 'фраза', salt });
+    // Та же фраза открывает пространство с ЛЮБОГО устройства: мастер под её
+    // KEK'ом публикуется в сейфе ленда `keys` (модель crus).
+    if (spaces.open) await publishPhraseAccess(kek, salt);
     phrase.value = null;
   }
   catch (caught) {
@@ -171,6 +174,26 @@ onMounted(async () => {
 const devices = useValue(() =>
   spaces.open && myPub.value !== '' ? listDevices(spaces.space(KEYS_ID), myPub.value) : []);
 const others = computed(() => (devices.value ?? []).filter(device => !device.mine));
+
+// Вход фразой: пространство открывается с нового устройства одной фразой —
+// сейф (мастер под KEK'ом фразы + секреты под мастером) приезжает синком.
+const joinPhrase = ref('');
+const joinPhraseOpen = ref(false);
+
+async function doJoinByPhrase(): Promise<void> {
+  deviceBusy.value = 'phrase-join';
+  try {
+    await joinByPhrase(joinPhrase.value);
+    joinPhrase.value = '';
+    toast({ title: 'Устройство подключено', description: 'Данные пространства едут с сервера.', tone: 'positive' });
+  }
+  catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'не получилось подключиться фразой';
+  }
+  finally {
+    deviceBusy.value = '';
+  }
+}
 
 /** Ждёт ли нас чужая обёртка — свежему устройству предлагается присоединиться. */
 const grantReady = ref(false);
@@ -226,13 +249,38 @@ async function doJoin(): Promise<void> {
   }
 }
 
+const revokePhrase = ref('');
+
 async function doRevokeDevice(): Promise<void> {
   const device = revokeDeviceTarget.value;
   if (device === null) return;
   deviceBusy.value = device.pub;
   try {
-    await revokeDevice(device);
-    toast({ title: 'Устройство отозвано', description: 'Секреты перевыпущены, ленды перепечатаны.', tone: 'positive' });
+    // Отзыв ротирует МАСТЕР: локальные обёртки протухают, и способ доступа
+    // подтверждается прямо здесь, чтобы завернуть новый мастер тем же способом.
+    let confirm;
+    const passkeyWrap = wraps.value.find(w => w.kind === 'passkey');
+    const phraseWrap = wraps.value.find(w => w.kind === 'passphrase');
+    if (passkeyWrap !== undefined) {
+      const assertion = await signIn({ rpId, challenge: randomBytes(32) }, passkeyWrap.salt);
+      const kek = await kekFromAssertion(assertion, passkeyWrap.salt);
+      if (kek === null) throw new Error('этот ключ не отдал PRF — отзыв остановлен');
+      confirm = { kek, meta: { kind: 'passkey' as const, label: passkeyWrap.label, salt: passkeyWrap.salt } };
+    }
+    else if (phraseWrap !== undefined) {
+      const clean = normalizePhrase(revokePhrase.value);
+      const kek = await kekFromPassphrase(clean, phraseWrap.salt);
+      confirm = { kek, meta: { kind: 'passphrase' as const, label: phraseWrap.label, salt: phraseWrap.salt }, phrase: clean };
+    }
+    await revokeDevice(device, confirm);
+    revokePhrase.value = '';
+    toast({
+      title: 'Устройство отозвано',
+      description: confirm?.phrase === undefined && phraseWrap !== undefined
+        ? 'Секреты и мастер перевыпущены. Пересоздайте фразу восстановления.'
+        : 'Секреты и мастер перевыпущены, ленды перепечатаны.',
+      tone: 'positive',
+    });
   }
   catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'не получилось отозвать устройство';
@@ -296,6 +344,35 @@ async function doRevokeDevice(): Promise<void> {
           <Button tone="primary" size="sm" :loading="deviceBusy === 'join'" @click="joinDialogOpen = true">
             Присоединиться
           </Button>
+        </div>
+      </Card>
+
+      <Card v-if="spaces.open && !grantReady" title="Вход фразой">
+        <div class="flex flex-col gap-2">
+          <p class="text-xs text-text-faint">
+            Новое устройство? Введите фразу восстановления пространства — данные
+            приедут с сервера, локальные заготовки будут заменены.
+          </p>
+          <textarea
+            v-model="joinPhrase"
+            rows="2"
+            placeholder="двенадцать слов через пробел"
+            aria-label="Фраза пространства"
+            autocomplete="off"
+            class="glass w-full resize-none rounded-control border px-3.5 py-2.5 text-sm text-text
+                   transition-[border-color] placeholder:text-text-faint focus:border-accent focus:outline-none"
+          />
+          <div class="flex justify-end">
+            <Button
+              tone="primary"
+              size="sm"
+              :disabled="joinPhrase.trim() === ''"
+              :loading="deviceBusy === 'phrase-join'"
+              @click="joinPhraseOpen = true"
+            >
+              Подключиться
+            </Button>
+          </div>
         </div>
       </Card>
 
@@ -494,6 +571,14 @@ async function doRevokeDevice(): Promise<void> {
         + 'Что устройство успело прочитать — при нём и останется; нового оно не увидит. Нужна сеть.'"
       confirm-label="Отозвать"
       @confirm="doRevokeDevice"
+    />
+
+    <ConfirmDialog
+      v-model:open="joinPhraseOpen"
+      title="Подключиться к пространству?"
+      description="Местные данные этого устройства будут заменены данными пространства. Всё, что вы успели записать здесь, будет стёрто."
+      confirm-label="Подключиться"
+      @confirm="doJoinByPhrase"
     />
 
     <ConfirmDialog
