@@ -1,6 +1,5 @@
 import { describe, expect, test } from 'vitest';
 import {
-  createDek,
   createDeviceKek,
   createSalt,
   kekFromPassphrase,
@@ -26,7 +25,7 @@ const text = (value: string): Uint8Array => new TextEncoder().encode(value);
 
 describe('AES-GCM', () => {
   test('What was encrypted is what gets decrypted', async () => {
-    const key = createDek();
+    const key = randomBytes(32);
     const plain = text('лечу в отпуск 12 сентября');
 
     const sealed = await seal(key, plain);
@@ -34,7 +33,7 @@ describe('AES-GCM', () => {
   });
 
   test('Each operation gets its own nonce — otherwise GCM loses the authentication key too', async () => {
-    const key = createDek();
+    const key = randomBytes(32);
     const plain = text('одно и то же');
 
     const a = await seal(key, plain);
@@ -46,12 +45,12 @@ describe('AES-GCM', () => {
   });
 
   test('A foreign key does not open', async () => {
-    const sealed = await seal(createDek(), text('секрет'));
-    await expect(open(createDek(), sealed)).rejects.toThrow();
+    const sealed = await seal(randomBytes(32), text('секрет'));
+    await expect(open(randomBytes(32), sealed)).rejects.toThrow();
   });
 
   test('Corruption of any ciphertext byte is caught', async () => {
-    const key = createDek();
+    const key = randomBytes(32);
     const sealed = await seal(key, text('целостность важнее секретности'));
 
     for (let i = 0; i < sealed.cipher.length; i++) {
@@ -62,7 +61,7 @@ describe('AES-GCM', () => {
   });
 
   test('Nonce corruption is caught', async () => {
-    const key = createDek();
+    const key = randomBytes(32);
     const sealed = await seal(key, text('данные'));
     const nonce = sealed.nonce.slice();
     nonce[0]! ^= 0x01;
@@ -71,7 +70,7 @@ describe('AES-GCM', () => {
   });
 
   test('AAD is signed: does not open with a different land address', async () => {
-    const key = createDek();
+    const key = randomBytes(32);
     const sealed = await seal(key, text('дневник'), text('land:kcal'));
 
     expect(await open(key, sealed, text('land:kcal'))).toEqual(text('дневник'));
@@ -80,13 +79,13 @@ describe('AES-GCM', () => {
   });
 
   test('Empty data encrypts and survives the round trip', async () => {
-    const key = createDek();
+    const key = randomBytes(32);
     const sealed = await seal(key, new Uint8Array(0));
     expect(await open(key, sealed)).toEqual(new Uint8Array(0));
   });
 
   test('A view into a buffer slice encrypts as standalone data', async () => {
-    const key = createDek();
+    const key = randomBytes(32);
     const backing = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]);
     const view = backing.subarray(2, 6);
 
@@ -148,7 +147,7 @@ describe('KEK derivation', () => {
 
 describe('DEK envelope', () => {
   test('Wrap opens with its own key', async () => {
-    const dek = createDek();
+    const dek = randomBytes(32);
     const kek = await kekFromPrf(randomBytes(32), createSalt());
 
     const wrapped = await wrapDek(dek, kek, { kind: 'passkey', label: 'телефон', salt: createSalt() });
@@ -159,12 +158,12 @@ describe('DEK envelope', () => {
     const kek = await kekFromPrf(randomBytes(32), createSalt());
     const other = await kekFromPrf(randomBytes(32), createSalt());
 
-    const wrapped = await wrapDek(createDek(), kek, { kind: 'passkey', label: 'телефон', salt: createSalt() });
+    const wrapped = await wrapDek(randomBytes(32), kek, { kind: 'passkey', label: 'телефон', salt: createSalt() });
     await expect(unwrapDek(wrapped, other)).rejects.toThrow();
   });
 
   test('One DEK under N access methods: each opens the same key', async () => {
-    const dek = createDek();
+    const dek = randomBytes(32);
     const phone = await kekFromPrf(randomBytes(32), createSalt());
     const laptop = await kekFromPrf(randomBytes(32), createSalt());
     const phraseSalt = createSalt();
@@ -185,7 +184,7 @@ describe('DEK envelope', () => {
 
   test('Tampering with the wrap label breaks unwrapping', async () => {
     const kek = await kekFromPrf(randomBytes(32), createSalt());
-    const wrapped = await wrapDek(createDek(), kek, {
+    const wrapped = await wrapDek(randomBytes(32), kek, {
       kind: 'passkey',
       label: 'телефон',
       salt: createSalt(),
@@ -207,7 +206,7 @@ describe('Device key', () => {
   });
 
   test('Wrap under the device key opens with it and only it', async () => {
-    const dek = createDek();
+    const dek = randomBytes(32);
     const mine = await createDeviceKek();
     const stranger = await createDeviceKek();
     const wrapped = await wrapDek(dek, mine, {

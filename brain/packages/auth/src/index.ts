@@ -25,8 +25,6 @@ export type { Sealed, WrappedDek } from './crypto';
 export { deviceKek, dropDeviceKek } from './device';
 
 export {
-  PHRASE_LENGTH,
-  WORDS,
   createPhrase,
   assertKnownPhrase,
   isKnownPhrase,
@@ -37,8 +35,6 @@ export {
 export {
   createKeyring,
   decodeGrant,
-  decodeSecrets,
-  dropKeyring,
   keyringFromMaterial,
   openSpaceVault,
   unlockKeyring,

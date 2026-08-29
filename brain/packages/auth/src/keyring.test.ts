@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import { createSalt, randomBytes } from './crypto';
-import { createKeyring, decodeGrant, decodeSecrets, dropKeyring, keyringFromMaterial, openSpaceVault, unlockKeyring } from './keyring';
+import { createSalt, encodeBytes, randomBytes } from './crypto';
+import { createKeyring, decodeGrant, keyringFromMaterial, openSpaceVault, unlockKeyring } from './keyring';
 import type { RingStore } from './keyring';
 
 /**
@@ -65,12 +65,9 @@ describe('Keyring', () => {
     await ring.ensure('notes');
     const mine = ring.rawOf('notes') as Uint8Array;
 
-    const foreign = decodeSecrets((await (async () => {
-      const other = await createKeyring(memoryStore());
-      await other.ensure('tasks');
-      return other.exportSecrets();
-    })()));
-    await ring.adopt(foreign);
+    const other = await createKeyring(memoryStore());
+    await other.ensure('tasks');
+    await ring.adopt(new Map([['tasks', other.rawOf('tasks') as Uint8Array]]));
     expect(new Set(ring.lands())).toEqual(new Set(['notes', 'tasks']));
 
     // Совпадающий секрет — не конфликт; другой секрет того же ленда — конфликт.
@@ -88,11 +85,8 @@ describe('Keyring', () => {
 
     ring.lock();
     expect(ring.secretOf('notes')).toBeNull();
-    expect(() => ring.exportSecrets()).not.toThrow(); // пустая связка — не бросок
+    expect(ring.lands()).toEqual([]);
     await expect(ring.wrapFor(randomBytes(32), META)).rejects.toThrow(/locked/);
-
-    dropKeyring(store);
-    expect(store.getItem('brain.keys.ring')).toBeNull();
   });
 });
 
@@ -110,8 +104,14 @@ test('Grant v2 carries the master: the receiver opens the published blob', async
   const blob = await a.sealedSecrets();
   const opened = await b.openBlob(blob);
   expect([...opened.keys()]).toEqual(['notes']);
-  // Грант v1 (только секреты) разбирается тем же декодером.
-  expect(decodeGrant(a.exportSecrets()).master).toBeNull();
+  // Грант v1 (только секреты, формат старых сборок) разбирается тем же декодером.
+  const v1 = new TextEncoder().encode(JSON.stringify({
+    v: 1,
+    lands: { notes: encodeBytes(a.rawOf('notes') as Uint8Array) },
+  }));
+  const legacy = decodeGrant(v1);
+  expect(legacy.master).toBeNull();
+  expect(legacy.secrets.get('notes')).toEqual(a.rawOf('notes'));
 });
 
 test('The phrase vault opens the space without the granting device', async () => {

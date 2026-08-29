@@ -41,7 +41,7 @@ export interface SocketOptions {
  * захламлял бы адрес и намекал бы на путь авторизации, которого в обычном
  * сценарии больше нет — вход теперь на cookie (план Р2).
  */
-export function socketUrl(base: string, token?: string): string {
+function socketUrl(base: string, token?: string): string {
   const origin = base === ''
     ? globalThis.location.origin.replace(/^http/, 'ws')
     : base.replace(/\/+$/, '').replace(/^http/, 'ws');

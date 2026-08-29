@@ -55,8 +55,6 @@ export interface Keyring {
    * не открывают, и спорить с пространством не о чем.
    */
   replaceAll(secrets: ReadonlyMap<string, Uint8Array>): Promise<void>;
-  /** Сериализация секретов для ECDH-обёртки другому устройству. */
-  exportSecrets(): Uint8Array;
   /**
    * Материал пространства целиком — мастер И секреты (формат v2). Едет только
    * внутри ECDH-обёртки гранта: получатель становится полноправным устройством
@@ -155,7 +153,7 @@ function fromBase64url(encoded: string): Uint8Array {
   return raw;
 }
 
-export function decodeSecrets(blob: Uint8Array): Map<string, Uint8Array> {
+function decodeSecrets(blob: Uint8Array): Map<string, Uint8Array> {
   const parsed = JSON.parse(new TextDecoder().decode(blob)) as { v: number; lands: Record<string, string> };
   if (parsed.v !== 1) throw new Error(`keyring version ${parsed.v}: this build understands only v1`);
   const out = new Map<string, Uint8Array>();
@@ -229,8 +227,6 @@ async function ringOf(master: Uint8Array, store: RingStore, entries: Map<string,
       }
       await persist();
     },
-
-    exportSecrets: () => encodeSecrets(entries),
 
     exportForGrant(): Uint8Array {
       const lands: Record<string, string> = {};
@@ -340,9 +336,4 @@ export async function openSpaceVault(
   const master = await unwrapDek(wrappedMaster, kek);
   const secrets = decodeSecrets(await open(master, blob, encoder.encode(RING_AAD)));
   return { master, secrets };
-}
-
-/** Забыть запечатанную связку в store — вместе со сбросом всех способов доступа. */
-export function dropKeyring(store: RingStore): void {
-  store.removeItem(RING_KEY);
 }

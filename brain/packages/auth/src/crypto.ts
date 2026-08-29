@@ -51,11 +51,6 @@ export function randomBytes(length: number): Uint8Array {
   return out;
 }
 
-/** Новый ключ данных. Один на всё пространство, живёт в памяти разблокированного приложения. */
-export function createDek(): Uint8Array {
-  return randomBytes(DEK_BYTES);
-}
-
 export function createSalt(): Uint8Array {
   return randomBytes(SALT_BYTES);
 }

@@ -70,8 +70,8 @@ function runAction(entry: ToastEntry): void {
       :duration="visibility === 'visible' ? entry.duration : Number.POSITIVE_INFINITY"
       :type="entry.action ? 'foreground' : 'background'"
       to-viewport
-      class="glass pointer-events-auto flex items-start gap-3 overflow-hidden rounded-card border py-3
-             pr-2 pl-0 shadow-float
+      class="glass pointer-events-auto relative flex items-start gap-3 overflow-hidden rounded-card border
+             py-3 pr-2 pl-4 shadow-float
              transition-[opacity,translate] duration-(--duration-menu) ease-out
              starting:translate-y-3 starting:opacity-0
              data-[swipe=move]:translate-x-[var(--primitives-toast-swipe-move-x)]
@@ -80,7 +80,7 @@ function runAction(entry: ToastEntry): void {
              motion-reduce:transition-[opacity] motion-reduce:starting:translate-y-0"
       @update:open="(open: boolean) => { if (!open) dismiss(entry.id); }"
     >
-      <span aria-hidden="true" class="w-1 shrink-0 self-stretch rounded-r-full" :class="TONES[entry.tone ?? 'neutral']" />
+      <span aria-hidden="true" class="absolute inset-y-0 left-0 w-1" :class="TONES[entry.tone ?? 'neutral']" />
 
       <div class="min-w-0 flex-1">
         <ToastTitle class="text-sm font-medium text-text">{{ entry.title }}</ToastTitle>
@@ -101,7 +101,7 @@ function runAction(entry: ToastEntry): void {
 
       <ToastClose
         aria-label="Закрыть"
-        class="pressable shrink-0 self-start rounded-control p-1.5 text-text-faint
+        class="pressable -mt-1 shrink-0 self-start rounded-control p-1.5 text-text-faint
                hover:bg-sunken hover:text-text"
       >
         <X class="size-4" />
@@ -112,7 +112,8 @@ function runAction(entry: ToastEntry): void {
          иначе перехватывала бы нажатия по списку под ней. -->
     <ToastViewport
       class="pointer-events-none fixed inset-x-0 bottom-0 z-[60] mx-auto flex w-full max-w-md list-none flex-col
-             gap-2 p-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]"
+             gap-2 p-3 pb-[calc(3.75rem+env(safe-area-inset-bottom)+0.75rem)]
+             lg:pb-[calc(env(safe-area-inset-bottom)+0.75rem)]"
     />
   </ToastProvider>
 </template>

@@ -29,10 +29,11 @@ function submit(): void {
   save({ url: url.value, token: token.value });
   open.value = false;
   restartSync();
-  toast({
-    title: settings.value.url === '' ? 'Синхронизация выключена' : 'Сервер подключён',
-    tone: 'positive',
-  });
+  // Выключатель — ТОКЕН (пустой адрес значит «тот же origin», а не «выкл»),
+  // и тон честный: выключение — не успех.
+  toast(configured.value
+    ? { title: 'Сервер подключён', tone: 'positive' }
+    : { title: 'Синхронизация выключена' });
 }
 
 function disconnect(): void {
