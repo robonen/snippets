@@ -12,7 +12,7 @@ import {
   signerOf,
   verifyPack,
 } from '@sync/core';
-import type { Link, PackPart, PassAlgo, Roster, SecretRing, Signer, SubtleKeyPair } from '@sync/core';
+import type { CryptoError, Link, PackPart, PassAlgo, Roster, SecretRing, Signer, SubtleKeyPair } from '@sync/core';
 import type { Secure } from '@/sync/engine';
 
 /**
@@ -122,6 +122,23 @@ export function makeSecure(
     return packEncode(decoded);
   };
 
+  // Юнит, который не распечатать, ВЫБЫВАЕТ, а не валит кадр: пир без ключа
+  // хранит всё подряд, в том числе юниты, запечатанные секретами, которых
+  // больше ни у кого нет (устройство успело позаписывать до подключения;
+  // прежние секреты после отзыва). Бросок здесь глушил бы каждую дельту
+  // сервера целиком — вместе со всеми хорошими юнитами, навсегда.
+  const complained = new Set<string>();
+  const dropSealed = (error: CryptoError): void => {
+    const at = error.at.split(', unit')[0] ?? error.at;
+    if (complained.has(at)) return;
+    complained.add(at);
+    console.warn(
+      `[brain] синк: часть юнитов (${at}) запечатана недоступным секретом и пропущена. `
+      + 'Для нового устройства это «ещё не подключено» — подключите его фразой или грантом; '
+      + 'после смены секретов это безвредный след старых данных на сервере.',
+    );
+  };
+
   return {
     async outgoing(pack: Uint8Array): Promise<Uint8Array> {
       const { root, data } = split(pack);
@@ -141,7 +158,7 @@ export function makeSecure(
       // (подделка сервера, чужой пир, недостаточный ранг) отброшено verifyPack.
       const opened = data === null
         ? null
-        : await openPack((await verifyPack(data, roster(), auditor)).pack, ring);
+        : await openPack((await verifyPack(data, roster(), auditor)).pack, ring, dropSealed);
       return join(root, opened);
     },
   };

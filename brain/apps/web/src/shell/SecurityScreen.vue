@@ -188,7 +188,12 @@ const joinPhraseError = ref('');
 // Сейф пространства — реактивно из ленда `keys`: пока фразовый вход не
 // приехал синком, кнопка честно выключена, а не «жмётся в пустоту».
 const vault = useValue(() => spaces.open ? readVault(spaces.space(KEYS_ID)) : null);
-const vaultReady = computed(() => (vault.value?.phrase ?? null) !== null);
+/** Обе половины сейфа обязаны быть от одного мастера (легаси без отпечатков не судим). */
+const vaultStale = computed(() => {
+  const v = vault.value;
+  return v !== null && v !== undefined && v.wrapMaster !== '' && v.ringMaster !== '' && v.wrapMaster !== v.ringMaster;
+});
+const vaultReady = computed(() => (vault.value?.phrase ?? null) !== null && !vaultStale.value);
 
 async function doJoinByPhrase(): Promise<void> {
   deviceBusy.value = 'phrase-join';
@@ -199,7 +204,9 @@ async function doJoinByPhrase(): Promise<void> {
     toast({ title: 'Устройство подключено', description: 'Данные пространства едут с сервера.', tone: 'positive' });
   }
   catch (caught) {
-    joinPhraseError.value = caught instanceof Error ? caught.message : 'не получилось подключиться фразой';
+    joinPhraseError.value = caught instanceof Error && caught.message !== ''
+      ? caught.message
+      : 'не получилось подключиться фразой';
   }
   finally {
     deviceBusy.value = '';
@@ -380,7 +387,12 @@ async function doRevokeDevice(): Promise<void> {
             class="glass w-full resize-none rounded-control border px-3.5 py-2.5 text-sm text-text
                    transition-[border-color] placeholder:text-text-faint focus:border-accent focus:outline-none"
           />
-          <p v-if="!vaultReady" class="text-xs text-warning">
+          <p v-if="vaultStale" class="text-xs text-warning">
+            Сейф пространства рассинхронизирован: секреты запечатаны не тем
+            мастером, что лежит под фразой. Откройте первое устройство — оно
+            перепубликует сейф, и вход фразой оживёт.
+          </p>
+          <p v-else-if="!vaultReady" class="text-xs text-warning">
             Фразовый вход ещё не приехал с сервера. Проверьте синхронизацию в
             Настройках; если фраза создана давно — откройте ею первое
             устройство один раз, оно опубликует вход.

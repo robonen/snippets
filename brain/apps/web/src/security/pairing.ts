@@ -80,8 +80,12 @@ export const VaultModel = model('keys/vault', {
   salt: atom(t.string),
   nonce: atom(t.string),
   cipher: atom(t.string),
+  /** Отпечаток мастера под фразовой обёрткой (Keyring.masterId, не секрет). */
+  wrapMaster: atom(t.string),
   ringNonce: atom(t.string),
   ringCipher: atom(t.string),
+  /** Отпечаток мастера, запечатавшего блоб. Обязан совпадать с wrapMaster. */
+  ringMaster: atom(t.string),
   at: atom(t.number),
 });
 
@@ -216,18 +220,20 @@ export async function publishRing(space: Space, ring: Keyring): Promise<void> {
     const doc = root.vault(VAULT_ID);
     doc.ringNonce(encodeBytes(sealed.nonce));
     doc.ringCipher(encodeBytes(sealed.cipher));
+    doc.ringMaster(ring.masterId());
     doc.at(Date.now());
   });
 }
 
 /** Опубликовать мастер под KEK'ом фразы — вход в пространство одной фразой. */
-export function publishPhraseWrap(space: Space, wrapped: WrappedDek): void {
+export function publishPhraseWrap(space: Space, wrapped: WrappedDek, masterId: string): void {
   const root = space.root(KeysModel);
   space.edit(() => {
     const doc = root.vault(VAULT_ID);
     doc.salt(encodeBytes(wrapped.salt));
     doc.nonce(encodeBytes(wrapped.nonce));
     doc.cipher(encodeBytes(wrapped.cipher));
+    doc.wrapMaster(masterId);
     doc.at(Date.now());
   });
 }
@@ -241,6 +247,7 @@ export function clearPhraseWrap(space: Space): void {
     doc.salt('');
     doc.nonce('');
     doc.cipher('');
+    doc.wrapMaster('');
   });
 }
 
@@ -249,11 +256,14 @@ export interface SpaceVault {
   readonly phrase: WrappedDek | null;
   /** Секреты под мастером. `null` — связку ещё не публиковали. */
   readonly ring: Sealed | null;
+  /** Отпечатки мастеров половин сейфа. Пустая строка — запись до отпечатков. */
+  readonly wrapMaster: string;
+  readonly ringMaster: string;
 }
 
 export function readVault(space: Space): SpaceVault {
   const root = space.root(KeysModel);
-  if (!root.vault.has(VAULT_ID)) return { phrase: null, ring: null };
+  if (!root.vault.has(VAULT_ID)) return { phrase: null, ring: null, wrapMaster: '', ringMaster: '' };
   const doc = root.vault(VAULT_ID);
   const phrase: WrappedDek | null = doc.cipher() === ''
     ? null
@@ -267,7 +277,7 @@ export function readVault(space: Space): SpaceVault {
   const ring: Sealed | null = doc.ringCipher() === ''
     ? null
     : { nonce: decodeBytes(doc.ringNonce()), cipher: decodeBytes(doc.ringCipher()) };
-  return { phrase, ring };
+  return { phrase, ring, wrapMaster: doc.wrapMaster(), ringMaster: doc.ringMaster() };
 }
 
 /** Доверить устройству пространство: завернуть секреты связки взаимным ключом. */

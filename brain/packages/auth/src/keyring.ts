@@ -78,6 +78,13 @@ export interface Keyring {
    * после этого протухают: вызывающий обязан перезавернуть их заново.
    */
   rotateMaster(): Promise<void>;
+  /**
+   * Отпечаток мастера — 8 байт SHA-256 в base64url. НЕ секрет (мастер по хэшу
+   * не восстановить): публикуется в сейфе пространства, чтобы фразовая обёртка
+   * и блоб секретов доказуемо принадлежали ОДНОМУ мастеру, а неподключённые
+   * устройства не перетирали чужой сейф своим.
+   */
+  masterId(): string;
   /** Завернуть МАСТЕР для нового способа доступа. */
   wrapFor(
     kek: Uint8Array | CryptoKey,
@@ -158,8 +165,15 @@ export function decodeSecrets(blob: Uint8Array): Map<string, Uint8Array> {
 
 const encoder = new TextEncoder();
 
+/** Отпечаток мастера для сейфа: 8 байт SHA-256 в base64url (см. Keyring.masterId). */
+async function masterTag(master: Uint8Array): Promise<string> {
+  const shot = new Uint8Array(await crypto.subtle.digest('SHA-256', master.slice().buffer as ArrayBuffer));
+  return toBase64url(shot.subarray(0, 8));
+}
+
 async function ringOf(master: Uint8Array, store: RingStore, entries: Map<string, Entry>): Promise<Keyring> {
   let key: Uint8Array | null = master;
+  let tag = await masterTag(master);
 
   const need = (): Uint8Array => {
     if (key === null) throw new Error('keyring is locked: master key forgotten, unlock again');
@@ -244,8 +258,11 @@ async function ringOf(master: Uint8Array, store: RingStore, entries: Map<string,
       const fresh = randomBytes(MASTER_BYTES);
       need().fill(0);
       key = fresh;
+      tag = await masterTag(fresh);
       await persist();
     },
+
+    masterId: () => tag,
 
     wrapFor: async (kek, meta) => wrapDek(need(), kek, meta),
 

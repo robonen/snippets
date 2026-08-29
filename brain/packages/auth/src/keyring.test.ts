@@ -151,3 +151,25 @@ test('rotateMaster invalidates old wraps and old blobs', async () => {
   const reopened = await unlockKeyring(freshWrap, kek, store);
   expect(reopened.lands()).toEqual(['notes']);
 });
+
+test('masterId is stable across unlocks and changes only with rotateMaster', async () => {
+  const store = memoryStore();
+  const ring = await createKeyring(store);
+  const kek = randomBytes(32);
+  const wrap = await ring.wrapFor(kek, META);
+  const id = ring.masterId();
+  expect(id).not.toBe('');
+
+  // Тот же мастер после разблокировки — тот же отпечаток.
+  expect((await unlockKeyring(wrap, kek, store)).masterId()).toBe(id);
+  // Грант v2 несёт тот же мастер: получатель разделяет отпечаток.
+  const material = decodeGrant(ring.exportForGrant());
+  const twin = await keyringFromMaterial(
+    { master: material.master as Uint8Array, secrets: material.secrets },
+    memoryStore(),
+  );
+  expect(twin.masterId()).toBe(id);
+
+  await ring.rotateMaster();
+  expect(ring.masterId()).not.toBe(id);
+});

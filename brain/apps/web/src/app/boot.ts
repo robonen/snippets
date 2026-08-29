@@ -96,12 +96,15 @@ export async function bootBrain(): Promise<{ spaces: Spaces; registry: Registry 
       await spaces.seal();
     },
     phraseUnlocked: async (kek, salt) => {
-      // Старые установки: фраза создана ДО сейфа пространства. Первое же
-      // успешное открытие этой фразой публикует фразовый вход — именно с
-      // него подключаются новые устройства.
+      // Фраза только что открыла данные — KEK в руках. Два долга перед
+      // сейфом: доопубликовать фразовый вход, если его ещё нет (фраза
+      // старше сейфа), и проштамповать отпечаток мастера на записи, которая
+      // легла до отпечатков.
       const space = spaces.space(KEYS_ID);
-      if (readVault(space).phrase !== null) return;
-      publishPhraseWrap(space, await ringNow().wrapFor(kek, { kind: 'passphrase', label: SPACE_PHRASE_LABEL, salt }));
+      const ring = ringNow();
+      const vault = readVault(space);
+      if (vault.phrase !== null && vault.wrapMaster !== '') return;
+      publishPhraseWrap(space, await ring.wrapFor(kek, { kind: 'passphrase', label: SPACE_PHRASE_LABEL, salt }), ring.masterId());
     },
   });
 
@@ -177,6 +180,9 @@ export async function joinByPhrase(phrase: string): Promise<void> {
   if (vault.phrase === null) {
     throw new Error('the vault has no phrase entry — unlock the first device with its phrase once, or re-create the phrase there');
   }
+  if (vault.wrapMaster !== '' && vault.ringMaster !== '' && vault.wrapMaster !== vault.ringMaster) {
+    throw new Error('the vault halves disagree: the secrets blob was sealed by a different master — open the first device once, it will republish the vault');
+  }
 
   const kek = await kekFromPassphrase(normalizePhrase(phrase), vault.phrase.salt);
   // Неверная фраза честно бьётся об GCM внутри.
@@ -190,8 +196,9 @@ export async function joinByPhrase(phrase: string): Promise<void> {
  * спрашиваем.
  */
 export async function publishPhraseAccess(kek: Uint8Array, salt: Uint8Array): Promise<void> {
-  const wrapped = await ringNow().wrapFor(kek, { kind: 'passphrase', label: SPACE_PHRASE_LABEL, salt });
-  publishPhraseWrap(need().space(KEYS_ID), wrapped);
+  const ring = ringNow();
+  const wrapped = await ring.wrapFor(kek, { kind: 'passphrase', label: SPACE_PHRASE_LABEL, salt });
+  publishPhraseWrap(need().space(KEYS_ID), wrapped, ring.masterId());
 }
 
 /**
@@ -239,6 +246,22 @@ async function adoptSpace(material: SpaceMaterial): Promise<void> {
 async function syncSpaceRing(ring: Keyring): Promise<void> {
   const space = need().space(KEYS_ID);
   const vault = readVault(space);
+  const fp = ring.masterId();
+
+  // Чей сейф: владелец — тот, чей мастер завёрнут фразой. Пока фразы нет,
+  // сейф ничейный (правит первый опубликовавший). У записи до отпечатков
+  // владение доказывает соль: фразовый вход публикуется с той же солью, что
+  // лежит в локальной фразовой обёртке этого устройства.
+  const owner = vault.phrase === null
+    ? null
+    : vault.wrapMaster !== ''
+      ? vault.wrapMaster === fp
+      : hasLocalPhraseSalt(vault.phrase.salt);
+
+  // Чужое пространство: устройство ещё не подключено. Публиковать свой блоб
+  // сюда — значит подложить под чужую фразу мастер, которым её вход не
+  // открыть. Молчим и ждём гранта либо входа фразой.
+  if (owner === false) return;
 
   if (vault.ring === null) {
     await publishRing(space, ring);
@@ -250,15 +273,26 @@ async function syncSpaceRing(ring: Keyring): Promise<void> {
     published = await ring.openBlob(vault.ring);
   }
   catch {
-    // Сейф под другим мастером: либо это свежее устройство до подключения,
-    // либо мастер ротирован отзывом. И то и другое лечится грантом/фразой.
+    if (owner === true) {
+      // Наш сейф, но блоб чужой: успело опубликовать неподключённое
+      // устройство. Владелец фразы перепубликует — вход фразой оживает.
+      await publishRing(space, ring);
+      return;
+    }
     console.warn('[brain] сейф пространства запечатан другим мастером — подключитесь: грант или фраза');
     return;
   }
 
   await ring.adopt(published);
   const covered = ring.lands().every(land => published.has(land));
-  if (!covered) await publishRing(space, ring);
+  if (!covered || vault.ringMaster === '') await publishRing(space, ring);
+}
+
+/** Есть ли локальная фразовая обёртка с этой солью — след, что фразу публиковали мы. */
+function hasLocalPhraseSalt(salt: Uint8Array): boolean {
+  return listWraps().some(wrap => wrap.kind === 'passphrase'
+    && wrap.salt.length === salt.length
+    && wrap.salt.every((byte, i) => byte === salt[i]));
 }
 
 /**

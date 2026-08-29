@@ -195,6 +195,36 @@ test('a value at the ball cap does not fit after encryption — an honest refusa
   await expect(sealPack(packOf(land), await landKey())).rejects.toThrow(/cap/)
 })
 
+test('openPack with onDrop skips a poisoned unit and keeps the rest', async () => {
+  // Устройство до подключения запечатало юнит СВОИМ секретом и залило на
+  // сервер; после присоединения этот секрет никому не известен. Сервер (пир
+  // без ключа) честно несёт оба юнита в одной дельте — отравленный обязан
+  // выбыть поодиночке, иначе один мусорный юнит глушил бы дельту навсегда.
+  const key = await landKey()
+  const foreign = await landKey()
+
+  const one = device(0x11, 0x000010)
+  const two = device(0x22, 0x800010)
+  one.post(ROOT, ROOT, 'наше')
+  two.post(ROOT, ROOT, 'чужое до подключения')
+
+  const server = new Land(peerOf(0x5e), fixedClock(2000))
+  server.adopt(await sealPack(packOf(one), key))
+  server.adopt(await sealPack(packOf(two), foreign))
+  const mixed = packOf(server)
+
+  const drops: CryptoError[] = []
+  const opened = await openPack(mixed, key, (error) => drops.push(error))
+  expect(drops).toHaveLength(1)
+
+  const reader = device(0x77)
+  reader.adopt(opened)
+  expect(valuesOf(reader)).toEqual(['наше'])
+
+  // Контракт без onDrop прежний: бросок на первом же несовпадении.
+  await expect(openPack(mixed, key)).rejects.toThrow(CryptoError)
+})
+
 // ── Хранилище ────────────────────────────────────────────────────────────────
 
 test('sealedStore: ciphertext on the medium, the land reads after restart', async () => {

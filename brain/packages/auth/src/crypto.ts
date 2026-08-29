@@ -104,15 +104,23 @@ export async function open(
   sealed: Sealed,
   aad?: Uint8Array,
 ): Promise<Uint8Array> {
-  const plain = await crypto.subtle.decrypt(
-    {
-      name: 'AES-GCM',
-      iv: bytes(sealed.nonce),
-      ...(aad !== undefined && { additionalData: bytes(aad) }),
-    },
-    await aesKey(key, ['decrypt']),
-    bytes(sealed.cipher),
-  );
+  let plain: ArrayBuffer;
+  try {
+    plain = await crypto.subtle.decrypt(
+      {
+        name: 'AES-GCM',
+        iv: bytes(sealed.nonce),
+        ...(aad !== undefined && { additionalData: bytes(aad) }),
+      },
+      await aesKey(key, ['decrypt']),
+      bytes(sealed.cipher),
+    );
+  }
+  catch (cause) {
+    // WebCrypto на любом несовпадении бросает OperationError с ПУСТЫМ
+    // message: такой отказ нечего показать человеку. Имя даём здесь.
+    throw new Error('wrong key or corrupted data: GCM tag mismatch', { cause });
+  }
   return new Uint8Array(plain);
 }
 

@@ -188,12 +188,13 @@ async function openUnit(
   return sandWith(unit.bin, new Uint8Array(plain))
 }
 
-type UnitJob = Promise<{ unit: SandUnit, ball: Uint8Array | null }> | AnyUnit
+type UnitJob = Promise<{ unit: SandUnit, ball: Uint8Array | null } | null> | AnyUnit
 
 async function transform(
   bin: Uint8Array,
   keys: PackKeys,
   work: typeof sealUnit,
+  onDrop: ((error: CryptoError) => void) | null,
 ): Promise<Uint8Array> {
   const ring = ringOf(keys)
   const out: PackParts = []
@@ -211,15 +212,28 @@ async function transform(
     const jobs: UnitJob[] = []
     let index = 0
     for (const unit of part.units) {
-      jobs.push(unit instanceof SandUnit
-        ? work(unit, part.balls, land, key, `land ${land.str}, unit #${index}`)
-        : unit)
+      if (!(unit instanceof SandUnit)) {
+        jobs.push(unit)
+        index += 1
+        continue
+      }
+      const job = work(unit, part.balls, land, key, `land ${land.str}, unit #${index}`)
+      // Пощада вместо отказа: юнит, который не открыть, выбывает из пачки
+      // ПООДИНОЧКЕ (см. openPack). Не-крипто ошибки пощады не заслуживают.
+      jobs.push(onDrop === null
+        ? job
+        : job.catch((error: unknown) => {
+            if (!(error instanceof CryptoError)) throw error
+            onDrop(error)
+            return null
+          }))
       index += 1
     }
 
     const units: AnyUnit[] = []
     const balls = new Map<string, Uint8Array>()
     for (const done of await Promise.all(jobs)) {
+      if (done === null) continue
       // gift/seal/pass едут как есть: gift.code уже шифртекст по построению,
       // подпись и паспорт — публичные данные.
       if (done instanceof Unit) {
@@ -249,16 +263,29 @@ async function transform(
  * (открытых больше {@link PLAIN_MAX} байт формат уже не везёт).
  */
 export function sealPack(bin: Uint8Array, keys: PackKeys): Promise<Uint8Array> {
-  return transform(bin, keys, sealUnit)
+  return transform(bin, keys, sealUnit, null)
 }
 
 /**
  * Распечатать пачку, запечатанную {@link sealPack} тем же секретом.
  *
- * @throws {CryptoError} на чужом ключе, порче любого байта payload и подмене
- * адреса (юнит из другого ленда, чужие `self`/`head`/`lead`/метка) — всё это
- * ловит метка GCM, потому что связка адреса целиком лежит в AAD.
+ * С `onDrop` юнит, который не открылся, ПРОПУСКАЕТСЯ (та же дисциплина, что у
+ * `verifyPack` с неаутентичным): пир без ключа хранит и досылает всё подряд,
+ * и один юнит, запечатанный недоступным секретом (устройство успело залить
+ * свои заготовки до подключения; смена секретов при отзыве), не должен
+ * навсегда глушить каждую его дельту целиком. Выбывший юнит не применяется и
+ * не попадает в фейсы — сервер честно пришлёт его снова, и он снова выбудет.
+ *
+ * @throws {CryptoError} без `onDrop` — на чужом ключе, порче любого байта
+ * payload и подмене адреса (юнит из другого ленда, чужие `self`/`head`/`lead`/
+ * метка): всё это ловит метка GCM, потому что связка адреса целиком лежит в
+ * AAD. Хранилище (`sealedStore`) ходит строгим путём: там чужому секрету
+ * взяться неоткуда, и тихий пропуск прятал бы порчу носителя.
  */
-export function openPack(bin: Uint8Array, keys: PackKeys): Promise<Uint8Array> {
-  return transform(bin, keys, openUnit)
+export function openPack(
+  bin: Uint8Array,
+  keys: PackKeys,
+  onDrop?: (error: CryptoError) => void,
+): Promise<Uint8Array> {
+  return transform(bin, keys, openUnit, onDrop ?? null)
 }
