@@ -34,7 +34,7 @@ import {
   joinByPhrase,
   myMasterId,
   publishPhraseAccess,
-  revokeDevice,
+  revokeDevices,
 } from '@/app/boot';
 import { restartSync, saveSyncSettings, useSyncSettings } from '@/sync';
 import { addAccess, freshSalt, removeAccess, setGuarded, useLock } from '../security/lock';
@@ -343,21 +343,40 @@ async function doJoinByPhrase(): Promise<void> {
 }
 
 const deviceBusy = ref('');
-const revokeDeviceTarget = ref<PairedDevice | null>(null);
+/** Ошибки действий с устройствами — рядом с карточкой, а не в шапке экрана. */
+const deviceError = ref('');
+const revokeTargets = ref<PairedDevice[]>([]);
 const revokeDeviceOpen = ref(false);
+const showRevoked = ref(false);
+
+const liveDevices = computed(() => devices.value.filter(device => !device.revoked));
+const revokedDevices = computed(() => devices.value.filter(device => device.revoked));
+const liveOthers = computed(() => liveDevices.value.filter(device => device.pub !== myPub.value));
+
+function askRevoke(targets: PairedDevice[]): void {
+  deviceError.value = '';
+  revokeTargets.value = targets;
+  revokeDeviceOpen.value = true;
+}
 
 const revokePhrase = ref('');
-/** Без passkey новый мастер заворачивается фразой — её и подтверждаем в диалоге. */
+/**
+ * Фразу спрашиваем только с включённым замком: без тихого ключа новый мастер
+ * иначе не завернуть. С выключенным замком отзыв — одна кнопка, а протухшие
+ * passkey/фразу человек заводит заново (тост об этом скажет).
+ */
 const needRevokePhrase = computed(() =>
-  !wraps.value.some(w => w.kind === 'passkey') && wraps.value.some(w => w.kind === 'passphrase'));
+  guarded.value && !wraps.value.some(w => w.kind === 'passkey') && wraps.value.some(w => w.kind === 'passphrase'));
 
-async function doRevokeDevice(): Promise<void> {
-  const device = revokeDeviceTarget.value;
-  if (device === null) return;
-  deviceBusy.value = device.pub;
+async function doRevokeDevices(): Promise<void> {
+  const targets = revokeTargets.value;
+  if (targets.length === 0) return;
+  deviceBusy.value = 'revoke';
+  deviceError.value = '';
   try {
-    // Отзыв ротирует МАСТЕР: локальные обёртки протухают, и способ доступа
-    // подтверждается прямо здесь, чтобы завернуть новый мастер тем же способом.
+    // Отзыв ротирует МАСТЕР: локальные обёртки протухают. Passkey подтверждаем
+    // всегда (одно касание — и он переживает ротацию), фразу — только когда
+    // замок включён и другого способа завернуть мастер нет.
     let confirm;
     const passkeyWrap = wraps.value.find(w => w.kind === 'passkey');
     const phraseWrap = wraps.value.find(w => w.kind === 'passphrase');
@@ -367,28 +386,31 @@ async function doRevokeDevice(): Promise<void> {
       if (kek === null) throw new Error('этот ключ не отдал PRF — отзыв остановлен');
       confirm = { kek, meta: { kind: 'passkey' as const, label: passkeyWrap.label, salt: passkeyWrap.salt } };
     }
-    else if (phraseWrap !== undefined) {
+    else if (needRevokePhrase.value && phraseWrap !== undefined) {
       const clean = normalizePhrase(revokePhrase.value);
       assertKnownPhrase(clean);
       const kek = await kekFromPassphrase(clean, phraseWrap.salt);
       confirm = { kek, meta: { kind: 'passphrase' as const, label: phraseWrap.label, salt: phraseWrap.salt }, phrase: clean };
     }
-    await revokeDevice(device, confirm);
+    const { serverWiped } = await revokeDevices(targets, confirm);
     revokePhrase.value = '';
+    const lostPhrase = confirm?.phrase === undefined && phraseWrap !== undefined;
     toast({
-      title: 'Устройство отозвано',
-      description: confirm?.phrase === undefined && phraseWrap !== undefined
-        ? 'Секреты и мастер перевыпущены. Пересоздайте фразу восстановления.'
-        : 'Секреты и мастер перевыпущены, ленды перепечатаны.',
+      title: targets.length === 1 ? 'Устройство отозвано' : `Отозвано устройств: ${targets.length}`,
+      description: [
+        'Секреты и мастер перевыпущены.',
+        lostPhrase ? 'Пересоздайте фразу восстановления.' : '',
+        serverWiped ? '' : 'Старые копии на сервере не стёрлись — они остались безвредным шифртекстом.',
+      ].filter(part => part !== '').join(' '),
       tone: 'positive',
     });
   }
   catch (caught) {
-    error.value = caught instanceof Error ? caught.message : 'не получилось отозвать устройство';
+    deviceError.value = caught instanceof Error && caught.message !== '' ? caught.message : 'не получилось отозвать';
   }
   finally {
     deviceBusy.value = '';
-    revokeDeviceTarget.value = null;
+    revokeTargets.value = [];
   }
 }
 </script>
@@ -557,7 +579,7 @@ async function doRevokeDevice(): Promise<void> {
       <Card v-if="spaces.open" title="Устройства">
         <ul class="flex flex-col divide-y divide-line">
           <li
-            v-for="device in devices"
+            v-for="device in liveDevices"
             :key="device.pub"
             class="flex items-center gap-3 py-2 first:pt-0 last:pb-0"
           >
@@ -566,21 +588,44 @@ async function doRevokeDevice(): Promise<void> {
               <p class="truncate text-sm text-text">
                 {{ device.label }}
                 <span v-if="device.pub === myPub" class="text-text-faint">— это устройство</span>
-                <span v-else-if="device.revoked" class="text-danger">— отозвано</span>
               </p>
               <p class="text-xs text-text-faint">отпечаток {{ fingerprint(device.pub) }}</p>
             </div>
             <Button
-              v-if="member && device.pub !== myPub && !device.revoked"
+              v-if="member && device.pub !== myPub"
               tone="danger"
               size="sm"
-              :loading="deviceBusy === device.pub"
-              @click="revokeDeviceTarget = device; revokeDeviceOpen = true"
+              :loading="deviceBusy === 'revoke'"
+              @click="askRevoke([device])"
             >
               Отозвать
             </Button>
           </li>
         </ul>
+
+        <!-- Зомби после переустановок копятся пачками: одна кнопка — одна ротация. -->
+        <div v-if="member && liveOthers.length > 1" class="mt-2 flex justify-end">
+          <Button tone="danger" size="sm" :loading="deviceBusy === 'revoke'" @click="askRevoke(liveOthers)">
+            Отозвать все остальные ({{ liveOthers.length }})
+          </Button>
+        </div>
+
+        <p v-if="deviceError" role="alert" class="mt-2 text-xs text-danger">{{ deviceError }}</p>
+
+        <div v-if="revokedDevices.length > 0" class="mt-2">
+          <button
+            type="button"
+            class="text-xs text-text-faint underline-offset-2 hover:underline"
+            @click="showRevoked = !showRevoked"
+          >
+            {{ showRevoked ? 'Скрыть отозванные' : `Отозванные (${revokedDevices.length})` }}
+          </button>
+          <ul v-if="showRevoked" class="mt-1 flex flex-col gap-1">
+            <li v-for="device in revokedDevices" :key="device.pub" class="text-xs text-text-faint">
+              {{ device.label }} · {{ fingerprint(device.pub) }} — отозвано
+            </li>
+          </ul>
+        </div>
 
         <div v-if="!member" class="mt-3 flex gap-3 border-t border-line pt-3">
           <TriangleAlert class="mt-0.5 size-5 shrink-0 text-warning" />
@@ -706,13 +751,13 @@ async function doRevokeDevice(): Promise<void> {
     />
 
     <ConfirmDialog
-      v-if="revokeDeviceTarget !== null"
+      v-if="revokeTargets.length > 0"
       v-model:open="revokeDeviceOpen"
-      title="Отозвать устройство?"
+      :title="revokeTargets.length === 1 ? 'Отозвать устройство?' : `Отозвать ${revokeTargets.length} устройства?`"
       :description="'Секреты всех лендов будут перевыпущены, данные перепечатаны и перезалиты на сервер. '
-        + 'Что устройство успело прочитать — при нём и останется; нового оно не увидит. Нужна сеть.'"
+        + 'Что устройства успели прочитать — при них и останется; нового они не увидят. Нужна сеть.'"
       confirm-label="Отозвать"
-      @confirm="doRevokeDevice"
+      @confirm="doRevokeDevices"
     >
       <div v-if="needRevokePhrase" class="mt-3 flex flex-col gap-1.5">
         <p class="text-xs text-text-faint">

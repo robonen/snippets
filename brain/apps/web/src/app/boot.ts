@@ -389,7 +389,17 @@ export interface RevokeConfirm {
   readonly phrase?: string;
 }
 
-export async function revokeDevice(device: PairedDevice, confirm?: RevokeConfirm): Promise<void> {
+/** Итог отзыва: серверные копии стёрты или остались (тогда — безвредным шифртекстом). */
+export interface Revoked {
+  readonly serverWiped: boolean;
+}
+
+/**
+ * Отозвать устройства — одно или сразу несколько ОДНОЙ ротацией: зомби после
+ * переустановок копятся пачками, и крутить секреты на каждое было бы
+ * издевательством.
+ */
+export async function revokeDevices(devices: readonly PairedDevice[], confirm?: RevokeConfirm): Promise<Revoked> {
   // Подтверждение проверяется ДО разрушающих шагов: неверная фраза не должна
   // ни ротировать секреты, ни завернуть новый мастер в невоспроизводимый ключ.
   if (confirm !== undefined) {
@@ -407,7 +417,7 @@ export async function revokeDevice(device: PairedDevice, confirm?: RevokeConfirm
   const ring = ringNow();
   const identity = await deviceIdentity();
 
-  markRevoked(spaces.space(KEYS_ID), device);
+  for (const device of devices) markRevoked(spaces.space(KEYS_ID), device);
 
   const kept = new Map<string, { pack: Uint8Array }>();
   for (const name of dataLands) {
@@ -445,8 +455,19 @@ export async function revokeDevice(device: PairedDevice, confirm?: RevokeConfirm
   else {
     clearPhraseWrap(spaces.space(KEYS_ID));
   }
-  await wipeServerLands();
+  // Серверные копии под старыми секретами — мусор, который все пиры и так
+  // пропускают (openPack с onDrop). Не стёрлись — отзыв всё равно состоялся:
+  // синк обязан подняться, иначе даже пометка отзыва не уедет с устройства.
+  let serverWiped = true;
+  try {
+    await wipeServerLands();
+  }
+  catch (error) {
+    serverWiped = false;
+    console.warn('[brain] server copies were not wiped after revocation', error);
+  }
   startSync({ spaces, secure: secureOf(ring, signerNow()), lands: [KEYS_ID, ...dataLands] });
+  return { serverWiped };
 }
 
 /**
@@ -457,10 +478,13 @@ export async function revokeDevice(device: PairedDevice, confirm?: RevokeConfirm
 async function rewrapAfterMasterChange(ring: Keyring, confirm?: RevokeConfirm): Promise<void> {
   const wraps = listWraps();
   const keyed = wraps.some(wrap => wrap.kind !== 'device');
-  if (keyed && confirm === undefined) {
+  const hadDevice = wraps.some(wrap => wrap.kind === 'device');
+  // Подтверждение нужно только с включённым замком: без тихого ключа новый
+  // мастер иначе не завернуть ничем. С выключенным — мастер уезжает под ключ
+  // устройства, а протухшие passkey/фразу человек заводит заново.
+  if (keyed && confirm === undefined && !hadDevice) {
     throw new Error('confirm an access method to re-wrap the new master key');
   }
-  const hadDevice = wraps.some(wrap => wrap.kind === 'device');
   for (const wrap of wraps) dropWrap(wrap.label);
   if (confirm !== undefined) saveWrap(await ring.wrapFor(confirm.kek, confirm.meta));
   // Тихий путь сохраняется таким, каким был: замок — отдельный выбор
