@@ -113,6 +113,10 @@ export default defineLayerConfig({
       },
     },
     define: {
+      /** Штамп сборки на экране «Доступ»: какой код на самом деле работает на устройстве. */
+      __BUILD__: JSON.stringify(
+        `${(process.env['GITHUB_SHA'] ?? 'dev').slice(0, 7)} · ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
+      ),
       __VUE_OPTIONS_API__: 'false',
       __VUE_PROD_DEVTOOLS__: 'false',
       __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: 'false',

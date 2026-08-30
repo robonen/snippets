@@ -1,7 +1,9 @@
 import { Link, atom, identityOf, mintExchangePair, model, parts, t } from '@sync/core';
 import { decodeBytes, decodeGrant, encodeBytes } from '@brain/auth';
-import type { Doc, ExchangeAlgo, Identity, Space, SubtleKeyPair } from '@sync/core';
+import type { Doc, ExchangeAlgo, Identity, Space } from '@sync/core';
 import type { Keyring, Sealed, SpaceMaterial, WrappedDek } from '@brain/auth';
+import { keepPair } from './device-keys';
+import type { KeyKeeping } from './device-keys';
 
 /**
  * Подключение устройств: секреты лендов едут ВНУТРИ пространства.
@@ -211,74 +213,37 @@ export async function claimInvite(space: Space, code: string): Promise<SpaceMate
 }
 
 // ── ECDH-пара устройства ─────────────────────────────────────────────────────
-//
-// Живёт в той же базе, что ключ устройства (`@brain/auth` device.ts): приватная
-// половина — неизвлекаемый CryptoKey, структурным клоном в IndexedDB.
 
-const DB_NAME = 'brain-device';
-const STORE = 'keys';
-const PAIR_KEY = 'exchange/v1';
+let cachedIdentity: Promise<Identity> | null = null;
+let identityKept: KeyKeeping = 'memory';
 
-interface StoredPair {
-  readonly algo: ExchangeAlgo;
-  readonly pair: SubtleKeyPair;
-}
-
-export async function deviceIdentity(): Promise<Identity> {
-  const db = await openDb();
-  try {
-    const found = await ask<StoredPair | null | undefined>(
-      db.transaction(STORE, 'readonly').objectStore(STORE).get(PAIR_KEY),
-    );
-    // WebKit отдаёт null вместо undefined, а битая запись приходит без
-    // половины полей: всё, что не похоже на пару, чеканится заново.
-    if (found !== undefined && found !== null && found.pair !== undefined && found.pair !== null) {
-      return identityOf(found.algo, found.pair);
-    }
-
-    const fresh = await persistPair(db, PAIR_KEY, mintExchangePair);
-    return identityOf(fresh.algo, fresh.pair);
-  }
-  finally {
-    db.close();
-  }
+/** Где живёт ECDH-пара — экрану «Доступ»: запомнит ли браузер это устройство. */
+export function identityKeeping(): KeyKeeping {
+  return identityKept;
 }
 
 /**
- * Сохранить пару и УБЕДИТЬСЯ, что она читается обратно. WebKit молча теряет
- * ключи X25519/Ed25519 при клонировании в IndexedDB — запись возвращается как
- * null, и на каждый запуск чеканилась бы новая личность: телефон плодил бы
- * записи устройств при каждой перезагрузке. Не читается — пробуем P-256,
- * который клонируется везде; не читается и он — личность живёт до перезагрузки,
- * и об этом сказано в консоли.
+ * ECDH-пара устройства. Чеканится ОДИН раз — кэшируется промис: два
+ * одновременных вызова на первом запуске иначе отчеканили бы две личности, и
+ * в пространстве появилось бы два устройства вместо одного. Как пара
+ * переживает запуски — `device-keys.ts`.
  */
-async function persistPair<A extends string>(
-  db: IDBDatabase,
-  key: string,
-  mint: (prefer?: A) => Promise<{ algo: A; pair: SubtleKeyPair }>,
-): Promise<{ algo: A; pair: SubtleKeyPair }> {
-  let fresh = await mint();
-  for (;;) {
-    let stored = false;
-    try {
-      const tx = db.transaction(STORE, 'readwrite');
-      tx.objectStore(STORE).put({ algo: fresh.algo, pair: fresh.pair }, key);
-      await ended(tx);
-      const back = await ask<{ pair?: SubtleKeyPair | null } | null | undefined>(
-        db.transaction(STORE, 'readonly').objectStore(STORE).get(key),
-      );
-      stored = back !== undefined && back !== null && back.pair !== undefined && back.pair !== null;
-    }
-    catch {
-      // Клонирование отвергнуто — та же болезнь, что и запись-null.
-    }
-    if (stored) return fresh;
-    if (fresh.algo === 'p256') {
-      console.warn('[brain] device key pair does not survive IndexedDB here: the identity will not persist across reloads');
-      return fresh;
-    }
-    fresh = await mint('p256' as A);
-  }
+export function deviceIdentity(): Promise<Identity> {
+  cachedIdentity ??= (async () => {
+    const kept = await keepPair<ExchangeAlgo>({
+      key: 'exchange/v1',
+      mint: mintExchangePair,
+      local: {
+        algo: 'p256',
+        params: { name: 'ECDH', namedCurve: 'P-256' },
+        privateUsages: ['deriveBits'],
+        publicUsages: [],
+      },
+    });
+    identityKept = kept.keeping;
+    return identityOf(kept.algo, kept.pair);
+  })();
+  return cachedIdentity;
 }
 
 // ── Записи в ленде ───────────────────────────────────────────────────────────
@@ -559,33 +524,4 @@ export async function regrantAll(space: Space, ring: Keyring, identity: Identity
     if (peer.pub === myPub || peer.revoked) continue;
     await grantTo(space, ring, identity, peer);
   }
-}
-
-// ── Мелкий IndexedDB-край (тот же, что у @brain/auth device.ts) ──────────────
-
-function openDb(): Promise<IDBDatabase> {
-  return new Promise((done, fail) => {
-    const request = indexedDB.open(DB_NAME, 1);
-    request.onupgradeneeded = (): void => {
-      const db = request.result;
-      if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
-    };
-    request.onsuccess = (): void => done(request.result);
-    request.onerror = (): void => fail(request.error ?? new Error('IndexedDB rejected opening'));
-  });
-}
-
-function ask<T>(request: IDBRequest<T>): Promise<T> {
-  return new Promise((done, fail) => {
-    request.onsuccess = (): void => done(request.result);
-    request.onerror = (): void => fail(request.error ?? new Error('IndexedDB request rejected'));
-  });
-}
-
-function ended(tx: IDBTransaction): Promise<void> {
-  return new Promise((done, fail) => {
-    tx.oncomplete = (): void => done();
-    tx.onerror = (): void => fail(tx.error ?? new Error('IndexedDB transaction rejected'));
-    tx.onabort = (): void => fail(tx.error ?? new Error('IndexedDB transaction aborted'));
-  });
 }

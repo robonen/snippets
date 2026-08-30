@@ -39,7 +39,8 @@ import {
 import { errorText } from '@/app/errors';
 import { restartSync, saveSyncSettings, useSyncSettings } from '@/sync';
 import { addAccess, freshSalt, removeAccess, setGuarded, useLock } from '../security/lock';
-import { KEYS_ID, deviceIdentity, fingerprint, isSenior, listDevices, readInvite, readVault } from '../security/pairing';
+import { KEYS_ID, deviceIdentity, fingerprint, identityKeeping, isSenior, listDevices, readInvite, readVault } from '../security/pairing';
+import type { KeyKeeping } from '../security/device-keys';
 import { Fingerprint, KeyRound, Lock, MonitorSmartphone, TriangleAlert } from 'lucide-vue-next';
 import type { PairedDevice } from '../security/pairing';
 import type { WrappedDek } from '@brain/auth';
@@ -61,6 +62,7 @@ import type { WrappedDek } from '@brain/auth';
  */
 
 const supported = useSupported(isSupported);
+const build = __BUILD__;
 // Встроенный авторизатор опрашивается асинхронно. До ответа считаем, что его
 // нет: подпись «откроется пальцем» на устройстве без биометрии — обещание,
 // которого не сдержать, а обратная ошибка стоит лишь строчки текста.
@@ -199,9 +201,17 @@ function doRemove(): void {
 
 const spaces = useSpaces();
 const myPub = ref('');
+/** Запомнит ли браузер это устройство — см. `device-keys.ts`. */
+const keeping = ref<KeyKeeping | null>(null);
+const KEEPING_TEXT: Record<KeyKeeping, string> = {
+  idb: 'сохранены',
+  local: 'сохранены (localStorage)',
+  memory: 'НЕ сохраняются',
+};
 onMounted(async () => {
   try {
     myPub.value = encodeBytes((await deviceIdentity()).pub);
+    keeping.value = identityKeeping();
   }
   catch (caught) {
     // Без catch отказ IndexedDB летел бы необработанным отказом промиса.
@@ -444,6 +454,18 @@ async function doRevokeDevices(): Promise<void> {
         </div>
       </Card>
 
+      <Card v-if="keeping === 'memory'">
+        <div class="flex gap-3">
+          <TriangleAlert class="mt-0.5 size-5 shrink-0 text-danger" />
+          <p class="text-sm text-text-soft">
+            Этот браузер не сохраняет ключи устройства: каждое открытие будет
+            новым устройством в списке. Откройте приложение в Safari или Chrome
+            (не во встроенном браузере мессенджера) либо установите его на
+            экран «Домой».
+          </p>
+        </div>
+      </Card>
+
       <!-- Честная граница текущей защиты. Данные уже зашифрованы ключом
            устройства, но он открывает их без спроса: пока способа доступа нет,
            замка тоже нет, и молчать об этом нельзя. -->
@@ -673,6 +695,9 @@ async function doRevokeDevices(): Promise<void> {
             </p>
           </template>
         </div>
+        <p class="mt-3 text-xs text-text-faint">
+          Ключи устройства: {{ keeping === null ? '…' : KEEPING_TEXT[keeping] }} · сборка {{ build }}
+        </p>
       </Card>
 
       <!-- Фраза — запасной вход: когда приглашение получить негде (все

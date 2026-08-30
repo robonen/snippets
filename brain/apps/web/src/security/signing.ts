@@ -12,8 +12,10 @@ import {
   signerOf,
   verifyPack,
 } from '@sync/core';
-import type { CryptoError, Link, PackPart, PassAlgo, Roster, SecretRing, Signer, SubtleKeyPair } from '@sync/core';
+import type { CryptoError, Link, PackPart, PassAlgo, Roster, SecretRing, Signer } from '@sync/core';
 import type { Secure } from '@/sync/engine';
+import { keepPair } from './device-keys';
+import type { KeyKeeping } from './device-keys';
 
 /**
  * Подпись устройства (docs/01-security.md ревизия 3, §7 «подписи»).
@@ -36,62 +38,34 @@ import type { Secure } from '@/sync/engine';
  * появятся, если пространство станет общим.
  */
 
-const DB_NAME = 'brain-device';
-const STORE = 'keys';
-const SIGN_KEY = 'signer/v1';
-
-interface StoredPair {
-  readonly algo: PassAlgo;
-  readonly pair: SubtleKeyPair;
-}
-
 let cached: Promise<Signer> | null = null;
+let signerKept: KeyKeeping = 'memory';
+
+/** Где живёт подписная пара — экрану «Доступ». */
+export function signerKeeping(): KeyKeeping {
+  return signerKept;
+}
 
 /**
  * Подписант этого устройства. Пара создаётся при первом обращении и переживает
- * запуски. Кэшируется ПРОМИС, а не результат: два одновременных вызова на
- * первом запуске иначе отчеканили бы две пары, и адрес устройства зависел бы
- * от гонки.
+ * запуски (`device-keys.ts`). Кэшируется ПРОМИС, а не результат: два
+ * одновременных вызова на первом запуске иначе отчеканили бы две пары, и
+ * адрес устройства зависел бы от гонки.
  */
 export function deviceSigner(): Promise<Signer> {
   cached ??= (async () => {
-    const db = await openDb();
-    try {
-      const found = await ask<StoredPair | null | undefined>(
-        db.transaction(STORE, 'readonly').objectStore(STORE).get(SIGN_KEY),
-      );
-      // WebKit отдаёт null вместо undefined; битая запись чеканится заново.
-      if (found !== undefined && found !== null && found.pair !== undefined && found.pair !== null) {
-        return signerOf(found.algo, found.pair);
-      }
-
-      // Сохранение с проверкой чтения — та же дисциплина, что у ECDH-пары
-      // (`pairing.ts` persistPair): WebKit теряет Ed25519 в IndexedDB.
-      let fresh = await mintSignerPair();
-      for (;;) {
-        let stored = false;
-        try {
-          const tx = db.transaction(STORE, 'readwrite');
-          tx.objectStore(STORE).put({ algo: fresh.algo, pair: fresh.pair } satisfies StoredPair, SIGN_KEY);
-          await ended(tx);
-          const back = await ask<StoredPair | null | undefined>(
-            db.transaction(STORE, 'readonly').objectStore(STORE).get(SIGN_KEY),
-          );
-          stored = back !== undefined && back !== null && back.pair !== undefined && back.pair !== null;
-        }
-        catch {
-          // Клонирование отвергнуто — та же болезнь, что и запись-null.
-        }
-        if (stored || fresh.algo === 'p256') {
-          if (!stored) console.warn('[brain] signing key pair does not survive IndexedDB here: the peer will change on reload');
-          return signerOf(fresh.algo, fresh.pair);
-        }
-        fresh = await mintSignerPair('p256');
-      }
-    }
-    finally {
-      db.close();
-    }
+    const kept = await keepPair<PassAlgo>({
+      key: 'signer/v1',
+      mint: mintSignerPair,
+      local: {
+        algo: 'p256',
+        params: { name: 'ECDSA', namedCurve: 'P-256' },
+        privateUsages: ['sign'],
+        publicUsages: ['verify'],
+      },
+    });
+    signerKept = kept.keeping;
+    return signerOf(kept.algo, kept.pair);
   })();
   return cached;
 }
@@ -192,31 +166,4 @@ export function makeSecure(
 export function ownerRoster(livePeers: readonly Link[]): Roster {
   const allow = new Map(livePeers.map(peer => [peer.str, rankOf(TIER.rule, RATE.just)]));
   return { rankOf: peer => allow.get(peer.str) };
-}
-
-function openDb(): Promise<IDBDatabase> {
-  return new Promise((done, fail) => {
-    const request = indexedDB.open(DB_NAME, 1);
-    request.onupgradeneeded = (): void => {
-      const db = request.result;
-      if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
-    };
-    request.onsuccess = (): void => done(request.result);
-    request.onerror = (): void => fail(request.error ?? new Error('IndexedDB rejected opening'));
-  });
-}
-
-function ask<T>(request: IDBRequest<T>): Promise<T> {
-  return new Promise((done, fail) => {
-    request.onsuccess = (): void => done(request.result);
-    request.onerror = (): void => fail(request.error ?? new Error('IndexedDB request rejected'));
-  });
-}
-
-function ended(tx: IDBTransaction): Promise<void> {
-  return new Promise((done, fail) => {
-    tx.oncomplete = (): void => done();
-    tx.onerror = (): void => fail(tx.error ?? new Error('IndexedDB transaction rejected'));
-    tx.onabort = (): void => fail(tx.error ?? new Error('IndexedDB transaction aborted'));
-  });
 }
