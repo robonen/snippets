@@ -236,14 +236,48 @@ export async function deviceIdentity(): Promise<Identity> {
       return identityOf(found.algo, found.pair);
     }
 
-    const fresh = await mintExchangePair();
-    const tx = db.transaction(STORE, 'readwrite');
-    tx.objectStore(STORE).put({ algo: fresh.algo, pair: fresh.pair } satisfies StoredPair, PAIR_KEY);
-    await ended(tx);
+    const fresh = await persistPair(db, PAIR_KEY, mintExchangePair);
     return identityOf(fresh.algo, fresh.pair);
   }
   finally {
     db.close();
+  }
+}
+
+/**
+ * Сохранить пару и УБЕДИТЬСЯ, что она читается обратно. WebKit молча теряет
+ * ключи X25519/Ed25519 при клонировании в IndexedDB — запись возвращается как
+ * null, и на каждый запуск чеканилась бы новая личность: телефон плодил бы
+ * записи устройств при каждой перезагрузке. Не читается — пробуем P-256,
+ * который клонируется везде; не читается и он — личность живёт до перезагрузки,
+ * и об этом сказано в консоли.
+ */
+async function persistPair<A extends string>(
+  db: IDBDatabase,
+  key: string,
+  mint: (prefer?: A) => Promise<{ algo: A; pair: SubtleKeyPair }>,
+): Promise<{ algo: A; pair: SubtleKeyPair }> {
+  let fresh = await mint();
+  for (;;) {
+    let stored = false;
+    try {
+      const tx = db.transaction(STORE, 'readwrite');
+      tx.objectStore(STORE).put({ algo: fresh.algo, pair: fresh.pair }, key);
+      await ended(tx);
+      const back = await ask<{ pair?: SubtleKeyPair | null } | null | undefined>(
+        db.transaction(STORE, 'readonly').objectStore(STORE).get(key),
+      );
+      stored = back !== undefined && back !== null && back.pair !== undefined && back.pair !== null;
+    }
+    catch {
+      // Клонирование отвергнуто — та же болезнь, что и запись-null.
+    }
+    if (stored) return fresh;
+    if (fresh.algo === 'p256') {
+      console.warn('[brain] device key pair does not survive IndexedDB here: the identity will not persist across reloads');
+      return fresh;
+    }
+    fresh = await mint('p256' as A);
   }
 }
 

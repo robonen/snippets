@@ -57,20 +57,26 @@ function algoParams(algo: ExchangeAlgo): { name: string, namedCurve?: string } {
  * X25519 пробуется первым; платформа без него получает P-256. Отказ обеих —
  * исключение: без ECDH обмен секретами невозможен, и молчать об этом нельзя.
  */
-export async function mintExchangePair(): Promise<{ algo: ExchangeAlgo, pair: SubtleKeyPair }> {
-  try {
-    // Форму `{name}` без параметров типы относят к одноключевой ветке — но
-    // X25519 всегда даёт пару; каст через unknown честнее ложного оверлоада.
-    const pair = await crypto.subtle.generateKey({ name: 'X25519' }, false, ['deriveBits']) as unknown as SubtleKeyPair
-    return { algo: 'x25519', pair }
-  } catch {
-    const pair = await crypto.subtle.generateKey(
-      { name: 'ECDH', namedCurve: 'P-256' },
-      false,
-      ['deriveBits'],
-    ) as SubtleKeyPair
-    return { algo: 'p256', pair }
+export async function mintExchangePair(prefer?: ExchangeAlgo): Promise<{ algo: ExchangeAlgo, pair: SubtleKeyPair }> {
+  // `prefer: 'p256'` — просьба приложения: платформа умеет X25519, но не умеет
+  // его СОХРАНИТЬ (WebKit теряет такие ключи при клонировании в IndexedDB), и
+  // пара, которая не переживает перезагрузку, хуже пары на старой кривой.
+  if (prefer !== 'p256') {
+    try {
+      // Форму `{name}` без параметров типы относят к одноключевой ветке — но
+      // X25519 всегда даёт пару; каст через unknown честнее ложного оверлоада.
+      const pair = await crypto.subtle.generateKey({ name: 'X25519' }, false, ['deriveBits']) as unknown as SubtleKeyPair
+      return { algo: 'x25519', pair }
+    } catch {
+      // Платформа без X25519 — P-256 ниже.
+    }
   }
+  const pair = await crypto.subtle.generateKey(
+    { name: 'ECDH', namedCurve: 'P-256' },
+    false,
+    ['deriveBits'],
+  ) as SubtleKeyPair
+  return { algo: 'p256', pair }
 }
 
 /**

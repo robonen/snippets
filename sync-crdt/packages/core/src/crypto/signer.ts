@@ -94,15 +94,20 @@ function leadingZeroBits(sign: Uint8Array): number {
  *
  * Ed25519 пробуется первым; платформа без него получает P-256.
  */
-export async function mintSignerPair(): Promise<{ algo: PassAlgo, pair: SubtleKeyPair }> {
-  try {
-    const pair = await crypto.subtle.generateKey(EDDSA, false, ['sign', 'verify']) as unknown as SubtleKeyPair
-    return { algo: 'ed25519', pair }
+export async function mintSignerPair(prefer?: PassAlgo): Promise<{ algo: PassAlgo, pair: SubtleKeyPair }> {
+  // `prefer: 'p256'` — см. mintExchangePair: ключ, который платформа не может
+  // сохранить, бесполезен как личность устройства.
+  if (prefer !== 'p256') {
+    try {
+      const pair = await crypto.subtle.generateKey(EDDSA, false, ['sign', 'verify']) as unknown as SubtleKeyPair
+      return { algo: 'ed25519', pair }
+    }
+    catch {
+      // Платформа без Ed25519 — P-256 ниже.
+    }
   }
-  catch {
-    const pair = await crypto.subtle.generateKey(ECDSA_GEN, false, ['sign', 'verify']) as unknown as SubtleKeyPair
-    return { algo: 'p256', pair }
-  }
+  const pair = await crypto.subtle.generateKey(ECDSA_GEN, false, ['sign', 'verify']) as unknown as SubtleKeyPair
+  return { algo: 'p256', pair }
 }
 
 /** Личность над готовой парой — свежей или поднятой из хранилища (DI, ADR-010). */

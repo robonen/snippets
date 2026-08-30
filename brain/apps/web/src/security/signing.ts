@@ -65,11 +65,29 @@ export function deviceSigner(): Promise<Signer> {
         return signerOf(found.algo, found.pair);
       }
 
-      const fresh = await mintSignerPair();
-      const tx = db.transaction(STORE, 'readwrite');
-      tx.objectStore(STORE).put({ algo: fresh.algo, pair: fresh.pair } satisfies StoredPair, SIGN_KEY);
-      await ended(tx);
-      return signerOf(fresh.algo, fresh.pair);
+      // Сохранение с проверкой чтения — та же дисциплина, что у ECDH-пары
+      // (`pairing.ts` persistPair): WebKit теряет Ed25519 в IndexedDB.
+      let fresh = await mintSignerPair();
+      for (;;) {
+        let stored = false;
+        try {
+          const tx = db.transaction(STORE, 'readwrite');
+          tx.objectStore(STORE).put({ algo: fresh.algo, pair: fresh.pair } satisfies StoredPair, SIGN_KEY);
+          await ended(tx);
+          const back = await ask<StoredPair | null | undefined>(
+            db.transaction(STORE, 'readonly').objectStore(STORE).get(SIGN_KEY),
+          );
+          stored = back !== undefined && back !== null && back.pair !== undefined && back.pair !== null;
+        }
+        catch {
+          // Клонирование отвергнуто — та же болезнь, что и запись-null.
+        }
+        if (stored || fresh.algo === 'p256') {
+          if (!stored) console.warn('[brain] signing key pair does not survive IndexedDB here: the peer will change on reload');
+          return signerOf(fresh.algo, fresh.pair);
+        }
+        fresh = await mintSignerPair('p256');
+      }
     }
     finally {
       db.close();
