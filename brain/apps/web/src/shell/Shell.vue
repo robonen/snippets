@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 import { useEventListener, useIdle, useMagicKeys, whenever } from '@robonen/vue';
 import { useRegistry } from '@brain/module-kit';
@@ -9,6 +9,7 @@ import CommandPalette from './CommandPalette.vue';
 import LockScreen from './LockScreen.vue';
 import AppSidebar from './AppSidebar.vue';
 import { lock, lockedByAway, useLock } from '../security/lock';
+import { usePalette } from './palette';
 
 /**
  * Каркас приложения.
@@ -25,7 +26,7 @@ import { lock, lockedByAway, useLock } from '../security/lock';
 const registry = useRegistry();
 const route = useRoute();
 
-const palette = ref(false);
+const { open: palette, toggle: togglePalette } = usePalette();
 
 /**
  * Стартовая страница живёт без хрома: ни панели, ни вкладок. Это не экран
@@ -59,10 +60,6 @@ const active = computed<string | null>(() => {
  * лучше, чем сравнение `event.key` вручную.
  */
 const keys = useMagicKeys();
-
-function togglePalette(): void {
-  palette.value = !palette.value;
-}
 
 whenever(keys['Meta+k']!, togglePalette);
 whenever(keys['Control+k']!, togglePalette);

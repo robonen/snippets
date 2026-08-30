@@ -6,6 +6,7 @@ import { WidgetHost, useRegistry, useSpaces } from '@brain/module-kit';
 import type { CaptureMatch } from '@brain/module-kit';
 import { CornerDownLeft, Inbox, Search, Settings } from 'lucide-vue-next';
 import { useInboxActions } from '../db/inbox';
+import { usePalette } from './palette';
 
 /**
  * Стартовая страница — та, что ставится домашней в браузере.
@@ -24,6 +25,7 @@ const registry = useRegistry();
 const spaces = useSpaces();
 const inbox = useInboxActions();
 const router = useRouter();
+const palette = usePalette();
 
 const draft = ref('');
 const field = useTemplateRef<HTMLInputElement>('field');
@@ -82,23 +84,37 @@ function spot(event: PointerEvent): void {
 
 <template>
   <div class="ambient min-h-dvh">
-    <!-- Три ссылки вместо навигации: попасть внутрь можно, но взгляд они не
-         забирают. Остальное — по ⌘K. -->
+    <!-- Инбокс, поиск и настройки вместо навигации: попасть внутрь можно, но
+         взгляд они не забирают. Поиск открывает палитру — остальное по ⌘K. -->
     <nav class="absolute top-4 right-4 flex items-center gap-1" aria-label="Разделы">
       <RouterLink
-        v-for="link in [
-          { to: '/inbox', title: 'Инбокс', icon: Inbox },
-          { to: '/notes', title: 'Всё приложение', icon: Search },
-          { to: '/settings', title: 'Настройки', icon: Settings },
-        ]"
-        :key="link.to"
-        :to="link.to"
-        :aria-label="link.title"
-        :title="link.title"
+        to="/inbox"
+        aria-label="Инбокс"
+        title="Инбокс"
         class="pressable grid size-9 place-items-center rounded-control text-text-faint
                transition-colors hoverable hover:text-text"
       >
-        <component :is="link.icon" class="size-4" />
+        <Inbox class="size-4" />
+      </RouterLink>
+      <button
+        type="button"
+        aria-label="Поиск"
+        title="Поиск — ⌘K"
+        aria-keyshortcuts="Meta+K Control+K"
+        class="pressable grid size-9 place-items-center rounded-control text-text-faint
+               transition-colors hoverable hover:text-text"
+        @click="palette.show()"
+      >
+        <Search class="size-4" />
+      </button>
+      <RouterLink
+        to="/settings"
+        aria-label="Настройки"
+        title="Настройки"
+        class="pressable grid size-9 place-items-center rounded-control text-text-faint
+               transition-colors hoverable hover:text-text"
+      >
+        <Settings class="size-4" />
       </RouterLink>
     </nav>
 

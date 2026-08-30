@@ -55,11 +55,16 @@ export default defineLayerConfig({
       ...VitePWA({
         registerType: 'autoUpdate',
         manifest: false,
+        // Иконки и фавикон — в прекэш: установленное приложение офлайн
+        // не должно терять лицо.
+        includeAssets: ['favicon.svg', '*.png'],
         workbox: {
-          globPatterns: ['**/*.{js,css,html,svg,webmanifest}'],
+          globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}'],
           navigateFallback: '/index.html',
           // Кадры синка и админ-ручки не перехватываются воркером.
           navigateFallbackDenylist: [/^\/sync/, /^\/lands/],
+          // Прекэш прошлых сборок не копится: новая версия воркера чистит старые.
+          cleanupOutdatedCaches: true,
         },
       }),
     ],

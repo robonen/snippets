@@ -36,6 +36,7 @@ import {
   publishPhraseAccess,
   revokeDevices,
 } from '@/app/boot';
+import { errorText } from '@/app/errors';
 import { restartSync, saveSyncSettings, useSyncSettings } from '@/sync';
 import { addAccess, freshSalt, removeAccess, setGuarded, useLock } from '../security/lock';
 import { KEYS_ID, deviceIdentity, fingerprint, isSenior, listDevices, readInvite, readVault } from '../security/pairing';
@@ -74,9 +75,7 @@ async function toggleGuard(on: boolean): Promise<void> {
       : { title: 'Замок выключен', description: 'Приложение будет открываться сразу.' });
   }
   catch (caught) {
-    error.value = caught instanceof Error && caught.message !== ''
-      ? caught.message
-      : 'не получилось переключить замок';
+    error.value = errorText(caught, 'не получилось переключить замок');
   }
 }
 const { show: toast } = useToast();
@@ -137,7 +136,7 @@ async function addPasskey(): Promise<void> {
     await addAccess(kek, { kind: 'passkey', label: 'passkey', salt });
   }
   catch (caught) {
-    error.value = caught instanceof Error ? caught.message : 'не получилось создать ключ';
+    error.value = errorText(caught, 'не получилось создать ключ');
   }
   finally {
     busy.value = '';
@@ -164,7 +163,7 @@ async function confirmPhrase(): Promise<void> {
     phrase.value = null;
   }
   catch (caught) {
-    error.value = caught instanceof Error ? caught.message : 'не получилось сохранить фразу';
+    error.value = errorText(caught, 'не получилось сохранить фразу');
   }
   finally {
     busy.value = '';
@@ -191,7 +190,7 @@ function doRemove(): void {
     removeAccess(confirmRemove.value.label);
   }
   catch (caught) {
-    error.value = caught instanceof Error ? caught.message : 'не получилось убрать способ доступа';
+    error.value = errorText(caught, 'не получилось убрать способ доступа');
   }
   confirmRemove.value = null;
 }
@@ -206,7 +205,7 @@ onMounted(async () => {
   }
   catch (caught) {
     // Без catch отказ IndexedDB летел бы необработанным отказом промиса.
-    error.value = caught instanceof Error && caught.message !== '' ? caught.message : 'не удалось прочитать ключ устройства';
+    error.value = errorText(caught, 'не удалось прочитать ключ устройства');
   }
 });
 
@@ -237,7 +236,7 @@ async function doCreateInvite(): Promise<void> {
       + `#invite=${code}${token === '' ? '' : `&sync=${encodeURIComponent(token)}`}`;
   }
   catch (caught) {
-    error.value = caught instanceof Error && caught.message !== '' ? caught.message : 'не получилось создать приглашение';
+    error.value = errorText(caught, 'не получилось создать приглашение');
   }
   finally {
     inviteBusy.value = false;
@@ -249,7 +248,7 @@ function doDropInvite(): void {
     dropInvite();
   }
   catch (caught) {
-    error.value = caught instanceof Error && caught.message !== '' ? caught.message : 'не получилось погасить приглашение';
+    error.value = errorText(caught, 'не получилось погасить приглашение');
   }
   inviteLink.value = '';
 }
@@ -288,9 +287,7 @@ async function doJoinByInvite(): Promise<void> {
     toast({ title: 'Устройство подключено', description: 'Данные пространства едут с сервера.', tone: 'positive' });
   }
   catch (caught) {
-    joinPhraseError.value = caught instanceof Error && caught.message !== ''
-      ? caught.message
-      : 'не получилось подключиться по приглашению';
+    joinPhraseError.value = errorText(caught, 'не получилось подключиться по приглашению');
   }
   finally {
     deviceBusy.value = '';
@@ -336,9 +333,7 @@ async function doJoinByPhrase(): Promise<void> {
     toast({ title: 'Устройство подключено', description: 'Данные пространства едут с сервера.', tone: 'positive' });
   }
   catch (caught) {
-    joinPhraseError.value = caught instanceof Error && caught.message !== ''
-      ? caught.message
-      : 'не получилось подключиться фразой';
+    joinPhraseError.value = errorText(caught, 'не получилось подключиться фразой');
   }
   finally {
     deviceBusy.value = '';
@@ -409,7 +404,7 @@ async function doRevokeDevices(): Promise<void> {
     });
   }
   catch (caught) {
-    deviceError.value = caught instanceof Error && caught.message !== '' ? caught.message : 'не получилось отозвать';
+    deviceError.value = errorText(caught, 'не получилось отозвать');
   }
   finally {
     deviceBusy.value = '';

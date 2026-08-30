@@ -130,7 +130,7 @@ const GRANT_AAD = 'brain/pair/v1';
 const INVITE_ID = 'open';
 const INVITE_AAD = 'brain/invite/v1';
 /** Сколько живёт приглашение. Сутки: хватает переслать себе, мало — злоумышленнику из бэкапа переписки. */
-export const INVITE_TTL = 24 * 60 * 60 * 1000;
+const INVITE_TTL = 24 * 60 * 60 * 1000;
 
 function inviteKey(code: Uint8Array, usage: KeyUsage[]): Promise<CryptoKey> {
   return crypto.subtle.importKey('raw', code.slice().buffer as ArrayBuffer, 'AES-GCM', false, usage);

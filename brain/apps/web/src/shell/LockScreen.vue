@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import { useDateFormat, useNow } from '@robonen/vue';
 import { Button } from '@brain/ui';
 import { Fingerprint, KeyRound } from 'lucide-vue-next';
+import { errorText } from '../app/errors';
 import { unlockByPasskey, unlockByPhrase } from '../security/lock';
 
 /**
@@ -35,7 +36,7 @@ async function attempt(open: () => Promise<void>): Promise<void> {
     await open();
   }
   catch (caught) {
-    error.value = caught instanceof Error ? caught.message : 'не получилось открыть';
+    error.value = errorText(caught, 'не получилось открыть');
   }
   finally {
     busy.value = false;
