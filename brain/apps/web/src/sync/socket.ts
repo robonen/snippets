@@ -1,3 +1,4 @@
+import { useEventListener } from '@robonen/vue';
 import type { Wire, WireHandlers } from './engine';
 
 /**
@@ -115,6 +116,29 @@ export function socketWire(options: SocketOptions, handlers: WireHandlers): Wire
     next.addEventListener('error', () => {});
   }
 
+  // Сеть вернулась или вкладку разбудили — не ждать хвост отступа: телефон
+  // после блокировки экрана иначе молчал бы до 30 секунд. Слушатели снимаются
+  // в close(): движок пересобирает провод, и старый не должен оживать.
+  const wake = (): void => {
+    if (closed || socket !== null) return;
+    if (timer !== null) {
+      clearTimeout(timer);
+      timer = null;
+    }
+    attempt = 0;
+    connect();
+  };
+  const unwatch: Array<() => void> = [];
+  if (typeof globalThis.addEventListener === 'function') {
+    unwatch.push(useEventListener(globalThis, 'online', wake));
+  }
+  const doc = globalThis.document as Document | undefined;
+  if (doc !== undefined) {
+    unwatch.push(useEventListener(doc, 'visibilitychange', () => {
+      if (!doc.hidden) wake();
+    }));
+  }
+
   connect();
 
   return {
@@ -128,6 +152,7 @@ export function socketWire(options: SocketOptions, handlers: WireHandlers): Wire
     },
     close() {
       closed = true;
+      for (const stop of unwatch) stop();
       if (timer !== null) clearTimeout(timer);
       timer = null;
       socket?.close();

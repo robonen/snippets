@@ -1,5 +1,5 @@
 import { computed, flush, ref, sync } from '@sync/fiber'
-import { effectScope, watchEffect as vueWatchEffect } from 'vue'
+import { effectScope, nextTick, shallowRef as vueShallowRef, watchEffect as vueWatchEffect } from 'vue'
 import { expect, test } from 'vitest'
 import { createSync, useSync } from './index'
 
@@ -139,4 +139,34 @@ test('Component scope stops the bridge on its own', () => {
   scope.stop()
   flush()
   expect(double.node.subs).toBeUndefined()
+})
+
+test('Vue dependency of the getter re-creates the fiber subscription', async () => {
+  const gate = vueShallowRef(false)
+  const inside = ref(1)
+
+  const bridge = createSync(() => (gate.value ? inside() : null))
+  expect(bridge.data.value).toBeNull()
+
+  // Заслонка закрыта: геттер файберный реф не читал, подписки на граф нет.
+  inside(2)
+  flush()
+  expect(bridge.data.value).toBeNull()
+
+  // Заслонка — Vue-реф: мост обязан заметить её и пересоздать подписку.
+  gate.value = true
+  await nextTick()
+  expect(bridge.data.value).toBe(2)
+
+  // Новая подписка живая: файберная правка доезжает.
+  inside(3)
+  flush()
+  expect(bridge.data.value).toBe(3)
+
+  // Обратный флип возвращает ветку без графа.
+  gate.value = false
+  await nextTick()
+  expect(bridge.data.value).toBeNull()
+
+  bridge.stop()
 })

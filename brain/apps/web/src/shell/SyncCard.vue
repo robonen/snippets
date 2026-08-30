@@ -10,7 +10,7 @@ import { restartSync, useSyncSettings } from '@/sync';
  * (`SYNC_TOKEN`). Подключение сервера и подключение ВТОРОГО УСТРОЙСТВА — разные
  * вещи: сервер даёт транспорт и внешнюю копию шифртекста, а доступ к данным
  * второе устройство получает на экране «Доступ» (сверка отпечатков, выдача
- * секретов — `security/pairing.ts`).
+ * секретов — `security/vault.ts`).
  */
 const { settings, configured, live, save } = useSyncSettings();
 const { show: toast } = useToast();

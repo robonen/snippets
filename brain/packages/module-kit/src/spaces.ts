@@ -1,3 +1,4 @@
+import { shallowRef } from 'vue';
 import { CryptoError, Land, createSpace, idbStore, openVault, randomSession, sealedStore, syncTabs } from '@sync/core';
 import type { Clock, LandId, Link, SecretRing, Space, UnitStore } from '@sync/core';
 import { devicePeer, landId, wallClock } from './land';
@@ -90,7 +91,10 @@ export function openSpaces(options: OpenSpacesOptions): Spaces {
   const closers: Array<() => void> = [];
   /** Записи носителя, начатые сборкой: `seal` обязан их дождаться до забвения ключа. */
   let settling = new Set<Promise<unknown>>();
-  let opened = false;
+  // Реактивный, а не переменная: присоединение к пространству пересобирает
+  // ленды посреди жизни вкладки (seal → wipe → unseal), и «v-if="spaces.open"»
+  // обязан проснуться, когда они поднимутся снова.
+  const opened = shallowRef(false);
 
   /**
    * Соседний ленд. Ищется ЛЕНИВО, в момент вызова: модули открываются циклом, и
@@ -157,11 +161,11 @@ export function openSpaces(options: OpenSpacesOptions): Spaces {
     byModule.clear();
     byLand.clear();
     lands.clear();
-    opened = false;
+    opened.value = false;
   };
 
   return {
-    space: moduleId => handleOf(byModule, moduleId, opened).space,
+    space: moduleId => handleOf(byModule, moduleId, opened.value).space,
     ownerOf: at => byLand.get(at.str)?.id,
     landOf: (moduleId) => {
       const found = lands.get(moduleId);
@@ -169,11 +173,11 @@ export function openSpaces(options: OpenSpacesOptions): Spaces {
       return found;
     },
     get open(): boolean {
-      return opened;
+      return opened.value;
     },
 
     async unseal(ring: SecretRing): Promise<void> {
-      if (opened) return;
+      if (opened.value) return;
       const store = tracked(resilient(sealedStore(inner, ring)));
 
       const entries = [
@@ -225,7 +229,7 @@ export function openSpaces(options: OpenSpacesOptions): Spaces {
           if (handle !== undefined) entry.seed?.(handle.space);
         }
 
-        opened = true;
+        opened.value = true;
       }
       catch (error) {
         // Полуоткрытая сборка хуже закрытой: экран показал бы часть модулей и
@@ -236,12 +240,12 @@ export function openSpaces(options: OpenSpacesOptions): Spaces {
     },
 
     async wipe(ids: readonly string[]): Promise<void> {
-      if (opened) throw new Error('lands can be erased only under lock: seal() first');
+      if (opened.value) throw new Error('lands can be erased only under lock: seal() first');
       for (const id of ids) await inner.drop(landId(id));
     },
 
     async seal(): Promise<void> {
-      if (!opened) return;
+      if (!opened.value) return;
       unwind();
       // Дождаться, пока дописанное действительно уедет в носитель: ключ
       // забывают сразу после этого вызова, а запечатать пачку без ключа нельзя.

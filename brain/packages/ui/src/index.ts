@@ -123,6 +123,7 @@ export { default as TooltipProvider } from './overlays/TooltipProvider.vue';
 export { default as Badge } from './data/Badge.vue';
 export { default as ListRow } from './data/ListRow.vue';
 export { default as Meter } from './data/Meter.vue';
+export { default as QrCode } from './data/QrCode.vue';
 export { default as StatTile } from './data/StatTile.vue';
 export { default as Toast } from './data/Toast.vue';
 export { useToast } from './data/toast';

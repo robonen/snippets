@@ -8,6 +8,7 @@ import {
   provide,
   shallowRef,
   triggerRef,
+  watchEffect as vueWatchEffect,
   type InjectionKey,
   type ShallowRef,
   type WritableComputedRef,
@@ -45,11 +46,14 @@ export function createSync<T>(read: () => T): SyncHandle<T> {
   const pending = shallowRef(false)
   const error = shallowRef<unknown>()
 
-  const stop = watchEffect(() => {
+  const run = (): void => {
     try {
       const next = read()
-      if (pending.value) pending.value = false
-      if (error.value !== undefined) error.value = undefined
+      // Записи безусловные, без чтения своих же рефов: прочитанный здесь реф
+      // попал бы в зависимости внешнего Vue-эффекта, и каждый флип pending
+      // пересоздавал бы подписку. Одинаковое значение Vue и так не триггерит.
+      pending.value = false
+      error.value = undefined
       data.value = next
       // Значение могло не измениться по ссылке, хотя структура внутри изменилась —
       // будим читателей явно.
@@ -64,9 +68,29 @@ export function createSync<T>(read: () => T): SyncHandle<T> {
       pending.value = false
       error.value = caught
     }
+  }
+
+  // Два графа — две подписки. Файберный эффект видит только файберные
+  // зависимости; Vue-рефы, прочитанные геттером (например, «ленды подняты»
+  // у сборки, которая закрывает и поднимает ленды заново), он не трекает — и
+  // без внешнего слоя подписка сиротела бы на первой же пересборке источника.
+  // Внешний Vue-эффект ловит эти рефы при синхронном ПЕРВОМ прогоне файберного
+  // (Vue-трекинг глобален) и на их изменение пересоздаёт подписку целиком.
+  let inner: (() => void) | undefined
+  const outer = vueWatchEffect(() => {
+    inner?.()
+    inner = watchEffect(run)
   })
 
-  return { data, pending, error, stop }
+  return {
+    data,
+    pending,
+    error,
+    stop: () => {
+      outer()
+      inner?.()
+    },
+  }
 }
 
 /**
