@@ -89,10 +89,22 @@ export const VaultModel = model('keys/vault', {
   at: atom(t.number),
 });
 
+/**
+ * Приглашение устройства ссылкой: материал пространства (грант v2), запечатанный
+ * одноразовым 16-байтовым кодом. Код живёт ТОЛЬКО в URL-фрагменте ссылки —
+ * фрагмент не уходит на сервер, а запись в ленде без кода бесполезна.
+ */
+export const InviteModel = model('keys/invite', {
+  nonce: atom(t.string),
+  cipher: atom(t.string),
+  at: atom(t.number),
+});
+
 export const KeysModel = model('keys/root', {
   devices: parts(t.string, 'keys/device'),
   grants: parts(t.string, 'keys/grant'),
   vault: parts(t.string, 'keys/vault'),
+  invites: parts(t.string, 'keys/invite'),
 });
 
 declare module '@sync/core' {
@@ -100,6 +112,7 @@ declare module '@sync/core' {
     'keys/device': typeof DeviceModel;
     'keys/grant': typeof GrantModel;
     'keys/vault': typeof VaultModel;
+    'keys/invite': typeof InviteModel;
     'keys/root': typeof KeysModel;
   }
 }
@@ -110,6 +123,90 @@ const VAULT_ID = 'space';
 export const SPACE_PHRASE_LABEL = 'space';
 
 const GRANT_AAD = 'brain/pair/v1';
+
+/** Запись приглашения одна на пространство: новая гасит старую. */
+const INVITE_ID = 'open';
+const INVITE_AAD = 'brain/invite/v1';
+/** Сколько живёт приглашение. Сутки: хватает переслать себе, мало — злоумышленнику из бэкапа переписки. */
+export const INVITE_TTL = 24 * 60 * 60 * 1000;
+
+function inviteKey(code: Uint8Array, usage: KeyUsage[]): Promise<CryptoKey> {
+  return crypto.subtle.importKey('raw', code.slice().buffer as ArrayBuffer, 'AES-GCM', false, usage);
+}
+
+/**
+ * Опубликовать приглашение. Возвращает КОД (base64url) — он показывается один
+ * раз в составе ссылки и больше нигде не хранится.
+ */
+export async function publishInvite(space: Space, ring: Keyring): Promise<string> {
+  const code = crypto.getRandomValues(new Uint8Array(16));
+  const nonce = crypto.getRandomValues(new Uint8Array(12));
+  const blob = ring.exportForGrant();
+  const cipher = new Uint8Array(await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv: nonce, additionalData: new TextEncoder().encode(INVITE_AAD) },
+    await inviteKey(code, ['encrypt']),
+    blob.slice().buffer as ArrayBuffer,
+  ));
+
+  const root = space.root(KeysModel);
+  space.edit(() => {
+    const doc = root.invites(INVITE_ID);
+    doc.nonce(encodeBytes(nonce));
+    doc.cipher(encodeBytes(cipher));
+    doc.at(Date.now());
+  });
+  return encodeBytes(code);
+}
+
+/** Активно ли приглашение — для карточки. `null` — нет либо погашено. */
+export function readInvite(space: Space): { at: number } | null {
+  const root = space.root(KeysModel);
+  if (!root.invites.has(INVITE_ID)) return null;
+  const doc = root.invites(INVITE_ID);
+  return doc.cipher() === '' ? null : { at: doc.at() };
+}
+
+/** Погасить приглашение: после этого запись — пустышка даже с кодом на руках. */
+export function revokeInvite(space: Space): void {
+  const root = space.root(KeysModel);
+  if (!root.invites.has(INVITE_ID)) return;
+  space.edit(() => {
+    const doc = root.invites(INVITE_ID);
+    doc.nonce('');
+    doc.cipher('');
+  });
+}
+
+/**
+ * Принять приглашение кодом из ссылки. `null` — записи ещё нет: она едет
+ * обычным синком, вызывающий подождёт и спросит снова.
+ */
+export async function claimInvite(space: Space, code: string): Promise<SpaceMaterial | null> {
+  const root = space.root(KeysModel);
+  if (!root.invites.has(INVITE_ID)) return null;
+  const doc = root.invites(INVITE_ID);
+  if (doc.cipher() === '') return null;
+  if (Date.now() - doc.at() > INVITE_TTL) {
+    throw new Error('the invite has expired — create a new one on the first device');
+  }
+
+  let blob: ArrayBuffer;
+  try {
+    blob = await crypto.subtle.decrypt(
+      {
+        name: 'AES-GCM',
+        iv: decodeBytes(doc.nonce()).slice().buffer as ArrayBuffer,
+        additionalData: new TextEncoder().encode(INVITE_AAD),
+      },
+      await inviteKey(decodeBytes(code), ['decrypt']),
+      decodeBytes(doc.cipher()).slice().buffer as ArrayBuffer,
+    );
+  }
+  catch (cause) {
+    throw new Error('the invite code does not match — the link is stale or truncated', { cause });
+  }
+  return decodeGrant(new Uint8Array(blob));
+}
 
 // ── ECDH-пара устройства ─────────────────────────────────────────────────────
 //
@@ -197,6 +294,23 @@ export function announceDevice(space: Space, identity: Identity, signPeer: strin
       doc.addedAt(Date.now());
     }
     if (doc.signPeer() !== signPeer) doc.signPeer(signPeer);
+  });
+}
+
+/**
+ * Снять пометку отзыва с СЕБЯ после честного повторного подключения. Запись
+ * устройства хранится по ECDH-ключу, и без этого браузер, однажды отозванный,
+ * оставался бы «отозванным» навсегда — даже войдя по свежему приглашению.
+ * Право на жест доказывает сам материал пространства: его выдал владелец.
+ */
+export function reviveDevice(space: Space, pub: string): void {
+  const root = space.root(KeysModel);
+  if (!root.devices.has(pub)) return;
+  const doc = root.devices(pub);
+  if (doc.revokedAt() === 0) return;
+  space.edit(() => {
+    doc.revokedAt(0);
+    doc.addedAt(Date.now());
   });
 }
 

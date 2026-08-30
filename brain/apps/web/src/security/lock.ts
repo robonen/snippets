@@ -71,6 +71,8 @@ function keyed(list: readonly WrappedDek[]): readonly WrappedDek[] {
 export function useLock(): {
   state: Readonly<ShallowRef<LockState>>;
   configured: ComputedRef<boolean>;
+  /** Замок включён: тихий ключ устройства убран, вход только способом доступа. */
+  guarded: ComputedRef<boolean>;
   /** Способы доступа, которыми человек управляет на экране «Доступ». */
   access: ComputedRef<readonly WrappedDek[]>;
   lock: () => void;
@@ -79,6 +81,8 @@ export function useLock(): {
   return {
     state: readonly(state),
     configured: computed(() => access.value.length > 0),
+    guarded: computed(() =>
+      access.value.length > 0 && !wraps.value.some(wrap => wrap.kind === 'device')),
     access,
     lock,
   };
@@ -99,7 +103,12 @@ export async function armLock(bind: LockBind): Promise<void> {
     legacyWraps = await readLegacyWraps();
   }
 
-  if (keyed(wraps.value).length > 0 || keyed(legacyWraps).length > 0) {
+  // Замок — выбор, а не принуждение: пока обёртка ключа устройства на месте,
+  // приложение открывается молча, даже если настроены passkey и фраза.
+  // Запертым стартует только устройство, где тихий путь убран тумблером
+  // «Запирать приложение» (`setGuarded`).
+  const silent = wraps.value.some(wrap => wrap.kind === 'device');
+  if (!silent && (keyed(wraps.value).length > 0 || keyed(legacyWraps).length > 0)) {
     state.value = 'locked';
     return;
   }
@@ -157,8 +166,10 @@ export function lockedByAway(hiddenAt: number, now: number, idleMs: number): boo
 
 export function lock(): void {
   if (state.value !== 'open') return;
-  // Запирать нечем — значит и незачем: человек остался бы перед дверью без ключа.
-  if (keyed(wraps.value).length === 0) return;
+  // Запирать нечем — значит и незачем: человек остался бы перед дверью без
+  // ключа. А пока тихий ключ устройства на месте, запирание — декорация:
+  // следующий старт всё равно откроется без спроса.
+  if (keyed(wraps.value).length === 0 || wraps.value.some(wrap => wrap.kind === 'device')) return;
   // Экран запирается СИНХРОННО: между командой и исчезновением данных не должно
   // быть кадра, в котором они ещё нарисованы. Уборка идёт следом, связка
   // забывается ПОСЛЕ неё — последняя пачка ещё запечатывается её ключами.
@@ -223,11 +234,31 @@ export async function addAccess(
   if (opened === null) throw new Error('keyring is locked: unlock the data first');
 
   save(await opened.wrapFor(kek, meta));
+}
 
-  // Ключ устройства открывал данные БЕЗ спроса — ровно то, от чего защищает
-  // замок (У1). Как только появился способ, который спрашивает человека,
-  // тихий путь обязан исчезнуть, иначе замок остаётся декорацией.
-  if (meta.kind !== 'device') await forgetDevice();
+/**
+ * Включить или выключить замок.
+ *
+ * Включение убирает обёртку ключа устройства — данные перестают открываться
+ * без спроса, и это единственное, что делает замок замком (У1). Выключение —
+ * обратный жест из разблокированного состояния: мастер заворачивается под
+ * ключ устройства заново. Способы доступа при этом не трогаются: фраза и
+ * passkey остаются восстановлением и входом с других устройств.
+ */
+export async function setGuarded(on: boolean): Promise<void> {
+  if (on) {
+    if (keyed(wraps.value).length === 0) {
+      throw new Error('add a passkey or the recovery phrase first: otherwise nothing could open the data');
+    }
+    await forgetDevice();
+    return;
+  }
+
+  const opened = ring.value;
+  if (opened === null) throw new Error('keyring is locked: unlock the data first');
+  const kek = await deviceKek();
+  if (kek === null) throw new Error('device key is unavailable: the browser refused to store it');
+  save(await opened.wrapFor(kek, { kind: 'device', label: DEVICE_LABEL, salt: EMPTY_SALT }));
 }
 
 /** Связка — модулям безопасности (пейринг заворачивает её секреты для других устройств). */

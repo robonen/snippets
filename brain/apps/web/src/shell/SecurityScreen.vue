@@ -7,6 +7,7 @@ import {
   ConfirmDialog,
   Page,
   PageHeader,
+  SwitchField,
   TextField,
   useToast,
 } from '@brain/ui';
@@ -26,9 +27,20 @@ import {
 } from '@brain/auth';
 import { useValue } from '@sync/vue';
 import { useSpaces } from '@brain/module-kit';
-import { joinByPhrase, joinSpace, pendingGrant, publishPhraseAccess, revokeDevice, trustDevice } from '@/app/boot';
-import { addAccess, freshSalt, removeAccess, useLock } from '../security/lock';
-import { KEYS_ID, deviceIdentity, fingerprint, listDevices, readVault } from '../security/pairing';
+import {
+  createInvite,
+  dropInvite,
+  joinByInvite,
+  joinByPhrase,
+  joinSpace,
+  pendingGrant,
+  publishPhraseAccess,
+  revokeDevice,
+  trustDevice,
+} from '@/app/boot';
+import { restartSync, saveSyncSettings, useSyncSettings } from '@/sync';
+import { addAccess, freshSalt, removeAccess, setGuarded, useLock } from '../security/lock';
+import { KEYS_ID, deviceIdentity, fingerprint, listDevices, readInvite, readVault } from '../security/pairing';
 import { Fingerprint, KeyRound, Lock, MonitorSmartphone, TriangleAlert } from 'lucide-vue-next';
 import type { PairedDevice } from '../security/pairing';
 import type { WrappedDek } from '@brain/auth';
@@ -50,7 +62,21 @@ const supported = useSupported(isSupported);
 // нет: подпись «откроется пальцем» на устройстве без биометрии — обещание,
 // которого не сдержать, а обратная ошибка стоит лишь строчки текста.
 const platform = computedAsync(hasPlatformAuthenticator, false);
-const { access: wraps, configured, lock } = useLock();
+const { access: wraps, configured, guarded, lock } = useLock();
+
+async function toggleGuard(on: boolean): Promise<void> {
+  try {
+    await setGuarded(on);
+    toast(on
+      ? { title: 'Замок включён', description: 'Вход — по passkey или фразе на каждом запуске.', tone: 'positive' }
+      : { title: 'Замок выключен', description: 'Приложение будет открываться сразу.' });
+  }
+  catch (caught) {
+    error.value = caught instanceof Error && caught.message !== ''
+      ? caught.message
+      : 'не получилось переключить замок';
+  }
+}
 const { show: toast } = useToast();
 const busy = ref('');
 const error = ref('');
@@ -181,6 +207,87 @@ onMounted(async () => {
 // на первом запуске возвращала [] не тронув ленд — эффект не подписывался ни
 // на что и не просыпался уже никогда, список устройств вечно пустовал.
 const roster = useValue(() => spaces.open ? listDevices(spaces.space(KEYS_ID)) : []);
+
+// ── Приглашение ссылкой ──────────────────────────────────────────────────────
+//
+// Самый короткий путь подключения: ссылка несёт одноразовый код (и токен
+// синка) в URL-фрагменте — фрагмент не уходит на сервер. Открыл на новом
+// устройстве — оно настроило синк, дождалось записи и вошло.
+
+const { configured: syncOn, settings: syncSettings } = useSyncSettings();
+const invite = useValue(() => spaces.open ? readInvite(spaces.space(KEYS_ID)) : null);
+const inviteLink = ref('');
+const inviteBusy = ref(false);
+const { copy: copyInvite, copied: inviteCopied } = useClipboard();
+
+async function doCreateInvite(): Promise<void> {
+  inviteBusy.value = true;
+  try {
+    const code = await createInvite();
+    const token = syncSettings.value.token;
+    inviteLink.value = `${globalThis.location.origin}/settings/security`
+      + `#invite=${code}${token === '' ? '' : `&sync=${encodeURIComponent(token)}`}`;
+  }
+  catch (caught) {
+    error.value = caught instanceof Error && caught.message !== '' ? caught.message : 'не получилось создать приглашение';
+  }
+  finally {
+    inviteBusy.value = false;
+  }
+}
+
+function doDropInvite(): void {
+  try {
+    dropInvite();
+  }
+  catch (caught) {
+    error.value = caught instanceof Error && caught.message !== '' ? caught.message : 'не получилось погасить приглашение';
+  }
+  inviteLink.value = '';
+}
+
+// Открыли по ссылке-приглашению: настроить синк из фрагмента и предложить вход.
+const inviteCode = ref('');
+const inviteJoinOpen = ref(false);
+onMounted(() => {
+  const hash = new URLSearchParams(globalThis.location.hash.slice(1));
+  const code = hash.get('invite');
+  if (code === null || code === '') return;
+  const token = hash.get('sync');
+  if (token !== null && token !== '' && !syncOn.value) {
+    saveSyncSettings({ url: '', token });
+    restartSync();
+  }
+  inviteCode.value = code;
+  inviteJoinOpen.value = true;
+  // Код не должен переживать обработку в истории браузера.
+  globalThis.history.replaceState(null, '', globalThis.location.pathname);
+});
+
+async function doJoinByInvite(): Promise<void> {
+  deviceBusy.value = 'invite-join';
+  joinPhraseError.value = '';
+  try {
+    // Запись приглашения едет обычным синком — даём ей время доехать.
+    for (let attempt = 0; ; attempt++) {
+      if (await joinByInvite(inviteCode.value)) break;
+      if (attempt >= 30) {
+        throw new Error('the invite has not arrived over sync — check the server address and token');
+      }
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    inviteCode.value = '';
+    toast({ title: 'Устройство подключено', description: 'Данные пространства едут с сервера.', tone: 'positive' });
+  }
+  catch (caught) {
+    joinPhraseError.value = caught instanceof Error && caught.message !== ''
+      ? caught.message
+      : 'не получилось подключиться по приглашению';
+  }
+  finally {
+    deviceBusy.value = '';
+  }
+}
 const devices = computed(() => roster.value ?? []);
 const others = computed(() => devices.value.filter(device => device.pub !== myPub.value));
 
@@ -350,9 +457,10 @@ async function doRevokeDevice(): Promise<void> {
         <div class="flex gap-3">
           <TriangleAlert class="mt-0.5 size-5 shrink-0 text-warning" />
           <p class="text-sm text-text-soft">
-            Данные на диске уже зашифрованы, но открываются без спроса: ключ
-            хранит сам браузер. Настройте passkey или фразу — тогда появится
-            замок, и данные откроются только вам.
+            Данные на диске зашифрованы ключом устройства, но при его потере
+            восстановить их будет нечем. Настройте фразу или passkey: это
+            восстановление, вход с других устройств и — по желанию — замок
+            приложения.
           </p>
         </div>
       </Card>
@@ -574,22 +682,60 @@ async function doRevokeDevice(): Promise<void> {
             </template>
           </li>
         </ul>
-        <p v-if="others.length === 0" class="mt-3 text-xs text-text-faint">
-          Другие устройства появятся здесь сами, как только объявятся через
-          сервер, — подключайте их фразой (карточка выше) или грантом.
-        </p>
-        <p v-else class="mt-3 text-xs text-text-faint">
+        <p v-if="others.length > 0" class="mt-3 text-xs text-text-faint">
           «Доверять» выдаёт секреты после сверки отпечатков на обоих экранах.
           «Отозвать» перевыпускает секреты и мастер: отозванное устройство
           нового не увидит.
         </p>
+
+        <div class="mt-3 flex flex-col gap-2 border-t border-line pt-3">
+          <template v-if="inviteLink !== ''">
+            <p class="text-xs text-text-faint">
+              Ссылка показывается один раз и действует сутки. В ней код доступа
+              и токен сервера — отправляйте её только себе.
+            </p>
+            <div class="flex items-center gap-2">
+              <code class="glass min-w-0 flex-1 truncate rounded-control border px-3 py-2 text-xs text-text">{{ inviteLink }}</code>
+              <Button size="sm" @click="copyInvite(inviteLink)">
+                {{ inviteCopied ? 'Скопировано' : 'Скопировать' }}
+              </Button>
+            </div>
+            <div class="flex justify-end">
+              <Button size="sm" tone="danger" @click="doDropInvite">Погасить</Button>
+            </div>
+          </template>
+          <template v-else>
+            <div class="flex items-center justify-between gap-3">
+              <p class="min-w-0 flex-1 text-xs text-text-faint">
+                {{ invite
+                  ? 'Приглашение действует: ссылка была показана при создании.'
+                  : 'Новое устройство проще всего подключить ссылкой: открыл — и готово.' }}
+              </p>
+              <Button v-if="invite" size="sm" tone="danger" @click="doDropInvite">Погасить</Button>
+              <Button v-else size="sm" tone="primary" :disabled="!syncOn" :loading="inviteBusy" @click="doCreateInvite">
+                Пригласить
+              </Button>
+            </div>
+            <p v-if="!syncOn" class="text-xs text-text-faint">
+              Для приглашений нужна синхронизация: подключите сервер в Настройках.
+            </p>
+          </template>
+        </div>
       </Card>
 
-      <!-- Явная команда из docs/01-security.md §5. Показывается только с
-           настроенным доступом: иначе замок захлопнулся бы перед человеком,
-           которому нечем открыть. -->
-      <Card v-if="configured">
-        <div class="flex items-center gap-3">
+      <!-- Замок — выбор (docs/01-security.md §5): тумблер убирает или
+           возвращает тихий ключ устройства. Показывается только с настроенным
+           доступом: иначе замок захлопнулся бы перед человеком без ключа. -->
+      <Card v-if="configured" title="Замок приложения">
+        <SwitchField
+          :model-value="guarded"
+          label="Запирать приложение"
+          description="Вход по passkey или фразе на каждом запуске и после отлучки.
+            Выключено — открывается сразу: данные на диске всё равно зашифрованы,
+            но ключ хранит сам браузер."
+          @update:model-value="toggleGuard"
+        />
+        <div v-if="guarded" class="mt-1 flex items-center gap-3 border-t border-line pt-3">
           <Lock class="size-4 shrink-0 text-text-faint" />
           <p class="min-w-0 flex-1 text-sm text-text-soft">
             Запереть сейчас: расшифрованные данные уйдут из памяти вкладки.
@@ -647,6 +793,14 @@ async function doRevokeDevice(): Promise<void> {
         />
       </div>
     </ConfirmDialog>
+
+    <ConfirmDialog
+      v-model:open="inviteJoinOpen"
+      title="Подключиться по приглашению?"
+      description="Местные данные этого устройства будут заменены данными пространства. Всё, что вы успели записать здесь, будет стёрто."
+      confirm-label="Подключиться"
+      @confirm="doJoinByInvite"
+    />
 
     <ConfirmDialog
       v-model:open="joinPhraseOpen"

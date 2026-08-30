@@ -1,4 +1,4 @@
-import { Land, createSpace, idbStore, openVault, randomSession, sealedStore, syncTabs } from '@sync/core';
+import { CryptoError, Land, createSpace, idbStore, openVault, randomSession, sealedStore, syncTabs } from '@sync/core';
 import type { Clock, LandId, Link, SecretRing, Space, UnitStore } from '@sync/core';
 import { devicePeer, landId, wallClock } from './land';
 import type { BrainModule } from './module';
@@ -113,6 +113,32 @@ export function openSpaces(options: OpenSpacesOptions): Spaces {
    * `seal`, а запись идёт микрозадачей — без ожидания последняя пачка легла бы
    * в носитель уже без ключа.
    */
+  /**
+   * Невосстановимый образ не должен окирпичивать сборку: ленд, запечатанный
+   * ключами, которых в связке больше нет (localStorage стёрт, профиль
+   * восстановлен частично), — мусор ПО ПОСТРОЕНИЮ, его не открыть ничем.
+   * Такой образ сбрасывается с предупреждением, ленд поднимается пустым, а
+   * данные возвращаются обычным синком после подключения устройства.
+   */
+  const resilient = (store: UnitStore): UnitStore => ({
+    ...store,
+    async load(land) {
+      try {
+        return await store.load(land);
+      }
+      catch (error) {
+        if (!(error instanceof CryptoError)) throw error;
+        console.warn(
+          `[brain] land ${land.str} image cannot be opened by the keyring — dropping it, data returns over sync`,
+          error,
+        );
+        report?.(error);
+        await store.drop(land);
+        return store.load(land);
+      }
+    },
+  });
+
   const tracked = (store: UnitStore): UnitStore => ({
     load: land => store.load(land),
     save(land, pack) {
@@ -151,7 +177,7 @@ export function openSpaces(options: OpenSpacesOptions): Spaces {
 
     async unseal(ring: SecretRing): Promise<void> {
       if (opened) return;
-      const store = tracked(sealedStore(inner, ring));
+      const store = tracked(resilient(sealedStore(inner, ring)));
 
       const entries = [
         ...(options.shell ?? []).map(land => ({ id: land.id, ...(land.seed && { seed: land.seed }) })),

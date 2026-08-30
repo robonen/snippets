@@ -8,6 +8,7 @@ import { INBOX_ID } from '@/db/inbox';
 import {
   assertKnownPhrase,
   deviceKek,
+  encodeBytes,
   kekFromPassphrase,
   keyringFromMaterial,
   normalizePhrase,
@@ -21,15 +22,19 @@ import {
   SPACE_PHRASE_LABEL,
   announceDevice,
   claimGrant,
+  claimInvite,
   clearPhraseWrap,
   deviceIdentity,
   grantTo,
   livePeers,
   markRevoked,
+  publishInvite,
   publishPhraseWrap,
   publishRing,
   readVault,
   regrantAll,
+  reviveDevice,
+  revokeInvite,
 } from '@/security/pairing';
 import type { PairedDevice } from '@/security/pairing';
 import { deviceSigner, makeSecure, ownerRoster } from '@/security/signing';
@@ -201,6 +206,31 @@ export async function publishPhraseAccess(kek: Uint8Array, salt: Uint8Array): Pr
   publishPhraseWrap(need().space(KEYS_ID), wrapped, ring.masterId());
 }
 
+/** Пригласить устройство: опубликовать приглашение, вернуть одноразовый код. */
+export async function createInvite(): Promise<string> {
+  return publishInvite(need().space(KEYS_ID), ringNow());
+}
+
+/** Погасить действующее приглашение. */
+export function dropInvite(): void {
+  revokeInvite(need().space(KEYS_ID));
+}
+
+/**
+ * Принять приглашение из ссылки. Запись едет обычным синком — пока не
+ * доехала, честно возвращаем false, вызывающий подождёт и спросит снова.
+ */
+export async function joinByInvite(code: string): Promise<boolean> {
+  const spaces = need();
+  const material = await claimInvite(spaces.space(KEYS_ID), code);
+  if (material === null) return false;
+  await adoptSpace(material);
+  // Приглашение одноразовое: приняли — погасили. Мы уже полноправное
+  // устройство пространства и вправе писать в ленд `keys`.
+  revokeInvite(spaces.space(KEYS_ID));
+  return true;
+}
+
 /**
  * Принять материал пространства (грант v2 либо фраза): ЗАМЕНИТЬ локальные
  * заготовки. Грант v1 (без мастера) заменяет только секреты — устройство
@@ -238,6 +268,9 @@ async function adoptSpace(material: SpaceMaterial): Promise<void> {
   await spaces.unseal(secretsOf(ring));
   const identity = await deviceIdentity();
   announceDevice(spaces.space(KEYS_ID), identity, signerNow().peer.str, deviceLabel());
+  // Отозванный когда-то браузер, вернувшийся по приглашению, снова доверен:
+  // материал пространства ему выдал владелец, пометка отзыва снимается.
+  reviveDevice(spaces.space(KEYS_ID), encodeBytes(identity.pub));
   if (material.master !== null) await publishRing(spaces.space(KEYS_ID), ring);
   startSync({ spaces, secure: secureOf(ring, signerNow()), lands: [KEYS_ID, ...dataLands] });
 }
@@ -387,14 +420,19 @@ async function rewrapAfterMasterChange(ring: Keyring, confirm?: RevokeConfirm): 
   if (keyed && confirm === undefined) {
     throw new Error('confirm an access method to re-wrap the new master key');
   }
+  const hadDevice = wraps.some(wrap => wrap.kind === 'device');
   for (const wrap of wraps) dropWrap(wrap.label);
-  if (confirm !== undefined) {
-    saveWrap(await ring.wrapFor(confirm.kek, confirm.meta));
-  }
-  else {
+  if (confirm !== undefined) saveWrap(await ring.wrapFor(confirm.kek, confirm.meta));
+  // Тихий путь сохраняется таким, каким был: замок — отдельный выбор
+  // (`setGuarded`), и отзыв чужого устройства его не трогает.
+  if (hadDevice || confirm === undefined) {
     const kek = await deviceKek();
-    if (kek === null) throw new Error('device key is unavailable: cannot re-wrap the master key');
-    saveWrap(await ring.wrapFor(kek, { kind: 'device', label: DEVICE_LABEL, salt: new Uint8Array(0) }));
+    if (kek === null && confirm === undefined) {
+      throw new Error('device key is unavailable: cannot re-wrap the master key');
+    }
+    if (kek !== null) {
+      saveWrap(await ring.wrapFor(kek, { kind: 'device', label: DEVICE_LABEL, salt: new Uint8Array(0) }));
+    }
   }
   refreshWraps();
 }
