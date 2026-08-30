@@ -68,6 +68,7 @@ import {
   type IdbFactory,
   type IdbRanges,
   type IdbTransaction,
+  type IdbFault,
 } from './idb-api'
 
 const DB_VERSION = 1
@@ -319,10 +320,9 @@ class IdbDisk {
   }
 
   async #drop(land: LandId): Promise<void> {
-    const db = await this.#database()
     this.#lands.delete(land.str)
 
-    const tx = db.transaction([PAGES, LANDS], 'readwrite', { durability: this.#durability })
+    const tx = await this.#transaction([PAGES, LANDS], 'readwrite')
     const pages = tx.objectStore(PAGES)
     for (let side = 0; side < this.#sides; side++) pages.delete(this.#span(land.str, side))
     tx.objectStore(LANDS).delete(land.str)
@@ -331,8 +331,7 @@ class IdbDisk {
   }
 
   async #known(): Promise<readonly LandId[]> {
-    const db = await this.#database()
-    const tx = db.transaction(LANDS, 'readonly')
+    const tx = await this.#transaction(LANDS, 'readonly')
     const rows = await ask(tx.objectStore(LANDS).getAll())
     const out: LandId[] = []
     for (const row of rows) out.push(Link.from(row as Uint8Array))
@@ -340,8 +339,7 @@ class IdbDisk {
   }
 
   async #bytes(land: LandId): Promise<number> {
-    const db = await this.#database()
-    const tx = db.transaction(PAGES, 'readonly')
+    const tx = await this.#transaction(PAGES, 'readonly')
     const store = tx.objectStore(PAGES)
     // Все запросы выпускаются ДО первого `await`: транзакция IndexedDB активна
     // только пока не отдан управление циклу событий, и запрос, поданный после
@@ -375,11 +373,47 @@ class IdbDisk {
     }
 
     this.#opening = ask(request).then(db => {
+      // Соединение может закрыть платформа: очистка данных сайта, удаление
+      // базы, нехватка места. Мёртвое соединение отвечает InvalidStateError на
+      // любую транзакцию — и отвечало бы вечно, пока его держат. Забыть его —
+      // и следующая операция откроет новое; образы в памяти при этом тоже
+      // забываются: база под ними могла смениться.
+      db.onclose = (): void => this.#forget(db)
+      db.onversionchange = (): void => {
+        // Не закрыться — значит заблокировать чужое удаление или миграцию.
+        db.close()
+        this.#forget(db)
+      }
       this.#db = db
       this.#opening = null
       return db
     })
     return this.#opening
+  }
+
+  #forget(db: IdbDatabase): void {
+    if (this.#db !== db) return
+    this.#db = null
+    this.#lands.clear()
+  }
+
+  /**
+   * Транзакция на живом соединении. Соединение, умершее без события (так бывает
+   * у платформы), выдаёт себя InvalidStateError на первой же попытке: оно
+   * забывается, и попытка повторяется один раз на свежем.
+   */
+  async #transaction(names: string | readonly string[], mode: 'readonly' | 'readwrite'): Promise<IdbTransaction> {
+    for (let attempt = 0; ; attempt++) {
+      const db = await this.#database()
+      try {
+        return mode === 'readwrite'
+          ? db.transaction(names, mode, { durability: this.#durability })
+          : db.transaction(names, mode)
+      } catch (cause) {
+        if (attempt > 0 || (cause as IdbFault).name !== 'InvalidStateError') throw cause
+        this.#forget(db)
+      }
+    }
   }
 
   /** Диапазон ключей одной стороны: `[land, side] < ключ < [land, side, []]`. */
@@ -401,8 +435,7 @@ class IdbDisk {
     const found = this.#lands.get(key)
     if (found !== undefined) return found
 
-    const db = await this.#database()
-    const tx = db.transaction(PAGES, 'readonly')
+    const tx = await this.#transaction(PAGES, 'readonly')
     const store = tx.objectStore(PAGES)
 
     // Все запросы выпускаются ДО первого `await`, и это не стиль, а требование
@@ -472,7 +505,6 @@ class IdbDisk {
    * забывается целиком — следующее обращение поднимет его разбором из базы.
    */
   async #commit(state: LandState): Promise<void> {
-    const db = await this.#database()
     let side = 0
 
     // `try` на границе всего цикла, а не вокруг одного `await`: обрыв застаёт
@@ -488,7 +520,12 @@ class IdbDisk {
         const first = side === 0 && !state.known
         if (dirty.size === 0 && !first) continue
 
-        const tx = db.transaction([PAGES, LANDS], 'readwrite', { durability: this.#durability })
+        const tx = await this.#transaction([PAGES, LANDS], 'readwrite')
+        // Соединение сменилось под ногами — образ уже забыт (`#forget`), и
+        // дописывать его страницы в новую базу нельзя: её содержимое другое.
+        if (this.#lands.get(state.key) !== state) {
+          throw new StoreError('connection was reset during the commit', `land ${state.key}`)
+        }
         const pages = tx.objectStore(PAGES)
         const bin = volume.bin()
 

@@ -9,7 +9,10 @@ import { describe, expect, test } from 'vitest'
 import { async as fiberAsync, flush } from '@sync/fiber'
 import { ROOT, type LocalId } from '../../land/view'
 import { atom, createSpace, model, t } from '../../model'
-import { idbStore, type IdbStore } from '../idb'
+import { Link } from '../../binary/link'
+import { fixedClock } from '../../land/clock'
+import { Land } from '../../land/land'
+import { idbStore, idbWipe, type IdbStore } from '../idb'
 import { openVault } from '../vault'
 import { storeContract } from './contract'
 import {
@@ -165,6 +168,37 @@ export function idbSuite(env: IdbEnv): void {
       } finally {
         await store.close()
       }
+    })
+  })
+
+  describe(`IndexedDB — connection lost (${env.what})`, () => {
+    test('a connection closed under the store is reopened on the next operation', async () => {
+      // Так браузер поступает при очистке данных сайта: соединения закрываются,
+      // база удаляется. Удаление базы — тот же сигнал (versionchange), и оно
+      // вообще не завершится, пока хранилище держит соединение открытым.
+      const name = dbName()
+      const store = idbStore({ name, factory: env.factory, ranges: env.ranges })
+      const writer = (): Land => new Land(Link.peer(new Uint8Array(8).fill(0x11)), fixedClock(1000), { session: 1 })
+
+      const first = writer()
+      first.track()
+      first.post(ROOT, ROOT, 'до сброса')
+      await store.save(LAND, first.flush(LAND))
+
+      await idbWipe(name, env.factory)
+
+      // Старое соединение мертво; хранилище обязано открыть новое, а не
+      // отвечать «connection is closing» на каждую пачку до конца вкладки.
+      const second = writer()
+      second.track()
+      second.post(ROOT, ROOT, 'после сброса')
+      await store.save(LAND, second.flush(LAND))
+      expect((await store.lands()).map(id => id.str)).toEqual([LAND.str])
+
+      const reread = writer()
+      reread.adopt(await store.load(LAND))
+      expect(reread.size()).toBe(1)
+      await store.close()
     })
   })
 

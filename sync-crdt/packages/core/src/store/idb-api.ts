@@ -58,6 +58,13 @@ export interface IdbDatabase {
     options?: { durability?: string },
   ): IdbTransaction
   close(): void
+  /**
+   * События жизни соединения. Необязательны: обёртки (тесты обрыва) их не
+   * пробрасывают, а хранилище и без них узнаёт мёртвое соединение по
+   * InvalidStateError на первой же транзакции.
+   */
+  onclose?: (() => void) | null
+  onversionchange?: (() => void) | null
 }
 
 export interface IdbTransaction {
