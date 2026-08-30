@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
-import { computedAsync, useClipboard, useSupported } from '@robonen/vue';
+import { computedAsync, useClipboard, useEventListener, useSupported } from '@robonen/vue';
 import {
   Button,
   Card,
@@ -253,10 +253,13 @@ function doDropInvite(): void {
   inviteLink.value = '';
 }
 
-// Открыли по ссылке-приглашению: настроить синк из фрагмента и предложить вход.
+// Открыли по ссылке-приглашению: настроить синк из фрагмента и предложить
+// вход. И при загрузке, и при смене хэша: ссылку могут вставить в уже
+// открытую вкладку — экран при этом не перемонтируется.
 const inviteCode = ref('');
 const inviteJoinOpen = ref(false);
-onMounted(() => {
+
+function takeInviteFromHash(): void {
   const hash = new URLSearchParams(globalThis.location.hash.slice(1));
   const code = hash.get('invite');
   if (code === null || code === '') return;
@@ -269,7 +272,10 @@ onMounted(() => {
   inviteJoinOpen.value = true;
   // Код не должен переживать обработку в истории браузера.
   globalThis.history.replaceState(null, '', globalThis.location.pathname);
-});
+}
+
+onMounted(takeInviteFromHash);
+useEventListener(globalThis, 'hashchange', takeInviteFromHash);
 
 async function doJoinByInvite(): Promise<void> {
   deviceBusy.value = 'invite-join';

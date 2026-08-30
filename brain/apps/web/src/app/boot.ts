@@ -83,30 +83,25 @@ export async function bootBrain(): Promise<{ spaces: Spaces; registry: Registry 
       for (const name of dataLands) await ring.ensure(landId(name).str);
       await spaces.unseal(secretsOf(ring));
 
-      // Устройство объявляется в пространстве: ECDH-ключ для пейринга и подписной
-      // peer для ростера. Без этого его не подключить, не отозвать и не доверять
-      // его печатям.
-      const identity = await deviceIdentity();
-      announceDevice(spaces.space(KEYS_ID), identity, signer.peer.str, deviceLabel());
-
-      // Связка — синхронизируемое состояние пространства, но сливать её с
-      // сейфом можно только УВИДЕВ сервер: до первого ответа локальный ленд
-      // пуст, и «сейфа нет — опубликую свой» перетирало бы чужой сейф
-      // свежим мастером неподключённого устройства.
-      const lands = [KEYS_ID, ...dataLands];
+      // Устройство НЕ объявляет себя и не публикует связку, пока не выяснит,
+      // что оно в пространстве: до первого ответа сервера локальный ленд пуст,
+      // и «сейфа нет — я основатель» перетирало бы чужой сейф свежим мастером,
+      // а запись устройства плодила бы зомби в чужом списке. До ответа
+      // синхронизируется только `keys` — ленд приглашений и сейфа: чужие данные
+      // устройству вне пространства ни к чему, а свои заготовки — серверу.
       if (syncConfigured(loadSyncSettings())) {
         startSync({
           spaces,
           secure: secureOf(ring, signer),
-          lands,
+          lands: [KEYS_ID],
           settled: () => {
-            syncSpaceRing(ring).catch((error: unknown) => console.warn('[brain] vault sync failed', error));
+            settleSpace(ring, signer).catch((error: unknown) => console.warn('[brain] vault sync failed', error));
           },
         });
       }
       else {
-        await syncSpaceRing(ring);
-        startSync({ spaces, secure: secureOf(ring, signer), lands });
+        // Без сервера спорить не с кем: устройство — само себе пространство.
+        await settleSpace(ring, signer);
       }
       watchGrants();
     },
@@ -320,24 +315,38 @@ async function adoptSpace(material: SpaceMaterial): Promise<void> {
 }
 
 /**
- * Слить связку с сейфом пространства (зовётся после первого ответа сервера).
+ * Занять своё место в пространстве — после первого ответа сервера (или сразу,
+ * если сервера нет). Три исхода:
  *
- * Кто вправе публиковать блоб: владелец фразы (её мастер — наш) либо, пока
- * фразы нет, СТАРШЕЕ устройство. Устройство, успевшее опубликовать свой блоб
- * до подключения, всегда моложе приглашавших — старший перепубликует и
- * возвращает сейф. Чужое пространство (фраза под чужим мастером, или блоб
- * старшего) не трогаем: ждём приглашения. Отозванные не публикуют вовсе.
+ *   основатель  — сейфа нет: объявиться, опубликовать связку;
+ *   член        — блоб открывается нашим мастером (или наш мастер под фразой,
+ *                 или мы старше публикатора чужого блоба): объявиться, слить
+ *                 связку, при нужде перепубликовать;
+ *   чужой       — ни записи, ни публикации: устройство ждёт приглашения и
+ *                 синхронизирует только `keys`.
+ *
+ * Только член поднимает синк лендов данных: чужие юниты устройству вне
+ * пространства не открыть, а свои заготовки серверу не нужны.
  */
-async function syncSpaceRing(ring: Keyring): Promise<void> {
-  const space = need().space(KEYS_ID);
+async function settleSpace(ring: Keyring, signer: Signer): Promise<void> {
+  const spaces = need();
+  const space = spaces.space(KEYS_ID);
   const vault = readVault(space);
   const fp = ring.masterId();
-  const me = encodeBytes((await deviceIdentity()).pub);
+  const identity = await deviceIdentity();
+  const me = encodeBytes(identity.pub);
 
   const owner = vault.phrase === null ? null : vault.wrapMaster === fp;
   if (owner === false) return;
 
+  const join = async (): Promise<void> => {
+    announceDevice(space, identity, signer.peer.str, deviceLabel());
+    startSync({ spaces, secure: secureOf(ring, signer), lands: [KEYS_ID, ...dataLands] });
+  };
+
   if (vault.ring === null) {
+    // Основатель. Сначала запись устройства: старшинство считается по ней.
+    await join();
     await publishRing(space, ring, me);
     return;
   }
@@ -348,13 +357,17 @@ async function syncSpaceRing(ring: Keyring): Promise<void> {
   }
   catch {
     if (owner === true || isSenior(space, me, vault.ringBy)) {
+      // Наш сейф с чужим блобом (успела старая сборка или неподключённое
+      // устройство): владелец или старший перепубликует — сейф возвращается.
+      await join();
       await publishRing(space, ring, me);
       return;
     }
-    console.warn('[brain] сейф пространства запечатан другим мастером — подключитесь по приглашению');
+    console.warn('[brain] это устройство не в пространстве: сейф запечатан другим мастером — подключитесь по приглашению');
     return;
   }
 
+  await join();
   await ring.adopt(published);
   const covered = ring.lands().every(land => published.has(land));
   if (!covered) await publishRing(space, ring, me);

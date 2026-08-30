@@ -24,6 +24,15 @@ initAmbient();
 // перестаёт быть белым экраном. В dev виртуальный модуль отдаёт заглушку.
 if ('serviceWorker' in navigator) {
   const { registerSW } = await import('virtual:pwa-register');
+  // Новая сборка воркера перехватывает страницу сразу (clientsClaim), но код
+  // страницы остаётся старым до перезагрузки — и успевает натворить дел в
+  // ленде ключей. Обновился воркер — страница перезагружается немедленно.
+  // Только при УЖЕ существующем контроллере: первая установка — не обновление.
+  if (navigator.serviceWorker.controller !== null) {
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      globalThis.location.reload();
+    }, { once: true });
+  }
   registerSW({ immediate: true });
 }
 

@@ -404,19 +404,34 @@ export function readVault(space: Space): SpaceVault {
 }
 
 /**
- * Старше ли устройство `mine` устройства `other` — спор о сейфе без фразы.
+ * Старше ли устройство `mine` публикатора `other` — спор о сейфе без фразы.
  * Старшинство — по времени появления в пространстве: устройство, успевшее
  * опубликовать блоб до подключения, всегда моложе тех, кто его приглашал.
- * Отозванное не старше никого; неизвестное — тоже.
+ * Отозванное не старше никого. Публикатор без записи, отозванный или вовсе
+ * не назвавшийся (блоб старой сборки) старшинства не имеет: спор выигрывает
+ * старейшее живое устройство — оно одно, и потому перепубликует ровно одно.
  */
 export function isSenior(space: Space, mine: string, other: string): boolean {
   const root = space.root(KeysModel);
-  if (mine === other || !root.devices.has(mine) || !root.devices.has(other)) return false;
+  if (mine === other || !root.devices.has(mine)) return false;
   const me = root.devices(mine);
-  const them = root.devices(other);
   if (me.revokedAt() > 0) return false;
-  if (them.revokedAt() > 0) return true;
-  return me.addedAt() < them.addedAt();
+  if (other !== '' && root.devices.has(other) && root.devices(other).revokedAt() === 0) {
+    return me.addedAt() < root.devices(other).addedAt();
+  }
+  return eldest(space) === mine;
+}
+
+/** Старейшее живое устройство пространства — единственный арбитр бесхозного сейфа. */
+function eldest(space: Space): string {
+  let found = '';
+  let born = Number.POSITIVE_INFINITY;
+  for (const device of listDevices(space)) {
+    if (device.revoked || device.addedAt >= born) continue;
+    found = device.pub;
+    born = device.addedAt;
+  }
+  return found;
 }
 
 /** Доверить устройству пространство: завернуть секреты связки взаимным ключом. */
