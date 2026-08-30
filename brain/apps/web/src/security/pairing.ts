@@ -86,6 +86,8 @@ export const VaultModel = model('keys/vault', {
   ringCipher: atom(t.string),
   /** Отпечаток мастера, запечатавшего блоб. Обязан совпадать с wrapMaster. */
   ringMaster: atom(t.string),
+  /** Кто опубликовал блоб (pub устройства): спор о сейфе решает старшинство. */
+  ringBy: atom(t.string),
   at: atom(t.number),
 });
 
@@ -331,7 +333,7 @@ export function fingerprint(pub: string): string {
 // ── Сейф пространства ────────────────────────────────────────────────────────
 
 /** Опубликовать связку: секреты под мастером. Зовётся после каждого изменения. */
-export async function publishRing(space: Space, ring: Keyring): Promise<void> {
+export async function publishRing(space: Space, ring: Keyring, by: string): Promise<void> {
   const sealed = await ring.sealedSecrets();
   const root = space.root(KeysModel);
   space.edit(() => {
@@ -339,6 +341,7 @@ export async function publishRing(space: Space, ring: Keyring): Promise<void> {
     doc.ringNonce(encodeBytes(sealed.nonce));
     doc.ringCipher(encodeBytes(sealed.cipher));
     doc.ringMaster(ring.masterId());
+    doc.ringBy(by);
     doc.at(Date.now());
   });
 }
@@ -377,11 +380,13 @@ export interface SpaceVault {
   /** Отпечатки мастеров половин сейфа. Пустая строка — половины ещё нет. */
   readonly wrapMaster: string;
   readonly ringMaster: string;
+  /** pub устройства, опубликовавшего блоб. Пусто — блоба нет. */
+  readonly ringBy: string;
 }
 
 export function readVault(space: Space): SpaceVault {
   const root = space.root(KeysModel);
-  if (!root.vault.has(VAULT_ID)) return { phrase: null, ring: null, wrapMaster: '', ringMaster: '' };
+  if (!root.vault.has(VAULT_ID)) return { phrase: null, ring: null, wrapMaster: '', ringMaster: '', ringBy: '' };
   const doc = root.vault(VAULT_ID);
   const phrase: WrappedDek | null = doc.cipher() === ''
     ? null
@@ -395,7 +400,23 @@ export function readVault(space: Space): SpaceVault {
   const ring: Sealed | null = doc.ringCipher() === ''
     ? null
     : { nonce: decodeBytes(doc.ringNonce()), cipher: decodeBytes(doc.ringCipher()) };
-  return { phrase, ring, wrapMaster: doc.wrapMaster(), ringMaster: doc.ringMaster() };
+  return { phrase, ring, wrapMaster: doc.wrapMaster(), ringMaster: doc.ringMaster(), ringBy: doc.ringBy() };
+}
+
+/**
+ * Старше ли устройство `mine` устройства `other` — спор о сейфе без фразы.
+ * Старшинство — по времени появления в пространстве: устройство, успевшее
+ * опубликовать блоб до подключения, всегда моложе тех, кто его приглашал.
+ * Отозванное не старше никого; неизвестное — тоже.
+ */
+export function isSenior(space: Space, mine: string, other: string): boolean {
+  const root = space.root(KeysModel);
+  if (mine === other || !root.devices.has(mine) || !root.devices.has(other)) return false;
+  const me = root.devices(mine);
+  const them = root.devices(other);
+  if (me.revokedAt() > 0) return false;
+  if (them.revokedAt() > 0) return true;
+  return me.addedAt() < them.addedAt();
 }
 
 /** Доверить устройству пространство: завернуть секреты связки взаимным ключом. */

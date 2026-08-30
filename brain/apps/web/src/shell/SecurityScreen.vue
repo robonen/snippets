@@ -38,7 +38,7 @@ import {
 } from '@/app/boot';
 import { restartSync, saveSyncSettings, useSyncSettings } from '@/sync';
 import { addAccess, freshSalt, removeAccess, setGuarded, useLock } from '../security/lock';
-import { KEYS_ID, deviceIdentity, fingerprint, listDevices, readInvite, readVault } from '../security/pairing';
+import { KEYS_ID, deviceIdentity, fingerprint, isSenior, listDevices, readInvite, readVault } from '../security/pairing';
 import { Fingerprint, KeyRound, Lock, MonitorSmartphone, TriangleAlert } from 'lucide-vue-next';
 import type { PairedDevice } from '../security/pairing';
 import type { WrappedDek } from '@brain/auth';
@@ -317,11 +317,14 @@ const member = computed(() => {
   const v = vault.value;
   if (v === null || v === undefined || v.ringMaster === '') return true;
   try {
-    return v.ringMaster === myMasterId();
+    if (v.ringMaster === myMasterId()) return true;
   }
   catch {
     return true;
   }
+  // Блоб младшего устройства не лишает старшее пространства: при следующем
+  // подъёме старшее перепубликует сейф (см. syncSpaceRing в boot).
+  return myPub.value !== '' && isSenior(spaces.space(KEYS_ID), myPub.value, v.ringBy);
 });
 
 async function doJoinByPhrase(): Promise<void> {

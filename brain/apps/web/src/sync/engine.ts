@@ -63,6 +63,12 @@ export interface SyncEngineOptions {
   readonly wire: (handlers: WireHandlers) => Wire;
   /** Куда сообщать об отказах разбора и крипты. По умолчанию — console.error. */
   readonly report?: (error: unknown) => void;
+  /**
+   * Первый ответ сервера с фейсами применён: локальные ленды уже видят его
+   * состояние. До этого момента «на сервере ничего нет» — не знание, а пустой
+   * локальный ленд; решения вроде публикации сейфа принимаются только после.
+   */
+  readonly settled?: () => void;
 }
 
 export interface SyncEngine {
@@ -75,6 +81,7 @@ export function syncEngine(options: SyncEngineOptions): SyncEngine {
   for (const entry of options.lands) byLand.set(entry.id.str, entry);
 
   let closed = false;
+  let settledOnce = false;
   /** Кадры обрабатываются строго по очереди: приём — асинхронный (крипта). */
   let chain: Promise<void> = Promise.resolve();
 
@@ -102,6 +109,7 @@ export function syncEngine(options: SyncEngineOptions): SyncEngine {
     frame(bytes: Uint8Array): void {
       queue(async () => {
         const opened = await options.secure.incoming(bytes);
+        let faced = false;
 
         for (const [id, part] of packDecode(opened)) {
           const entry = byLand.get(id.str);
@@ -114,11 +122,17 @@ export function syncEngine(options: SyncEngineOptions): SyncEngine {
           // Фейсы — встречная дельта: у нас может быть то, чего сервер не видел
           // (правки офлайна, чужая потеря данных — `Fail Summ` ядра).
           if (part.faces.length > 0) {
+            faced = true;
             const delta = diffOf(entry.land.part(), facesFromPack(part.faces));
             if (delta.units.length === 0) continue;
             const pack = packEncode([[id, packPart({ units: delta.units, balls: delta.balls })]]);
             wire.send(await options.secure.outgoing(pack));
           }
+        }
+
+        if (faced && !settledOnce) {
+          settledOnce = true;
+          options.settled?.();
         }
       });
     },

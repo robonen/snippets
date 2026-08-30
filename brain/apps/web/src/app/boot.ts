@@ -26,6 +26,7 @@ import {
   clearGrant,
   clearPhraseWrap,
   deviceIdentity,
+  isSenior,
   livePeers,
   markRevoked,
   publishInvite,
@@ -88,11 +89,25 @@ export async function bootBrain(): Promise<{ spaces: Spaces; registry: Registry 
       const identity = await deviceIdentity();
       announceDevice(spaces.space(KEYS_ID), identity, signer.peer.str, deviceLabel());
 
-      // Связка — синхронизируемое состояние пространства: слить с сейфом в
-      // ленде `keys` (секреты новых лендов доезжают до всех устройств сами).
-      await syncSpaceRing(ring);
-
-      startSync({ spaces, secure: secureOf(ring, signer), lands: [KEYS_ID, ...dataLands] });
+      // Связка — синхронизируемое состояние пространства, но сливать её с
+      // сейфом можно только УВИДЕВ сервер: до первого ответа локальный ленд
+      // пуст, и «сейфа нет — опубликую свой» перетирало бы чужой сейф
+      // свежим мастером неподключённого устройства.
+      const lands = [KEYS_ID, ...dataLands];
+      if (syncConfigured(loadSyncSettings())) {
+        startSync({
+          spaces,
+          secure: secureOf(ring, signer),
+          lands,
+          settled: () => {
+            syncSpaceRing(ring).catch((error: unknown) => console.warn('[brain] vault sync failed', error));
+          },
+        });
+      }
+      else {
+        await syncSpaceRing(ring);
+        startSync({ spaces, secure: secureOf(ring, signer), lands });
+      }
       watchGrants();
     },
     conceal: async () => {
@@ -300,27 +315,30 @@ async function adoptSpace(material: SpaceMaterial): Promise<void> {
   // Отозванный когда-то браузер, вернувшийся по приглашению, снова доверен:
   // материал пространства ему выдал владелец, пометка отзыва снимается.
   reviveDevice(spaces.space(KEYS_ID), encodeBytes(identity.pub));
-  await publishRing(spaces.space(KEYS_ID), ring);
+  await publishRing(spaces.space(KEYS_ID), ring, encodeBytes(identity.pub));
   startSync({ spaces, secure: secureOf(ring, signerNow()), lands: [KEYS_ID, ...dataLands] });
 }
 
-/** Слить связку с сейфом пространства; см. вызов в reveal. */
+/**
+ * Слить связку с сейфом пространства (зовётся после первого ответа сервера).
+ *
+ * Кто вправе публиковать блоб: владелец фразы (её мастер — наш) либо, пока
+ * фразы нет, СТАРШЕЕ устройство. Устройство, успевшее опубликовать свой блоб
+ * до подключения, всегда моложе приглашавших — старший перепубликует и
+ * возвращает сейф. Чужое пространство (фраза под чужим мастером, или блоб
+ * старшего) не трогаем: ждём приглашения. Отозванные не публикуют вовсе.
+ */
 async function syncSpaceRing(ring: Keyring): Promise<void> {
   const space = need().space(KEYS_ID);
   const vault = readVault(space);
   const fp = ring.masterId();
+  const me = encodeBytes((await deviceIdentity()).pub);
 
-  // Чей сейф: владелец — тот, чей мастер завёрнут фразой. Пока фразы нет,
-  // сейф ничейный (правит первый опубликовавший).
   const owner = vault.phrase === null ? null : vault.wrapMaster === fp;
-
-  // Чужое пространство: устройство ещё не подключено. Публиковать свой блоб
-  // сюда — значит подложить под чужую фразу мастер, которым её вход не
-  // открыть. Молчим и ждём гранта либо входа фразой.
   if (owner === false) return;
 
   if (vault.ring === null) {
-    await publishRing(space, ring);
+    await publishRing(space, ring, me);
     return;
   }
 
@@ -329,19 +347,17 @@ async function syncSpaceRing(ring: Keyring): Promise<void> {
     published = await ring.openBlob(vault.ring);
   }
   catch {
-    if (owner === true) {
-      // Наш сейф, но блоб чужой: успело опубликовать неподключённое
-      // устройство. Владелец фразы перепубликует — вход фразой оживает.
-      await publishRing(space, ring);
+    if (owner === true || isSenior(space, me, vault.ringBy)) {
+      await publishRing(space, ring, me);
       return;
     }
-    console.warn('[brain] сейф пространства запечатан другим мастером — подключитесь: грант или фраза');
+    console.warn('[brain] сейф пространства запечатан другим мастером — подключитесь по приглашению');
     return;
   }
 
   await ring.adopt(published);
   const covered = ring.lands().every(land => published.has(land));
-  if (!covered) await publishRing(space, ring);
+  if (!covered) await publishRing(space, ring, me);
 }
 
 /**
@@ -419,7 +435,7 @@ export async function revokeDevices(devices: readonly PairedDevice[], confirm?: 
   }
 
   await regrantAll(spaces.space(KEYS_ID), ring, identity);
-  await publishRing(spaces.space(KEYS_ID), ring);
+  await publishRing(spaces.space(KEYS_ID), ring, encodeBytes(identity.pub));
   // Фразовая обёртка мастера в сейфе — под СТАРЫМ мастером: либо перевыпуск
   // той же фразой (подтверждена в диалоге), либо честное «пересоздайте фразу».
   if (confirm?.phrase !== undefined) {

@@ -24,6 +24,8 @@ export interface StartSyncOptions {
   readonly secure: Secure;
   /** Ленды под синхронизацию: модули и ленды оболочки. */
   readonly lands: readonly string[];
+  /** Первый ответ сервера применён — см. `SyncEngineOptions.settled`. */
+  readonly settled?: () => void;
 }
 
 let running: SyncEngine | null = null;
@@ -41,6 +43,7 @@ export function startSync(options: StartSyncOptions): void {
     lands: options.lands.map(id => ({ id: landId(id), land: options.spaces.landOf(id) })),
     secure: options.secure,
     report: syncReporter(),
+    ...(options.settled !== undefined && { settled: options.settled }),
     wire: handlers => socketWire(
       { url: settings.url, token: settings.token, onLive: markSyncLive },
       handlers,
