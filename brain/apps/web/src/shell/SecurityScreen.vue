@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { ref } from 'vue';
 import { useEventListener, useSupported } from '@robonen/vue';
 import { Card, ConfirmDialog, Page, PageHeader, useToast } from '@brain/ui';
 import { isSupported } from '@brain/auth';
@@ -49,7 +49,8 @@ function takeInviteFromHash(): void {
   globalThis.history.replaceState(null, '', globalThis.location.pathname);
 }
 
-onMounted(takeInviteFromHash);
+// Прямо в setup: хэш уже на месте, DOM для его разбора не нужен.
+takeInviteFromHash();
 useEventListener(globalThis, 'hashchange', takeInviteFromHash);
 
 const join = useAction(async () => {

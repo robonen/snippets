@@ -38,8 +38,8 @@ const add = useAction(async () => {
     challenge: randomBytes(32),
   });
   if (!created.prf) {
-    throw new Error('Этот ключ не поддерживает вывод шифровального ключа (PRF). '
-      + 'Настройте фразу восстановления — она будет единственным способом открыть данные.');
+    throw new Error('this key does not support deriving an encryption key (PRF) — '
+      + 'set up the recovery phrase: it will be the only way to open the data');
   }
 
   // Второе обращение — уже за самим выводом PRF: на регистрации многие
@@ -48,7 +48,7 @@ const add = useAction(async () => {
   const assertion = await signIn({ rpId: RP_ID, challenge: randomBytes(32) }, salt);
   const kek = await kekFromAssertion(assertion, salt);
   if (kek === null) {
-    throw new Error('Ключ создан, но PRF не отдал значение. Используйте фразу восстановления.');
+    throw new Error('the key was created, but PRF did not return a value — use the recovery phrase');
   }
 
   await addAccess(kek, { kind: 'passkey', label: 'passkey', salt });

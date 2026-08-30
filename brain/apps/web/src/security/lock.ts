@@ -111,8 +111,8 @@ async function openByDevice(): Promise<void> {
   const kek = await deviceKek();
   if (kek === null) {
     throw new Error(
-      'браузер не дал сохранить ключ устройства: без него данные пришлось бы писать открытым '
-      + 'текстом, и приложение этого делать не станет',
+      'the browser refused to store the device key: without it the data would have to be '
+      + 'written as plain text, and the app will not do that',
     );
   }
 

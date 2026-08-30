@@ -106,7 +106,7 @@ const revoke = useAction(async () => {
   if (passkeyWrap !== undefined) {
     const assertion = await signIn({ rpId: RP_ID, challenge: randomBytes(32) }, passkeyWrap.salt);
     const kek = await kekFromAssertion(assertion, passkeyWrap.salt);
-    if (kek === null) throw new Error('этот ключ не отдал PRF — отзыв остановлен');
+    if (kek === null) throw new Error('this key did not return PRF — revocation stopped');
     confirm = { kek, meta: { kind: 'passkey', label: passkeyWrap.label, salt: passkeyWrap.salt } };
   }
   else if (needPhrase.value && phraseWrap !== undefined) {

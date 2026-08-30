@@ -24,6 +24,8 @@ function one(value: unknown): string {
   return '';
 }
 
+// onMounted не случаен: `replace` посреди ещё идущего перехода на этот экран
+// был бы гонкой с роутером — уходим только после того, как он завершился.
 onMounted(() => {
   const title = one(route.query['title']);
   const text = one(route.query['text']);

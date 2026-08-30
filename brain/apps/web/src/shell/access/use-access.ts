@@ -1,4 +1,4 @@
-import { computed, onMounted, shallowRef } from 'vue';
+import { computed, shallowRef } from 'vue';
 import { useValue } from '@sync/vue';
 import { useSpaces } from '@brain/module-kit';
 import { encodeBytes } from '@brain/auth';
@@ -59,7 +59,9 @@ export function useAccess(): Access {
   const myPub = shallowRef('');
   const keeping = shallowRef<KeyKeeping | null>(null);
   const identityError = shallowRef('');
-  onMounted(async () => {
+  // Сразу в setup, не в onMounted: личности DOM не нужен, а лишний тик
+  // задержки — кадр, в котором карточки врут «ключи ещё поднимаются».
+  void (async () => {
     try {
       myPub.value = encodeBytes((await deviceIdentity()).pub);
       keeping.value = identityKeeping();
@@ -68,7 +70,7 @@ export function useAccess(): Access {
       // Без catch отказ IndexedDB летел бы необработанным отказом промиса.
       identityError.value = errorText(caught, 'не удалось прочитать ключ устройства');
     }
-  });
+  })();
 
   // Геттеры обязаны ЧИТАТЬ ленд при каждом запуске: мост (@sync/vue)
   // подписывает эффект только на то, что было прочитано. Задвижка перед
