@@ -374,7 +374,7 @@ export interface SpaceVault {
   readonly phrase: WrappedDek | null;
   /** Секреты под мастером. `null` — связку ещё не публиковали. */
   readonly ring: Sealed | null;
-  /** Отпечатки мастеров половин сейфа. Пустая строка — запись до отпечатков. */
+  /** Отпечатки мастеров половин сейфа. Пустая строка — половины ещё нет. */
   readonly wrapMaster: string;
   readonly ringMaster: string;
 }

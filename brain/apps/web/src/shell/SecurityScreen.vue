@@ -306,10 +306,10 @@ const joinPhraseError = ref('');
 // Сейф пространства — реактивно из ленда `keys`: пока фразовый вход не
 // приехал синком, кнопка честно выключена, а не «жмётся в пустоту».
 const vault = useValue(() => spaces.open ? readVault(spaces.space(KEYS_ID)) : null);
-/** Обе половины сейфа обязаны быть от одного мастера (легаси без отпечатков не судим). */
+/** Обе половины сейфа обязаны быть от одного мастера. */
 const vaultStale = computed(() => {
   const v = vault.value;
-  return v !== null && v !== undefined && v.wrapMaster !== '' && v.ringMaster !== '' && v.wrapMaster !== v.ringMaster;
+  return v !== null && v !== undefined && v.phrase !== null && v.ring !== null && v.wrapMaster !== v.ringMaster;
 });
 const vaultReady = computed(() => (vault.value?.phrase ?? null) !== null && !vaultStale.value);
 /** Это устройство — в пространстве: сейф запечатан НАШИМ мастером (либо сейфа ещё нет). */

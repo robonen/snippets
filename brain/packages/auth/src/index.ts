@@ -49,5 +49,3 @@ export {
   register,
 } from './passkey';
 export type { Assertion, PasskeyOptions, RegisteredPasskey } from './passkey';
-
-export { openLegacyChunk, unwrapLegacyDek } from './legacy';

@@ -15,7 +15,6 @@ import {
 import type { Keyring, WrappedDek } from '@brain/auth';
 import type { ComputedRef, ShallowRef } from 'vue';
 import { dropWrap, listWraps, saveWrap } from './keys';
-import { legacyPresent, migrateLegacy, readLegacyWraps } from './migrate-legacy';
 
 /**
  * Замок приложения (docs/01-security.md §5).
@@ -27,11 +26,8 @@ import { legacyPresent, migrateLegacy, readLegacyWraps } from './migrate-legacy'
  * От чего замок по-прежнему НЕ защищает: от кода, исполняемого в этом origin,
  * пока приложение открыто. В вебе против этого средств нет.
  *
- * Обёртки мастера связки — в localStorage устройства (`security/keys.ts`):
- * прежний открытый мета-ленд, существовавший ради них, упразднён вместе с
- * конвертом DEK/KEK (payload юнитов теперь запечатывает ядро). Старые установки
- * проходят одноразовый переезд (`migrate-legacy.ts`) ТЕМ ЖЕ жестом, которым
- * открывали приложение раньше, — отдельного «мастера миграции» нет.
+ * Обёртки мастера связки — в localStorage устройства (`security/keys.ts`);
+ * payload юнитов запечатывает ядро, лендов для ключей не существует.
  */
 
 export type LockState = 'locked' | 'open';
@@ -50,8 +46,8 @@ export interface LockBind {
   readonly conceal: () => Promise<void>;
   /**
    * Данные открыты именно фразой. Единственный момент, когда KEK фразы в
-   * руках без лишнего вопроса, — сборка успевает доопубликовать фразовый
-   * вход в сейф пространства, если фраза создана до его появления.
+   * руках без лишнего вопроса, — сборка успевает вернуть фразовый вход в
+   * сейф пространства, если его там нет (например, стёрт отзывом).
    */
   readonly phraseUnlocked?: (kek: Uint8Array, salt: Uint8Array) => Promise<void>;
 }
@@ -59,8 +55,6 @@ export interface LockBind {
 const state = shallowRef<LockState>('locked');
 const ring = shallowRef<Keyring | null>(null);
 const wraps = shallowRef<readonly WrappedDek[]>([]);
-/** Обёртки прежней схемы: не пустые — экран замка открывает ПЕРЕЕЗД, а не связку. */
-let legacyWraps: readonly WrappedDek[] = [];
 let bound: LockBind | null = null;
 
 /** Способы доступа, которые спрашивают человека. Ключ устройства не спрашивает. */
@@ -96,19 +90,12 @@ export async function armLock(bind: LockBind): Promise<void> {
   bound = bind;
   refresh();
 
-  if (wraps.value.length === 0 && await legacyPresent()) {
-    // Старая установка: обёртки прежнего DEK лежат в старом мета-ленде.
-    // Способы доступа человека сохраняются как есть — переезд произойдёт под
-    // тем же жестом (unlockBy… ниже увидят legacyWraps).
-    legacyWraps = await readLegacyWraps();
-  }
-
   // Замок — выбор, а не принуждение: пока обёртка ключа устройства на месте,
   // приложение открывается молча, даже если настроены passkey и фраза.
   // Запертым стартует только устройство, где тихий путь убран тумблером
   // «Запирать приложение» (`setGuarded`).
   const silent = wraps.value.some(wrap => wrap.kind === 'device');
-  if (!silent && (keyed(wraps.value).length > 0 || keyed(legacyWraps).length > 0)) {
+  if (!silent && keyed(wraps.value).length > 0) {
     state.value = 'locked';
     return;
   }
@@ -127,16 +114,6 @@ async function openByDevice(): Promise<void> {
       'браузер не дал сохранить ключ устройства: без него данные пришлось бы писать открытым '
       + 'текстом, и приложение этого делать не станет',
     );
-  }
-
-  // Старая установка без passkey/фразы: переезд под ключом устройства.
-  const legacyDevice = legacyWraps.find(wrap => wrap.kind === 'device');
-  if (legacyDevice !== undefined) {
-    const moved = await migrateLegacy({ wrap: legacyDevice, kek });
-    legacyWraps = [];
-    save(await moved.wrapFor(kek, { kind: 'device', label: DEVICE_LABEL, salt: EMPTY_SALT }));
-    await settle(moved);
-    return;
   }
 
   const found = wraps.value.find(wrap => wrap.kind === 'device');
@@ -188,8 +165,7 @@ export function lock(): void {
 
 /** Открыть passkey: биометрия плюс вывод ключа из PRF одним обращением. */
 export async function unlockByPasskey(rpId: string): Promise<void> {
-  const candidates = keyed(legacyWraps.length > 0 ? legacyWraps : wraps.value)
-    .filter(wrap => wrap.kind === 'passkey');
+  const candidates = keyed(wraps.value).filter(wrap => wrap.kind === 'passkey');
   if (candidates.length === 0) throw new Error('passkey is not set up');
 
   // Соль общая для всех passkey-обёрток: PRF заказывается ДО того, как станет
@@ -205,8 +181,7 @@ export async function unlockByPasskey(rpId: string): Promise<void> {
 }
 
 export async function unlockByPhrase(phrase: string): Promise<void> {
-  const candidates = keyed(legacyWraps.length > 0 ? legacyWraps : wraps.value)
-    .filter(wrap => wrap.kind === 'passphrase');
+  const candidates = keyed(wraps.value).filter(wrap => wrap.kind === 'passphrase');
   const wrap = candidates[0];
   if (wrap === undefined) throw new Error('recovery phrase is not set up');
   assertKnownPhrase(phrase);
@@ -328,17 +303,7 @@ async function openWithKek(candidates: readonly WrappedDek[], kek: Uint8Array): 
   for (const wrap of candidates) {
     let opened: Keyring;
     try {
-      if (legacyWraps.length > 0) {
-        // Старая установка: тем же KEK открывается прежний DEK, данные
-        // переезжают, и мастер новой связки заворачивается под этот же способ —
-        // человек продолжает открывать приложение как открывал.
-        opened = await migrateLegacy({ wrap, kek });
-        legacyWraps = [];
-        save(await opened.wrapFor(kek, { kind: wrap.kind, label: wrap.label, salt: wrap.salt }));
-      }
-      else {
-        opened = await unlockKeyring(wrap, kek, localStorage);
-      }
+      opened = await unlockKeyring(wrap, kek, localStorage);
     }
     catch {
       // Не та обёртка — пробуем следующую.

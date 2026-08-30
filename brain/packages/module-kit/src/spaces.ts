@@ -73,10 +73,7 @@ export interface OpenSpacesOptions {
   readonly report?: (error: unknown) => void;
 }
 
-/**
- * База запечатанных лендов. НЕ `brain` и не `brain-sealed`: обе принадлежат
- * прежней схеме и читаются только одноразовым переездом (`migrate-legacy`).
- */
+/** База запечатанных лендов. */
 const DB_NAME = 'brain-lands';
 
 export function openSpaces(options: OpenSpacesOptions): Spaces {

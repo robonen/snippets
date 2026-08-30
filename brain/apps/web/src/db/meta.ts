@@ -9,13 +9,6 @@ import type { Doc } from '@sync/core';
  * попадают сюда, а разбор превращает их в заметку, задачу или закладку. Держи
  * инбокс в ленде заметок — и захват ссылки требовал бы включённых заметок.
  *
- * Прежнего ОТКРЫТОГО мета-ленда больше нет: payload юнитов запечатывает ядро,
- * обёртки мастера связки живут в localStorage (`security/keys.ts`), и курица с
- * яйцом «обёртки надо читать до ключа» исчезла вместе с ним. `KeyModel` и поле
- * `keys` остаются объявленными ТОЛЬКО ради одноразового переезда со старой
- * схемы (`security/migrate-legacy.ts` читает ими старый мета-ленд) и уедут
- * вместе с ним.
- *
  * Имя модели с префиксом `meta/`, как у любого модуля: реестр `Models` один на
  * приложение, и оболочка в нём не привилегированный житель.
  */
@@ -39,34 +32,13 @@ export const InboxModel = model('meta/inbox', {
   filedTo: atom(t.string),
 });
 
-/**
- * Обёрнутая копия ключа данных — по одной на способ доступа (docs/01-security.md §4).
- *
- * Хранится в ленде, а не в localStorage, намеренно: обёртки обязаны доезжать до
- * второго устройства, иначе оно не сможет открыть данные. Секрета в них нет —
- * без своего KEK обёртка бесполезна.
- */
-export const KeyModel = model('meta/key', {
-  /** `passkey`, `passphrase` или `device` — см. `WrappedDek.kind`. */
-  kind: atom(t.enum(['passkey', 'passphrase', 'device'] as const).or('passkey')),
-  /** Человеку — имя устройства; passkey'ю — его credential id. */
-  label: atom(t.string),
-  /** base64url: соль KDF, нонс и шифртекст обёртки. */
-  salt: atom(t.string),
-  nonce: atom(t.string),
-  cipher: atom(t.string),
-  createdAt: atom(t.number),
-});
-
 export const MetaModel = model('meta/root', {
   inbox: parts(t.string, 'meta/inbox'),
-  keys: parts(t.string, 'meta/key'),
 });
 
 declare module '@sync/core' {
   interface Models {
     'meta/inbox': typeof InboxModel;
-    'meta/key': typeof KeyModel;
     'meta/root': typeof MetaModel;
   }
 }

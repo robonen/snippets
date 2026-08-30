@@ -94,24 +94,18 @@ test('Grant v2 carries the master: the receiver opens the published blob', async
   const a = await createKeyring(memoryStore());
   await a.ensure('notes');
   const material = decodeGrant(a.exportForGrant());
-  expect(material.master).not.toBeNull();
 
-  const b = await keyringFromMaterial(
-    { master: material.master as Uint8Array, secrets: material.secrets },
-    memoryStore(),
-  );
+  const b = await keyringFromMaterial(material, memoryStore());
   // Один мастер: блоб, опубликованный одним, открывается другим.
   const blob = await a.sealedSecrets();
   const opened = await b.openBlob(blob);
   expect([...opened.keys()]).toEqual(['notes']);
-  // Грант v1 (только секреты, формат старых сборок) разбирается тем же декодером.
-  const v1 = new TextEncoder().encode(JSON.stringify({
+  // Грант без мастера — не грант: формат один, v2.
+  const bare = new TextEncoder().encode(JSON.stringify({
     v: 1,
     lands: { notes: encodeBytes(a.rawOf('notes') as Uint8Array) },
   }));
-  const legacy = decodeGrant(v1);
-  expect(legacy.master).toBeNull();
-  expect(legacy.secrets.get('notes')).toEqual(a.rawOf('notes'));
+  expect(() => decodeGrant(bare)).toThrow(/only v2/);
 });
 
 test('The phrase vault opens the space without the granting device', async () => {
@@ -163,11 +157,7 @@ test('masterId is stable across unlocks and changes only with rotateMaster', asy
   // Тот же мастер после разблокировки — тот же отпечаток.
   expect((await unlockKeyring(wrap, kek, store)).masterId()).toBe(id);
   // Грант v2 несёт тот же мастер: получатель разделяет отпечаток.
-  const material = decodeGrant(ring.exportForGrant());
-  const twin = await keyringFromMaterial(
-    { master: material.master as Uint8Array, secrets: material.secrets },
-    memoryStore(),
-  );
+  const twin = await keyringFromMaterial(decodeGrant(ring.exportForGrant()), memoryStore());
   expect(twin.masterId()).toBe(id);
 
   await ring.rotateMaster();

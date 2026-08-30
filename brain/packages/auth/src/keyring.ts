@@ -50,12 +50,6 @@ export interface Keyring {
   /** Принять чужие секреты (присоединение): совпадающие обязаны совпасть. */
   adopt(secrets: ReadonlyMap<string, Uint8Array>): Promise<void>;
   /**
-   * ЗАМЕНИТЬ секреты целиком — приём присоединения к чужому пространству:
-   * локальные ленды к этому моменту стёрты, их свежечеканенные секреты ничего
-   * не открывают, и спорить с пространством не о чем.
-   */
-  replaceAll(secrets: ReadonlyMap<string, Uint8Array>): Promise<void>;
-  /**
    * Материал пространства целиком — мастер И секреты (формат v2). Едет только
    * внутри ECDH-обёртки гранта: получатель становится полноправным устройством
    * (может сам публиковать связку и заворачивать мастер своими способами).
@@ -117,28 +111,25 @@ function encodeSecrets(entries: ReadonlyMap<string, Entry | Uint8Array>): Uint8A
   return new TextEncoder().encode(JSON.stringify({ v: 1, lands }));
 }
 
-/** Материал пространства: мастер (null у грантов старого формата) и секреты. */
+/** Материал пространства: мастер и секреты лендов. */
 export interface SpaceMaterial {
-  readonly master: Uint8Array | null;
+  readonly master: Uint8Array;
   readonly secrets: Map<string, Uint8Array>;
 }
 
-/** Разобрать грант: v1 несёт только секреты, v2 — мастер и секреты. */
+/** Разобрать грант (формат v2: мастер и секреты). */
 export function decodeGrant(blob: Uint8Array): SpaceMaterial {
   const parsed = JSON.parse(new TextDecoder().decode(blob)) as {
     v: number;
     master?: string;
     lands: Record<string, string>;
   };
-  if (parsed.v !== 1 && parsed.v !== 2) {
-    throw new Error(`grant version ${parsed.v}: this build understands v1 and v2`);
+  if (parsed.v !== 2 || parsed.master === undefined) {
+    throw new Error(`grant version ${parsed.v}: this build understands only v2`);
   }
   const secrets = new Map<string, Uint8Array>();
   for (const [land, encoded] of Object.entries(parsed.lands)) secrets.set(land, fromBase64url(encoded));
-  return {
-    master: parsed.master === undefined ? null : fromBase64url(parsed.master),
-    secrets,
-  };
+  return { master: fromBase64url(parsed.master), secrets };
 }
 
 function toBase64url(raw: Uint8Array): string {
@@ -214,15 +205,6 @@ async function ringOf(master: Uint8Array, store: RingStore, entries: Map<string,
           if (known.raw.length === raw.length && known.raw.every((byte, i) => byte === raw[i])) continue;
           throw new Error(`secret of land «${land}» diverges from the local one: adoption aborted`);
         }
-        entries.set(land, { raw: raw.slice(), key: await importSecret(raw) });
-      }
-      await persist();
-    },
-
-    async replaceAll(secrets: ReadonlyMap<string, Uint8Array>): Promise<void> {
-      for (const entry of entries.values()) entry.raw.fill(0);
-      entries.clear();
-      for (const [land, raw] of secrets) {
         entries.set(land, { raw: raw.slice(), key: await importSecret(raw) });
       }
       await persist();

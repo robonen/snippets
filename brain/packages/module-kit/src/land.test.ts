@@ -13,8 +13,8 @@ test('kcal land address matches the one the journal already lives with', () => {
   const expected = new Uint8Array([0x6B, 0x63, 0x61, 0x6C, 0x6B, 0x63, 0x61, 0x6C]);
   expect(landBytes('kcal')).toEqual(expected);
 
-  const legacy = Link.land(Link.peer(expected), new Uint8Array(8));
-  expect(landId('kcal').str).toBe(legacy.str);
+  const derived = Link.land(Link.peer(expected), new Uint8Array(8));
+  expect(landId('kcal').str).toBe(derived.str);
 });
 
 test('Name shorter than eight repeats cyclically, a longer one is truncated', () => {
