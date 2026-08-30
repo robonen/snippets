@@ -176,9 +176,13 @@ onMounted(async () => {
   myPub.value = encodeBytes((await deviceIdentity()).pub);
 });
 
-const devices = useValue(() =>
-  spaces.open && myPub.value !== '' ? listDevices(spaces.space(KEYS_ID), myPub.value) : []);
-const others = computed(() => (devices.value ?? []).filter(device => !device.mine));
+// Геттер обязан ЧИТАТЬ ленд при каждом запуске: мост (@sync/vue) подписывает
+// эффект только на то, что было прочитано. Прежняя задвижка `myPub !== ''`
+// на первом запуске возвращала [] не тронув ленд — эффект не подписывался ни
+// на что и не просыпался уже никогда, список устройств вечно пустовал.
+const roster = useValue(() => spaces.open ? listDevices(spaces.space(KEYS_ID)) : []);
+const devices = computed(() => roster.value ?? []);
+const others = computed(() => devices.value.filter(device => device.pub !== myPub.value));
 
 // Вход фразой: пространство открывается с нового устройства одной фразой —
 // сейф (мастер под KEK'ом фразы + секреты под мастером) приезжает синком.
@@ -533,12 +537,12 @@ async function doRevokeDevice(): Promise<void> {
       </Card>
 
       <!-- Устройства пространства: список из служебного ленда `keys`.
-           Новое устройство объявляется само; человек сверяет отпечатки на двух
-           экранах и жмёт «Доверять» — секреты уезжают обёрткой через сервер. -->
-      <Card v-if="spaces.open && others.length > 0" title="Устройства">
+           Карточка видна всегда — управление устройствами не должно прятаться
+           до момента, когда второе устройство успело объявиться. -->
+      <Card v-if="spaces.open" title="Устройства">
         <ul class="flex flex-col divide-y divide-line">
           <li
-            v-for="device in others"
+            v-for="device in devices"
             :key="device.pub"
             class="flex items-center gap-3 py-2 first:pt-0 last:pb-0"
           >
@@ -546,32 +550,38 @@ async function doRevokeDevice(): Promise<void> {
             <div class="min-w-0 flex-1">
               <p class="truncate text-sm text-text">
                 {{ device.label }}
-                <span v-if="device.revoked" class="text-danger">— отозвано</span>
+                <span v-if="device.pub === myPub" class="text-text-faint">— это устройство</span>
+                <span v-else-if="device.revoked" class="text-danger">— отозвано</span>
               </p>
               <p class="text-xs text-text-faint">отпечаток {{ fingerprint(device.pub) }}</p>
             </div>
-            <Button
-              v-if="!device.revoked"
-              size="sm"
-              :loading="deviceBusy === device.pub"
-              @click="confirmDevice = device; trustDialogOpen = true"
-            >
-              Доверять
-            </Button>
-            <Button
-              v-if="!device.revoked"
-              tone="danger"
-              size="sm"
-              :loading="deviceBusy === device.pub"
-              @click="revokeDeviceTarget = device; revokeDeviceOpen = true"
-            >
-              Отозвать
-            </Button>
+            <template v-if="device.pub !== myPub && !device.revoked">
+              <Button
+                size="sm"
+                :loading="deviceBusy === device.pub"
+                @click="confirmDevice = device; trustDialogOpen = true"
+              >
+                Доверять
+              </Button>
+              <Button
+                tone="danger"
+                size="sm"
+                :loading="deviceBusy === device.pub"
+                @click="revokeDeviceTarget = device; revokeDeviceOpen = true"
+              >
+                Отозвать
+              </Button>
+            </template>
           </li>
         </ul>
-        <p class="mt-3 text-xs text-text-faint">
-          Отпечаток этого устройства: {{ myPub === '' ? '…' : fingerprint(myPub) }}.
-          Сверяйте отпечатки на обоих экранах перед выдачей доступа.
+        <p v-if="others.length === 0" class="mt-3 text-xs text-text-faint">
+          Другие устройства появятся здесь сами, как только объявятся через
+          сервер, — подключайте их фразой (карточка выше) или грантом.
+        </p>
+        <p v-else class="mt-3 text-xs text-text-faint">
+          «Доверять» выдаёт секреты после сверки отпечатков на обоих экранах.
+          «Отозвать» перевыпускает секреты и мастер: отозванное устройство
+          нового не увидит.
         </p>
       </Card>
 

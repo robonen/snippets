@@ -151,10 +151,9 @@ export interface PairedDevice {
   readonly signPeer: string;
   readonly addedAt: number;
   readonly revoked: boolean;
-  readonly mine: boolean;
 }
 
-export function listDevices(space: Space, myPub: string): PairedDevice[] {
+export function listDevices(space: Space): PairedDevice[] {
   const root = space.root(KeysModel);
   return root.devices.keys().map((pub) => {
     const doc = root.devices(pub);
@@ -165,7 +164,6 @@ export function listDevices(space: Space, myPub: string): PairedDevice[] {
       signPeer: doc.signPeer(),
       addedAt: doc.addedAt(),
       revoked: doc.revokedAt() > 0,
-      mine: pub === myPub,
     };
   }).sort((a, b) => a.addedAt - b.addedAt);
 }
@@ -353,8 +351,9 @@ export function markRevoked(space: Space, device: PairedDevice): void {
 
 /** Вторая половина: выдать ПЕРЕВЫПУЩЕННЫЕ секреты всем живым устройствам заново. */
 export async function regrantAll(space: Space, ring: Keyring, identity: Identity): Promise<void> {
-  for (const peer of listDevices(space, encodeBytes(identity.pub))) {
-    if (peer.mine || peer.revoked) continue;
+  const myPub = encodeBytes(identity.pub);
+  for (const peer of listDevices(space)) {
+    if (peer.pub === myPub || peer.revoked) continue;
     await grantTo(space, ring, identity, peer);
   }
 }
