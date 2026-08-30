@@ -1,8 +1,12 @@
 # Образ сервера brain: сборка на каждый пуш в main и публикация в реестр Gitea.
 #
+# Образ живёт в пакетах ЭТОГО репозитория (имя пакета = имя репозитория),
+# а не среди личных пакетов пользователя, и публикуется ТОЛЬКО тегом latest:
+# История версий не нужна — деплой всегда тянет свежий образ.
+#
 # Дальше образ тянется в Proxmox 9.1 напрямую: Storage → «Pull from OCI
-# Registry» → git.robonen.ru/robonen/brain:latest → Create CT (том на /data,
-# переменные в Options). Подробности — brain/docs/04-server.md §3.
+# Registry» → git.robonen.ru/robonen/snippets:latest → Create CT (том на
+# /data, переменные в Options). Подробности — brain/docs/04-server.md §3.
 name: brain-image
 
 on:
@@ -26,11 +30,11 @@ permissions:
 
 env:
   REGISTRY: git.robonen.ru
-  NAMESPACE: ${{ github.repository_owner }} # -> git.robonen.ru/robonen/brain
+  IMAGE: ${{ github.repository }} # -> git.robonen.ru/robonen/snippets, пакет репозитория
 
 jobs:
   build:
-    name: build (brain:latest)
+    name: build (latest)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -41,12 +45,11 @@ jobs:
           REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN || secrets.GITHUB_TOKEN }}
         run: echo "$REGISTRY_TOKEN" | docker login "$REGISTRY" -u "$REGISTRY_USER" --password-stdin
 
-      - name: Build and push brain
+      - name: Build and push
         run: |
           set -euo pipefail
-          ref="$REGISTRY/$NAMESPACE/brain"
+          ref="$REGISTRY/$IMAGE:latest"
           echo "==> Building $ref"
-          docker build -f brain/Dockerfile -t "$ref:latest" -t "$ref:${{ github.sha }}" .
+          docker build -f brain/Dockerfile -t "$ref" .
           echo "==> Pushing $ref"
-          docker push "$ref:latest"
-          docker push "$ref:${{ github.sha }}"
+          docker push "$ref"
