@@ -1,9 +1,12 @@
 # Образ сервера brain: сборка на каждый пуш в main и публикация в реестр Gitea.
 #
-# Контейнерный пакет в Gitea всегда лежит под владельцем — git.robonen.ru/
-# robonen/brain — «внутрь репозитория» его не запушить. Привязка к репозиторию
-# делается отдельным вызовом API после пуша (шаг «Link package»): пакет
-# появляется на вкладке Packages этого репозитория, а не среди личных.
+# Контейнерный пакет в Gitea всегда лежит под владельцем —
+# git.robonen.ru/robonen/brain. К репозиторию он привязывается ОДИН РАЗ
+# руками (Packages → brain → Settings → Link to repository → snippets):
+# привязка живёт у пакета, последующие пуши её не трогают. Автоматически
+# Gitea привязывает только пакет с именем репозитория, и только при первом
+# пуше — для имени brain это не подходит.
+#
 # Публикуется ТОЛЬКО тег latest: деплой всегда тянет свежий, история образов
 # никому не служила.
 #
@@ -33,44 +36,26 @@ permissions:
 
 env:
   REGISTRY: git.robonen.ru
-  OWNER: ${{ github.repository_owner }}
-  PACKAGE: brain
+  IMAGE: ${{ github.repository_owner }}/brain # -> git.robonen.ru/robonen/brain
 
 jobs:
   build:
     name: build (brain:latest)
     runs-on: ubuntu-latest
-    env:
-      REGISTRY_USER: ${{ secrets.REGISTRY_USER || github.actor }}
-      REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN || secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v6
 
       - name: Log in to ${{ env.REGISTRY }}
+        env:
+          REGISTRY_USER: ${{ secrets.REGISTRY_USER || github.actor }}
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN || secrets.GITHUB_TOKEN }}
         run: echo "$REGISTRY_TOKEN" | docker login "$REGISTRY" -u "$REGISTRY_USER" --password-stdin
 
       - name: Build and push
         run: |
           set -euo pipefail
-          ref="$REGISTRY/$OWNER/$PACKAGE:latest"
+          ref="$REGISTRY/$IMAGE:latest"
           echo "==> Building $ref"
           docker build -f brain/Dockerfile -t "$ref" .
           echo "==> Pushing $ref"
           docker push "$ref"
-
-      # Пакет привязывается к ЭТОМУ репозиторию (Gitea ≥ 1.22). Повторный
-      # вызов на уже привязанном пакете — не ошибка: Gitea отвечает 400/409.
-      - name: Link package to ${{ github.repository }}
-        env:
-          API: ${{ github.server_url }}/api/v1
-          REPO: ${{ github.event.repository.name }}
-        run: |
-          set -euo pipefail
-          url="$API/packages/$OWNER/container/$PACKAGE/-/link/$REPO"
-          code=$(curl -sS -o /tmp/link.txt -w '%{http_code}' -X POST \
-            -H "Authorization: token $REGISTRY_TOKEN" "$url")
-          case "$code" in
-            201|204) echo "==> Linked $OWNER/$PACKAGE to $REPO" ;;
-            400|409) echo "==> Already linked: $(cat /tmp/link.txt)" ;;
-            *) echo "==> Link failed ($code): $(cat /tmp/link.txt)"; exit 1 ;;
-          esac

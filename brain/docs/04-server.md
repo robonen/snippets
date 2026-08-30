@@ -98,8 +98,9 @@ SYNC_TOKEN=… DATA_DIR=/var/lib/brain PORT=8787 PUBLIC_ORIGIN=https://brain.exa
 OCI-образ (`brain/Dockerfile`: node:22-alpine + самодостаточный nitro
 `.output`, ~60 МБ) и публикует его в реестр Gitea — workflow
 `.gitea/workflows/brain-image.yml`, образ `git.robonen.ru/robonen/brain`
-(только тег `latest`; после пуша CI привязывает пакет к репозиторию через
-API Gitea — он виден на вкладке Packages репозитория, не среди личных).
+(только тег `latest`). К репозиторию пакет привязывается один раз руками:
+Packages → `brain` → Settings → Link to repository → `snippets`; привязка
+живёт у пакета, последующие пуши её не трогают.
 Proxmox 9.1 запускает OCI-образы нативно как LXC:
 
 1. Storage → **Pull from OCI Registry** → `git.robonen.ru/robonen/brain:latest`
