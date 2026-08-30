@@ -225,8 +225,14 @@ interface StoredPair {
 export async function deviceIdentity(): Promise<Identity> {
   const db = await openDb();
   try {
-    const found = await ask<StoredPair | undefined>(db.transaction(STORE, 'readonly').objectStore(STORE).get(PAIR_KEY));
-    if (found !== undefined) return identityOf(found.algo, found.pair);
+    const found = await ask<StoredPair | null | undefined>(
+      db.transaction(STORE, 'readonly').objectStore(STORE).get(PAIR_KEY),
+    );
+    // WebKit отдаёт null вместо undefined, а битая запись приходит без
+    // половины полей: всё, что не похоже на пару, чеканится заново.
+    if (found !== undefined && found !== null && found.pair !== undefined && found.pair !== null) {
+      return identityOf(found.algo, found.pair);
+    }
 
     const fresh = await mintExchangePair();
     const tx = db.transaction(STORE, 'readwrite');
@@ -434,6 +440,8 @@ export async function claimGrant(
   if (!root.grants.has(myPub)) return null;
 
   const doc: Doc<'keys/grant'> = root.grants(myPub);
+  // Погашенный (принятый) грант — пустышка.
+  if (doc.cipher() === '') return null;
   const fromPub = doc.from();
   const from = root.devices.has(fromPub) ? root.devices(fromPub) : null;
   if (from === null || from.revokedAt() > 0) return null;
@@ -446,6 +454,17 @@ export async function claimGrant(
     decodeBytes(doc.cipher()).slice().buffer as ArrayBuffer,
   );
   return decodeGrant(new Uint8Array(blob));
+}
+
+/** Погасить принятый грант: он одноразовый, принимать его дважды незачем. */
+export function clearGrant(space: Space, myPub: string): void {
+  const root = space.root(KeysModel);
+  if (!root.grants.has(myPub)) return;
+  space.edit(() => {
+    const doc = root.grants(myPub);
+    doc.nonce('');
+    doc.cipher('');
+  });
 }
 
 /**

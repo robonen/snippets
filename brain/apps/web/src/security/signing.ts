@@ -57,10 +57,13 @@ export function deviceSigner(): Promise<Signer> {
   cached ??= (async () => {
     const db = await openDb();
     try {
-      const found = await ask<StoredPair | undefined>(
+      const found = await ask<StoredPair | null | undefined>(
         db.transaction(STORE, 'readonly').objectStore(STORE).get(SIGN_KEY),
       );
-      if (found !== undefined) return signerOf(found.algo, found.pair);
+      // WebKit отдаёт null вместо undefined; битая запись чеканится заново.
+      if (found !== undefined && found !== null && found.pair !== undefined && found.pair !== null) {
+        return signerOf(found.algo, found.pair);
+      }
 
       const fresh = await mintSignerPair();
       const tx = db.transaction(STORE, 'readwrite');

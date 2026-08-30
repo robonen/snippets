@@ -23,9 +23,9 @@ import {
   announceDevice,
   claimGrant,
   claimInvite,
+  clearGrant,
   clearPhraseWrap,
   deviceIdentity,
-  grantTo,
   livePeers,
   markRevoked,
   publishInvite,
@@ -93,8 +93,10 @@ export async function bootBrain(): Promise<{ spaces: Spaces; registry: Registry 
       await syncSpaceRing(ring);
 
       startSync({ spaces, secure: secureOf(ring, signer), lands: [KEYS_ID, ...dataLands] });
+      watchGrants();
     },
     conceal: async () => {
+      stopGrantWatch();
       // Сначала снять синк, потом закрыть ленды: пришедшая пачка иначе успела
       // бы влиться в ленд, который уже закрывают.
       stopSync();
@@ -164,9 +166,47 @@ function deviceLabel(): string {
  */
 export async function joinSpace(): Promise<void> {
   const spaces = need();
-  const material = await claimGrant(spaces.space(KEYS_ID), await deviceIdentity());
+  const identity = await deviceIdentity();
+  const material = await claimGrant(spaces.space(KEYS_ID), identity);
   if (material === null) throw new Error('no grant issued for this device yet');
   await adoptSpace(material);
+  // Грант одноразовый: приняли — погасили, иначе наблюдатель принимал бы его снова.
+  clearGrant(need().space(KEYS_ID), encodeBytes(identity.pub));
+}
+
+/** Отпечаток нашего мастера — экрану, чтобы отличить «своё пространство» от чужого сейфа. */
+export function myMasterId(): string {
+  return ringNow().masterId();
+}
+
+// ── Гранты — внутренний механизм ─────────────────────────────────────────────
+//
+// Кнопок «Доверять» и «Присоединиться» больше нет: устройства подключаются
+// ссылкой-приглашением или фразой. ECDH-гранты остались для одного случая —
+// после отзыва владелец раздаёт живым устройствам НОВЫЙ материал (regrantAll),
+// и каждое принимает его само: обёртка адресована нашему ключу и выдана живым
+// устройством пространства, которому мы и так доверяем.
+
+let grantWatch: ReturnType<typeof setInterval> | null = null;
+
+function watchGrants(): void {
+  stopGrantWatch();
+  grantWatch = setInterval(() => {
+    void (async () => {
+      try {
+        if (await pendingGrant()) await joinSpace();
+      }
+      catch (error) {
+        console.warn('[brain] grant claim failed, will retry', error);
+      }
+    })();
+  }, 10_000);
+}
+
+function stopGrantWatch(): void {
+  if (grantWatch === null) return;
+  clearInterval(grantWatch);
+  grantWatch = null;
 }
 
 /**
@@ -455,14 +495,8 @@ async function wipeServerLands(): Promise<void> {
   }
 }
 
-/** Доверить устройству пространство: человек сверил отпечатки и нажал кнопку. */
-export async function trustDevice(device: PairedDevice): Promise<void> {
-  const spaces = need();
-  await grantTo(spaces.space(KEYS_ID), ringNow(), await deviceIdentity(), device);
-}
-
-/** Ждёт ли НАС обёртка в ленде — «можно присоединяться». */
-export async function pendingGrant(): Promise<boolean> {
+/** Ждёт ли нас грант в ленде (материал после отзыва). */
+async function pendingGrant(): Promise<boolean> {
   const spaces = spacesRef;
   if (spaces === null || !spaces.open) return false;
   try {

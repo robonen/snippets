@@ -33,7 +33,7 @@ export async function deviceKek(): Promise<CryptoKey | null> {
     const db = await open(factory);
     try {
       const found = await read(db);
-      if (found !== undefined) return found;
+      if (found !== undefined && found !== null) return found;
 
       const fresh = await createDeviceKek();
       await write(db, fresh);
@@ -72,10 +72,10 @@ function open(factory: IDBFactory): Promise<IDBDatabase> {
   return ask(request);
 }
 
-async function read(db: IDBDatabase): Promise<CryptoKey | undefined> {
+/** `null` — WebKit так отдаёт отсутствующую запись; для нас это то же «нет». */
+async function read(db: IDBDatabase): Promise<CryptoKey | null | undefined> {
   const tx = db.transaction(STORE, 'readonly');
-  const found = await ask(tx.objectStore(STORE).get(KEY) as IDBRequest<CryptoKey | undefined>);
-  return found;
+  return ask(tx.objectStore(STORE).get(KEY) as IDBRequest<CryptoKey | null | undefined>);
 }
 
 async function write(db: IDBDatabase, key: CryptoKey): Promise<void> {

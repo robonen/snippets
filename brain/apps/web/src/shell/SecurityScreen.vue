@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { computedAsync, useClipboard, useSupported } from '@robonen/vue';
 import {
   Button,
@@ -32,11 +32,9 @@ import {
   dropInvite,
   joinByInvite,
   joinByPhrase,
-  joinSpace,
-  pendingGrant,
+  myMasterId,
   publishPhraseAccess,
   revokeDevice,
-  trustDevice,
 } from '@/app/boot';
 import { restartSync, saveSyncSettings, useSyncSettings } from '@/sync';
 import { addAccess, freshSalt, removeAccess, setGuarded, useLock } from '../security/lock';
@@ -52,6 +50,10 @@ import type { WrappedDek } from '@brain/auth';
  * (passkey → PRF → KEK, фраза → PBKDF2), серверу в этой схеме нечего проверять.
  * Сервер нужен только доставке: обёртки секретов между устройствами едут
  * обычным синком в служебном ленде (`security/pairing.ts`).
+ *
+ * Подключение устройства — ОДИН путь: приглашение ссылкой с основного
+ * устройства. Фраза — только восстановление, когда приглашение получить
+ * негде. Никаких «доверять»/«присоединиться» с двух экранов одновременно.
  *
  * Способ доступа заворачивает МАСТЕР связки, а не данные: добавление способа —
  * ещё одна обёртка того же мастера (`addAccess` → `Keyring.wrapFor`).
@@ -199,7 +201,13 @@ function doRemove(): void {
 const spaces = useSpaces();
 const myPub = ref('');
 onMounted(async () => {
-  myPub.value = encodeBytes((await deviceIdentity()).pub);
+  try {
+    myPub.value = encodeBytes((await deviceIdentity()).pub);
+  }
+  catch (caught) {
+    // Без catch отказ IndexedDB летел бы необработанным отказом промиса.
+    error.value = caught instanceof Error && caught.message !== '' ? caught.message : 'не удалось прочитать ключ устройства';
+  }
 });
 
 // Геттер обязан ЧИТАТЬ ленд при каждом запуске: мост (@sync/vue) подписывает
@@ -289,7 +297,6 @@ async function doJoinByInvite(): Promise<void> {
   }
 }
 const devices = computed(() => roster.value ?? []);
-const others = computed(() => devices.value.filter(device => device.pub !== myPub.value));
 
 // Вход фразой: пространство открывается с нового устройства одной фразой —
 // сейф (мастер под KEK'ом фразы + секреты под мастером) приезжает синком.
@@ -305,6 +312,17 @@ const vaultStale = computed(() => {
   return v !== null && v !== undefined && v.wrapMaster !== '' && v.ringMaster !== '' && v.wrapMaster !== v.ringMaster;
 });
 const vaultReady = computed(() => (vault.value?.phrase ?? null) !== null && !vaultStale.value);
+/** Это устройство — в пространстве: сейф запечатан НАШИМ мастером (либо сейфа ещё нет). */
+const member = computed(() => {
+  const v = vault.value;
+  if (v === null || v === undefined || v.ringMaster === '') return true;
+  try {
+    return v.ringMaster === myMasterId();
+  }
+  catch {
+    return true;
+  }
+});
 
 async function doJoinByPhrase(): Promise<void> {
   deviceBusy.value = 'phrase-join';
@@ -324,59 +342,9 @@ async function doJoinByPhrase(): Promise<void> {
   }
 }
 
-/** Ждёт ли нас чужая обёртка — свежему устройству предлагается присоединиться. */
-const grantReady = ref(false);
-// Обёртка приезжает синком ПОСЛЕ захода на экран — опрашиваем, пока экран
-// открыт, чтобы карточка «Присоединиться» появилась сама, без перезахода.
-let grantTimer: ReturnType<typeof setInterval> | null = null;
-onMounted(async () => {
-  grantReady.value = await pendingGrant();
-  grantTimer = setInterval(async () => {
-    if (!grantReady.value) grantReady.value = await pendingGrant();
-  }, 5000);
-});
-onUnmounted(() => {
-  if (grantTimer !== null) clearInterval(grantTimer);
-});
-
 const deviceBusy = ref('');
-const confirmDevice = ref<PairedDevice | null>(null);
-const trustDialogOpen = ref(false);
 const revokeDeviceTarget = ref<PairedDevice | null>(null);
 const revokeDeviceOpen = ref(false);
-const joinDialogOpen = ref(false);
-
-async function doTrust(): Promise<void> {
-  const device = confirmDevice.value;
-  if (device === null) return;
-  deviceBusy.value = device.pub;
-  try {
-    await trustDevice(device);
-    toast({ title: 'Доступ выдан', description: 'Второе устройство может присоединиться.', tone: 'positive' });
-  }
-  catch (caught) {
-    error.value = caught instanceof Error ? caught.message : 'не получилось выдать доступ';
-  }
-  finally {
-    deviceBusy.value = '';
-    confirmDevice.value = null;
-  }
-}
-
-async function doJoin(): Promise<void> {
-  deviceBusy.value = 'join';
-  try {
-    await joinSpace();
-    grantReady.value = false;
-    toast({ title: 'Устройство присоединено', description: 'Данные пространства едут с сервера.', tone: 'positive' });
-  }
-  catch (caught) {
-    error.value = caught instanceof Error ? caught.message : 'не получилось присоединиться';
-  }
-  finally {
-    deviceBusy.value = '';
-  }
-}
 
 const revokePhrase = ref('');
 /** Без passkey новый мастер заворачивается фразой — её и подтверждаем в диалоге. */
@@ -462,67 +430,6 @@ async function doRevokeDevice(): Promise<void> {
             восстановление, вход с других устройств и — по желанию — замок
             приложения.
           </p>
-        </div>
-      </Card>
-
-      <Card v-if="grantReady">
-        <div class="flex items-start gap-3">
-          <MonitorSmartphone class="mt-0.5 size-5 shrink-0 text-accent" />
-          <div class="min-w-0 flex-1">
-            <p class="text-sm text-text">Этому устройству выдан доступ к пространству</p>
-            <p class="mt-0.5 text-xs text-text-faint">
-              Присоединение заменит местные данные пространством: заготовки этого
-              устройства будут стёрты, настоящие данные приедут с сервера.
-            </p>
-          </div>
-          <Button tone="primary" size="sm" :loading="deviceBusy === 'join'" @click="joinDialogOpen = true">
-            Присоединиться
-          </Button>
-        </div>
-      </Card>
-
-      <Card v-if="spaces.open && !grantReady" title="Вход фразой">
-        <div class="flex flex-col gap-2">
-          <p class="text-xs text-text-faint">
-            Новое устройство? Введите фразу восстановления пространства — данные
-            приедут с сервера, локальные заготовки будут заменены.
-          </p>
-          <textarea
-            v-model="joinPhrase"
-            rows="2"
-            placeholder="двенадцать слов через пробел"
-            aria-label="Фраза пространства"
-            autocomplete="off"
-            autocapitalize="off"
-            autocorrect="off"
-            spellcheck="false"
-            class="glass w-full resize-none rounded-control border px-3.5 py-2.5 text-sm text-text
-                   transition-[border-color] placeholder:text-text-faint focus:border-accent focus:outline-none"
-          />
-          <p v-if="vaultStale" class="text-xs text-warning">
-            Сейф пространства рассинхронизирован: секреты запечатаны не тем
-            мастером, что лежит под фразой. Откройте первое устройство — оно
-            перепубликует сейф, и вход фразой оживёт.
-          </p>
-          <p v-else-if="!vaultReady" class="text-xs text-warning">
-            Фразовый вход ещё не приехал с сервера. Проверьте синхронизацию в
-            Настройках; если фраза создана давно — откройте ею первое
-            устройство один раз, оно опубликует вход.
-          </p>
-          <p v-if="joinPhraseError" role="alert" class="text-xs text-danger">
-            {{ joinPhraseError }}
-          </p>
-          <div class="flex justify-end">
-            <Button
-              tone="primary"
-              size="sm"
-              :disabled="joinPhrase.trim() === '' || !vaultReady"
-              :loading="deviceBusy === 'phrase-join'"
-              @click="joinPhraseOpen = true"
-            >
-              Подключиться
-            </Button>
-          </div>
         </div>
       </Card>
 
@@ -663,32 +570,28 @@ async function doRevokeDevice(): Promise<void> {
               </p>
               <p class="text-xs text-text-faint">отпечаток {{ fingerprint(device.pub) }}</p>
             </div>
-            <template v-if="device.pub !== myPub && !device.revoked">
-              <Button
-                size="sm"
-                :loading="deviceBusy === device.pub"
-                @click="confirmDevice = device; trustDialogOpen = true"
-              >
-                Доверять
-              </Button>
-              <Button
-                tone="danger"
-                size="sm"
-                :loading="deviceBusy === device.pub"
-                @click="revokeDeviceTarget = device; revokeDeviceOpen = true"
-              >
-                Отозвать
-              </Button>
-            </template>
+            <Button
+              v-if="member && device.pub !== myPub && !device.revoked"
+              tone="danger"
+              size="sm"
+              :loading="deviceBusy === device.pub"
+              @click="revokeDeviceTarget = device; revokeDeviceOpen = true"
+            >
+              Отозвать
+            </Button>
           </li>
         </ul>
-        <p v-if="others.length > 0" class="mt-3 text-xs text-text-faint">
-          «Доверять» выдаёт секреты после сверки отпечатков на обоих экранах.
-          «Отозвать» перевыпускает секреты и мастер: отозванное устройство
-          нового не увидит.
-        </p>
 
-        <div class="mt-3 flex flex-col gap-2 border-t border-line pt-3">
+        <div v-if="!member" class="mt-3 flex gap-3 border-t border-line pt-3">
+          <TriangleAlert class="mt-0.5 size-5 shrink-0 text-warning" />
+          <p class="text-sm text-text-soft">
+            Это устройство ещё не в пространстве. На основном устройстве нажмите
+            «Пригласить» и откройте полученную ссылку здесь — больше ничего
+            нажимать не нужно.
+          </p>
+        </div>
+
+        <div v-else class="mt-3 flex flex-col gap-2 border-t border-line pt-3">
           <template v-if="inviteLink !== ''">
             <p class="text-xs text-text-faint">
               Ссылка показывается один раз и действует сутки. В ней код доступа
@@ -709,7 +612,7 @@ async function doRevokeDevice(): Promise<void> {
               <p class="min-w-0 flex-1 text-xs text-text-faint">
                 {{ invite
                   ? 'Приглашение действует: ссылка была показана при создании.'
-                  : 'Новое устройство проще всего подключить ссылкой: открыл — и готово.' }}
+                  : 'Добавить устройство: «Пригласить» → открыть ссылку на нём. Это всё.' }}
               </p>
               <Button v-if="invite" size="sm" tone="danger" @click="doDropInvite">Погасить</Button>
               <Button v-else size="sm" tone="primary" :disabled="!syncOn" :loading="inviteBusy" @click="doCreateInvite">
@@ -720,6 +623,52 @@ async function doRevokeDevice(): Promise<void> {
               Для приглашений нужна синхронизация: подключите сервер в Настройках.
             </p>
           </template>
+        </div>
+      </Card>
+
+      <!-- Фраза — запасной вход: когда приглашение получить негде (все
+           устройства потеряны). Показывается только устройству вне пространства. -->
+      <Card v-if="spaces.open && !member" title="Восстановление фразой">
+        <div class="flex flex-col gap-2">
+          <p class="text-xs text-text-faint">
+            Нет устройства, с которого можно пригласить? Введите фразу
+            восстановления — данные вернутся с сервера, местные заготовки
+            будут заменены.
+          </p>
+          <textarea
+            v-model="joinPhrase"
+            rows="2"
+            placeholder="двенадцать слов через пробел"
+            aria-label="Фраза восстановления"
+            autocomplete="off"
+            autocapitalize="off"
+            autocorrect="off"
+            spellcheck="false"
+            class="glass w-full resize-none rounded-control border px-3.5 py-2.5 text-sm text-text
+                   transition-[border-color] placeholder:text-text-faint focus:border-accent focus:outline-none"
+          />
+          <p v-if="vaultStale" class="text-xs text-warning">
+            Сейф пространства рассинхронизирован. Откройте основное устройство —
+            оно перепубликует сейф.
+          </p>
+          <p v-else-if="!vaultReady" class="text-xs text-warning">
+            Фразовый вход ещё не приехал с сервера — проверьте синхронизацию в
+            Настройках.
+          </p>
+          <p v-if="joinPhraseError" role="alert" class="text-xs text-danger">
+            {{ joinPhraseError }}
+          </p>
+          <div class="flex justify-end">
+            <Button
+              tone="primary"
+              size="sm"
+              :disabled="joinPhrase.trim() === '' || !vaultReady"
+              :loading="deviceBusy === 'phrase-join'"
+              @click="joinPhraseOpen = true"
+            >
+              Восстановить
+            </Button>
+          </div>
         </div>
       </Card>
 
@@ -754,16 +703,6 @@ async function doRevokeDevice(): Promise<void> {
         + 'и правильный ответ на неё: отозвать устройство, а не убрать способ.'"
       confirm-label="Убрать"
       @confirm="doRemove"
-    />
-
-    <ConfirmDialog
-      v-if="confirmDevice !== null"
-      v-model:open="trustDialogOpen"
-      title="Доверять устройству?"
-      :description="`Сверьте отпечаток на втором экране: ${fingerprint(confirmDevice.pub)}. `
-        + 'После подтверждения оно получит секреты всех лендов и полный доступ к пространству.'"
-      confirm-label="Доверять"
-      @confirm="doTrust"
     />
 
     <ConfirmDialog
@@ -804,18 +743,10 @@ async function doRevokeDevice(): Promise<void> {
 
     <ConfirmDialog
       v-model:open="joinPhraseOpen"
-      title="Подключиться к пространству?"
+      title="Восстановить доступ фразой?"
       description="Местные данные этого устройства будут заменены данными пространства. Всё, что вы успели записать здесь, будет стёрто."
-      confirm-label="Подключиться"
+      confirm-label="Восстановить"
       @confirm="doJoinByPhrase"
-    />
-
-    <ConfirmDialog
-      v-model:open="joinDialogOpen"
-      title="Присоединиться к пространству?"
-      description="Местные данные этого устройства будут заменены данными пространства. Всё, что вы успели записать здесь до присоединения, будет стёрто."
-      confirm-label="Присоединиться"
-      @confirm="doJoin"
     />
   </Page>
 </template>
