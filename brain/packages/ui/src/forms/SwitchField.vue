@@ -25,14 +25,18 @@ const id = useId();
       :id="id"
       v-model="checked"
       :disabled="disabled"
-      class="relative mt-0.5 inline-flex h-6 w-10 shrink-0 cursor-pointer rounded-full
+      class="relative mt-0.5 inline-flex h-6 w-10 shrink-0 cursor-pointer items-center rounded-full
              border border-transparent transition-colors disabled:cursor-not-allowed disabled:opacity-45
              data-[state=checked]:bg-accent data-[state=unchecked]:bg-line-strong"
     >
+      <!-- Геометрия: дорожка 40×24 с рамкой 1px, бегунок 20px. `items-center`
+           ставит его по вертикали ровно в середину (без этого он прижимался к
+           верху на пиксель), а сдвиг во включённом состоянии — 1rem: слева и
+           справа остаётся одинаковый зазор в 2px внутри рамки. -->
       <SwitchThumb
         class="pointer-events-none block size-5 translate-x-0.5 rounded-full bg-white shadow-sm
                transition-transform duration-(--duration-press) ease-out
-               data-[state=checked]:translate-x-[1.125rem] motion-reduce:transition-none"
+               data-[state=checked]:translate-x-4 motion-reduce:transition-none"
       />
     </Switch>
   </div>
