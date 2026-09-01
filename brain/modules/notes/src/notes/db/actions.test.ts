@@ -17,6 +17,13 @@ import {
   saveNote,
 } from './actions';
 import { NotesModel, readNote } from './models';
+import { EMPTY_BODY, body, paragraph } from '../entities/body';
+import type { NoteBody } from '../entities/body';
+
+/** Тело из одного абзаца. */
+function prose(text: string): NoteBody {
+  return body(paragraph(text));
+}
 
 function spaceOf(session = 0x000100): Space {
   const land = new Land(Link.peer(new Uint8Array(8).fill(0x4e)), fixedClock(1_700_000), { session });
@@ -46,7 +53,7 @@ describe(blankNote, () => {
     expect(blank).toEqual({
       id: 'n1',
       title: '',
-      body: '',
+      body: EMPTY_BODY,
       tags: [],
       pinned: false,
       archived: false,
@@ -66,10 +73,11 @@ describe(blankNote, () => {
 describe(saveNote, () => {
   it('creates a document at an address that did not exist yet', () => {
     const space = spaceOf();
-    const saved = saveNote(space, { ...blankNote('n1', 500), body: 'первая строка' }, 900);
+    const first = prose('первая строка');
+    const saved = saveNote(space, { ...blankNote('n1', 500), body: first }, 900);
 
     expect(readNote('n1', space.root(NotesModel).notes('n1'))).toEqual(saved);
-    expect(saved).toMatchObject({ body: 'первая строка', createdAt: 500, updatedAt: 900 });
+    expect(saved).toMatchObject({ body: first, createdAt: 500, updatedAt: 900 });
   });
 
   it('bumps the edit stamp without touching the creation stamp', () => {
@@ -139,7 +147,7 @@ describe(removeNote, () => {
 describe(restoreNote, () => {
   it('returns the deleted note exactly as it was', () => {
     const space = spaceOf();
-    const note = saveNote(space, { ...blankNote('n1', 500), title: 'Тема', body: 'текст' }, 700);
+    const note = saveNote(space, { ...blankNote('n1', 500), title: 'Тема', body: prose('текст') }, 700);
     removeNote(space, note.id);
     restoreNote(space, note);
 
@@ -177,11 +185,12 @@ describe(archiveNote, () => {
 describe(duplicateNote, () => {
   it('copy lives at its own address and carries the same content', () => {
     const space = spaceOf();
-    const note = createNote(space, { title: 'Тема', body: 'текст', tags: ['работа'] }, 500);
+    const text = prose('текст');
+    const note = createNote(space, { title: 'Тема', body: text, tags: ['работа'] }, 500);
     const copy = duplicateNote(space, note, 900);
 
     expect(copy.id).not.toBe(note.id);
-    expect(copy).toMatchObject({ title: 'Тема (копия)', body: 'текст', tags: ['работа'] });
+    expect(copy).toMatchObject({ title: 'Тема (копия)', body: text, tags: ['работа'] });
     expect(readNote(copy.id, space.root(NotesModel).notes(copy.id))).toEqual(copy);
   });
 
@@ -217,7 +226,7 @@ describe(dailyNote, () => {
   it('second call opens the same note instead of creating a second one', () => {
     const space = spaceOf();
     const first = dailyNote(space, '2026-08-24', 500);
-    const edited = saveNote(space, { ...first, body: 'записал' }, 700);
+    const edited = saveNote(space, { ...first, body: prose('записал') }, 700);
     const again = dailyNote(space, '2026-08-24', 900);
 
     expect(again).toEqual(edited);

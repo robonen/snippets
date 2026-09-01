@@ -1,7 +1,9 @@
 import { atom, model, parts, t } from '@sync/core';
 import { scoped } from '@brain/module-kit';
-import type { Doc } from '@sync/core';
+import type { Doc, Type } from '@sync/core';
 import { formatTags, parseTags } from '../lib/tags';
+import { EMPTY_BODY } from '../entities/body';
+import type { NoteBody } from '../entities/body';
 import type { Note } from '../entities/note';
 
 /**
@@ -9,29 +11,51 @@ import type { Note } from '../entities/note';
  * поле — атом. Снимки (`readNote`/`writeNote`) переводят документ в плоский
  * доменный тип, а `undefined` домена — в `null` модели: у каналов один сентинел.
  *
- * ─── Тело заметки: строка markdown ──────────────────────────────────────────
+ * ─── Тело заметки: документ редактора одним атомом ──────────────────────────
  *
- * `body` — это `atom(t.string)` со всем markdown-текстом целиком. Редактор
- * (`editor/NoteEditor.vue`, writekit) работает поверх кодека
- * `editor/markdown.ts` и наружу отдаёт ту же строку. По плану (docs/00-plan.md,
- * Р6) телом однажды завладеет CRDT редактора, и в ленде вместо строки будут
- * лежать байты его op-лога и снапшотов — `atom(t.bytes)` или «лог + снимок».
- *
- * Почему сейчас строка, а не сразу байты: риск «два CRDT» (план, Э3, 🔴) не
- * снимается объявлением поля — его снимает спайк транспорта, компакции и
- * холодного открытия. Поле, объявленное вслепую под ненаписанный редактор, всё
- * равно переписывается, а до тех пор врёт про готовность.
- *
- * Что это стоит уже сегодня, честно: тело целиком — один атом, поэтому две
- * вкладки, правившие текст одновременно, сойдутся не побуквенно, а «победил
- * последний писавший». Для одного человека на одном устройстве это приемлемо,
- * для совместного редактирования — нет; ровно за этим и едет writekit.
- *
- * Что переезд затронет: `readNote`/`writeNote` здесь и `lib/links.ts`, который
- * сейчас ищет `[[…]]` в тексте, а тогда будет читать марки документа. Домен
- * (`Note`), экраны, поиск и упоминания переезда не заметят — они уже работают с
- * плоским снимком, а не с каналом.
+ * `body` — документ writekit (`entities/body.ts`) целиком, на проводе — JSON.
+ * Никакого промежуточного текстового формата: что редактор показал, то и
+ * легло. Цена одного атома честная: две вкладки, правившие тело одновременно,
+ * сойдутся не побуквенно, а «победил последний писавший». Побуквенно сойдётся
+ * CRDT самого редактора, когда в ленде будут лежать его op-лог и снапшоты
+ * (docs/00-plan.md, Р6) — это следующий шаг, и он не про схему, а про
+ * транспорт и компакцию.
  */
+
+/**
+ * Линза тела: документ ↔ JSON-строка.
+ *
+ * Своя линза, а не `t.string` с разбором в снимке: атом обязан знать свой тип,
+ * иначе «пустое» и мусор от чужого пира каждая читалка различала бы по-своему.
+ * Чтение не бросает никогда (контракт линз ядра): не JSON и не документ —
+ * `null`, ядро запишет Issue и подставит пустое тело.
+ */
+const bodyType: Type<NoteBody> = {
+  name: 'notes/body',
+  blank: EMPTY_BODY,
+  decode(raw) {
+    if (typeof raw !== 'string') return null;
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      return isBody(parsed) ? parsed : null;
+    }
+    catch {
+      return null;
+    }
+  },
+  encode(value) {
+    return JSON.stringify(value);
+  },
+  or(blank) {
+    return { ...bodyType, blank };
+  },
+};
+
+function isBody(value: unknown): value is NoteBody {
+  return typeof value === 'object' && value !== null
+    && (value as { type?: unknown }).type === 'doc'
+    && Array.isArray((value as { content?: unknown }).content);
+}
 
 /** Имя модуля: из него чеканится адрес ленда, префикс моделей и путь маршрутов. */
 export const NOTES_ID = 'notes';
@@ -40,7 +64,7 @@ const scope = scoped(NOTES_ID);
 
 export const NoteModel = model(scope('note'), {
   title: atom(t.string),
-  body: atom(t.string),
+  body: atom(bodyType),
   tags: atom(t.string),
   pinned: atom(t.bool),
   /**

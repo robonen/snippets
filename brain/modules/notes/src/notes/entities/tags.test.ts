@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import { EMPTY_BODY } from './body';
 import { countOf, countTags } from './tags';
 import type { Note } from './note';
 
 function note(patch: Partial<Note> & { id: string }): Note {
   return {
     title: '',
-    body: '',
+    body: EMPTY_BODY,
     tags: [],
     pinned: false,
     archived: false,

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue';
 import { debounce } from '@robonen/stdlib';
 import { dayTitle } from '@brain/std';
 import { BookOpen, Bookmark, ChevronLeft, Inbox, Plus, X } from 'lucide-vue-next';
@@ -17,6 +17,8 @@ import type { MenuAction, ToolbarAction } from '@brain/ui';
 import { useActions, useNotes } from '../../db/composables';
 import { blankNote } from '../../db/actions';
 import NoteEditor from '../../editor/NoteEditor.vue';
+import { EMPTY_BODY } from '../../entities/body';
+import type { NoteBody } from '../../entities/body';
 import { noteToMarkdown } from '../../entities/export';
 import { mentionsOf } from '../../entities/mentions';
 import { noteLabel, sameContent } from '../../entities/note';
@@ -40,9 +42,8 @@ import TagsField from './TagsField.vue';
  * откатывать нечего, а значит и подтверждать нечего. Отменяются не записи, а
  * ПОТЕРИ — удаление и архив показывают сообщение с «Отменить».
  *
- * Тело редактирует `editor/NoteEditor.vue` (writekit); наружу он отдаёт ту же
- * строку markdown, что и прежнее поле, поэтому запись, поиск, упоминания и
- * выгрузка не заметили замены.
+ * Тело редактирует `editor/NoteEditor.vue` (writekit): наружу — документ как
+ * есть, без промежуточных форматов; markdown остался только выгрузкой.
  */
 const { id } = defineProps<{ id: string }>();
 
@@ -56,7 +57,8 @@ const note = computed(() => list.value.find(item => item.id === id));
 const base = computed<Note>(() => note.value ?? blankNote(id));
 
 const title = ref('');
-const body = ref('');
+// Документ неизменяем: редактор отдаёт новый объект на каждую правку.
+const body = shallowRef<NoteBody>(EMPTY_BODY);
 const tags = ref<readonly string[]>([]);
 
 /** Адрес, форму которого уже наполнили. */

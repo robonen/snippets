@@ -1,6 +1,7 @@
 import { todayISO } from '@brain/std';
 import type { Space } from '@sync/core';
 import { newId } from '../lib/id';
+import { EMPTY_BODY } from '../entities/body';
 import type { Note } from '../entities/note';
 import { NotesModel, readNote, writeNote } from './models';
 
@@ -65,7 +66,7 @@ export function blankNote(id: string, now: number = Date.now()): Note {
   return {
     id,
     title: date ?? '',
-    body: '',
+    body: EMPTY_BODY,
     tags: [],
     pinned: false,
     archived: false,

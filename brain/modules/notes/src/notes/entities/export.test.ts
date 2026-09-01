@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { EMPTY_BODY, body, bullet, paragraph, run } from './body';
 import { UNTITLED } from './note';
 import type { Note } from './note';
 import { exportName, noteToMarkdown, notesToMarkdown } from './export';
@@ -10,7 +11,7 @@ const AT = new Date(2026, 7, 24, 12).getTime();
 function note(patch: Partial<Note> & { id: string }): Note {
   return {
     title: '',
-    body: '',
+    body: EMPTY_BODY,
     tags: [],
     pinned: false,
     archived: false,
@@ -21,12 +22,12 @@ function note(patch: Partial<Note> & { id: string }): Note {
 }
 
 describe(noteToMarkdown, () => {
-  it('first-level heading, metadata line, then the body', () => {
+  it('first-level heading, metadata line, then the body as markdown', () => {
     const md = noteToMarkdown(note({
       id: 'n',
       title: 'Планы на неделю',
       tags: ['работа', 'идеи'],
-      body: '- созвон\n- см. [[Дневник]]',
+      body: body(bullet('созвон'), bullet('см. ', run('[[Дневник]]', 'bold'))),
     }));
 
     expect(md).toBe([
@@ -35,7 +36,7 @@ describe(noteToMarkdown, () => {
       '*2026-08-24* · #работа #идеи',
       '',
       '- созвон',
-      '- см. [[Дневник]]',
+      '- см. **[[Дневник]]**',
     ].join('\n'));
   });
 
@@ -43,8 +44,9 @@ describe(noteToMarkdown, () => {
     expect(noteToMarkdown(note({ id: 'n', title: 'Тема' }))).toBe('# Тема\n\n*2026-08-24*');
   });
 
-  it('empty body adds no block: no tail of blank lines needed', () => {
-    expect(noteToMarkdown(note({ id: 'n', title: 'Тема', body: '\n  \n' })).endsWith('*2026-08-24*')).toBeTruthy();
+  it('a body of blank paragraphs adds no block: no tail of blank lines needed', () => {
+    const blank = note({ id: 'n', title: 'Тема', body: body(paragraph(), paragraph('  ')) });
+    expect(noteToMarkdown(blank).endsWith('*2026-08-24*')).toBeTruthy();
   });
 
   it('untitled note is labeled explicitly', () => {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Land, Link, createSpace, fixedClock } from '@sync/core';
 import type { Space } from '@sync/core';
+import { EMPTY_BODY, body, bullet, paragraph, run } from '../entities/body';
 import type { Note } from '../entities/note';
 import { NotesModel, readNote, writeNote } from './models';
 
@@ -12,7 +13,7 @@ function spaceOf(session = 0x000100): Space {
 const NOTE: Note = {
   id: 'n1',
   title: 'Планы на неделю',
-  body: '- созвон\n- см. [[Дневник]]',
+  body: body(bullet('созвон'), bullet('см. ', run('[[Дневник]]', 'italic'))),
   tags: ['работа', 'идеи'],
   pinned: true,
   archived: false,
@@ -26,6 +27,25 @@ describe('note models on @sync/core', () => {
     writeNote(root.notes(NOTE.id), NOTE);
 
     expect(readNote(NOTE.id, root.notes(NOTE.id))).toEqual(NOTE);
+  });
+
+  it('body keeps blocks, attrs and marks through the land', () => {
+    const root = spaceOf().root(NotesModel);
+    writeNote(root.notes(NOTE.id), NOTE);
+
+    const back = readNote(NOTE.id, root.notes(NOTE.id)).body;
+    expect(back.content.map(block => block.type)).toEqual(['bulleted-list', 'bulleted-list']);
+    expect(back.content[1]?.content).toEqual([
+      { text: 'см. ', marks: [] },
+      { text: '[[Дневник]]', marks: [{ type: 'italic' }] },
+    ]);
+  });
+
+  it('a body that is not a document reads as empty, not as a crash', () => {
+    const root = spaceOf().root(NotesModel);
+    writeNote(root.notes('n9'), { ...NOTE, id: 'n9', body: 'not a document' as never });
+
+    expect(readNote('n9', root.notes('n9')).body).toEqual(EMPTY_BODY);
   });
 
   it('ordinary note does not acquire a day field', () => {
@@ -65,7 +85,7 @@ describe('note models on @sync/core', () => {
     const empty: Note = {
       id: 'n3',
       title: '',
-      body: '',
+      body: EMPTY_BODY,
       tags: [],
       pinned: false,
       archived: false,
@@ -97,12 +117,16 @@ describe('note models on @sync/core', () => {
     const rootB = createSpace({ land: tabB }).root(NotesModel);
 
     writeNote(rootA.notes('x'), { ...NOTE, id: 'x' });
-    writeNote(rootB.notes('y'), { ...NOTE, id: 'y', title: 'Дневник' });
+    writeNote(rootB.notes('y'), { ...NOTE, id: 'y', title: 'Дневник', body: body(paragraph('другой текст')) });
 
-    tabB.apply(tabA.part().units);
-    tabA.apply(tabB.part().units);
+    // Тело документа крупнее инлайнового санда и едет «шаром» рядом с юнитами —
+    // как и в настоящем синке, пачка применяется вместе с шарами.
+    const partA = tabA.part();
+    const partB = tabB.part();
+    tabB.apply(partA.units, partA.balls);
+    tabA.apply(partB.units, partB.balls);
 
     expect(readNote('x', rootB.notes('x')).title).toBe('Планы на неделю');
-    expect(readNote('y', rootA.notes('y')).title).toBe('Дневник');
+    expect(readNote('y', rootA.notes('y')).body.content[0]?.content).toEqual([{ text: 'другой текст', marks: [] }]);
   });
 });

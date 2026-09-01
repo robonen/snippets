@@ -1,5 +1,6 @@
 import { dayTitle } from '@brain/std';
-import { plainText } from '../editor/markdown';
+import { bodyText, sameBody } from './body';
+import type { NoteBody } from './body';
 
 /**
  * Заметка как доменный объект: плоская запись, с которой работают экраны,
@@ -13,8 +14,8 @@ export interface Note {
    * меняет и то, кто на заметку ссылается.
    */
   title: string;
-  /** Тело в markdown. Временное представление — см. `db/models.ts`. */
-  body: string;
+  /** Тело — документ редактора (`entities/body.ts`); как лежит в ленде — `db/models.ts`. */
+  body: NoteBody;
   /** Нормализованные теги, порядок — как ввели. */
   tags: string[];
   pinned: boolean;
@@ -161,7 +162,7 @@ export function searchNotes(notes: readonly Note[], query: string): Note[] {
  */
 export function sameContent(a: Note, b: Note): boolean {
   return a.title === b.title
-    && a.body === b.body
+    && sameBody(a.body, b.body)
     && a.pinned === b.pinned
     && a.archived === b.archived
     && a.tags.length === b.tags.length
@@ -173,12 +174,12 @@ const SNIPPET_LIMIT = 140;
 /**
  * Первая содержательная строка тела для списка.
  *
- * Разметка снимается тем же кодеком, что кормит редактор (`editor/markdown`):
- * подпись под заголовком показывает слова, а не звёздочки вокруг них. Скобки
- * `[[…]]` остаются текстом для кодека, поэтому снимаются здесь.
+ * Берётся текст блоков без марок: подпись под заголовком показывает слова, а
+ * не разметку вокруг них. Скобки `[[…]]` — часть текста, поэтому снимаются
+ * здесь.
  */
-export function noteSnippet(body: string, limit: number = SNIPPET_LIMIT): string {
-  for (const raw of plainText(body).split('\n')) {
+export function noteSnippet(body: NoteBody, limit: number = SNIPPET_LIMIT): string {
+  for (const raw of bodyText(body).split('\n')) {
     const line = raw.replaceAll(/\[\[|\]\]/gu, '').trim();
     if (line === '') continue;
     return line.length > limit ? `${line.slice(0, limit).trimEnd()}…` : line;
@@ -198,9 +199,8 @@ export interface NoteStats {
  * `length` считает суррогатные пары, и счётчик показал бы вдвое больше, чем
  * человек набрал.
  */
-export function noteStats(body: string): NoteStats {
-  // Считается текст без разметки: `**слово**` — одно слово, а не слово со звёздочками.
-  const plain = plainText(body);
+export function noteStats(body: NoteBody): NoteStats {
+  const plain = bodyText(body);
   const words = plain.split(/\s+/u).filter(word => word !== '').length;
   return { words, chars: [...plain].length };
 }

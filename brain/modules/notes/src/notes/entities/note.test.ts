@@ -13,11 +13,18 @@ import {
   sortNotes,
 } from './note';
 import type { Note } from './note';
+import { EMPTY_BODY, body, heading, paragraph } from './body';
+import type { NoteBody } from './body';
+
+/** Тело из одного абзаца. */
+function prose(text: string): NoteBody {
+  return body(paragraph(text));
+}
 
 function note(patch: Partial<Note> & { id: string }): Note {
   return {
     title: '',
-    body: '',
+    body: EMPTY_BODY,
     tags: [],
     pinned: false,
     archived: false,
@@ -154,7 +161,7 @@ describe(matchesQuery, () => {
   });
 
   it('body is not searched', () => {
-    expect(matchesQuery(note({ id: 'n', body: 'секретное слово' }), 'секретное')).toBeFalsy();
+    expect(matchesQuery(note({ id: 'n', body: prose('секретное слово') }), 'секретное')).toBeFalsy();
   });
 });
 
@@ -213,14 +220,19 @@ describe(selectNotes, () => {
 });
 
 describe(sameContent, () => {
-  const base = note({ id: 'n', title: 'Тема', body: 'текст', tags: ['a', 'b'] });
+  const base = note({ id: 'n', title: 'Тема', body: prose('текст'), tags: ['a', 'b'] });
 
   it('snapshot equals itself even when edit stamps diverge', () => {
     expect(sameContent(base, { ...base, updatedAt: base.updatedAt + 1000 })).toBeTruthy();
   });
 
+  it('compares the body by value: a copy of the document is the same content', () => {
+    const copy = JSON.parse(JSON.stringify(base.body)) as NoteBody;
+    expect(sameContent(base, { ...base, body: copy })).toBeTruthy();
+  });
+
   it('sees edits to body, title, pin, archive, and tags', () => {
-    expect(sameContent(base, { ...base, body: 'другой' })).toBeFalsy();
+    expect(sameContent(base, { ...base, body: prose('другой') })).toBeFalsy();
     expect(sameContent(base, { ...base, title: 'Другая' })).toBeFalsy();
     expect(sameContent(base, { ...base, pinned: true })).toBeFalsy();
     expect(sameContent(base, { ...base, archived: true })).toBeFalsy();
@@ -251,38 +263,39 @@ describe(noteLabel, () => {
 });
 
 describe(noteSnippet, () => {
-  it('takes the first meaningful line without markup', () => {
-    expect(noteSnippet('\n\n# Заголовок\nвторая строка')).toBe('Заголовок');
+  it('takes the first meaningful block as plain text', () => {
+    expect(noteSnippet(body(paragraph(''), heading(1, 'Заголовок'), paragraph('вторая строка')))).toBe('Заголовок');
   });
 
   it('strips link brackets', () => {
-    expect(noteSnippet('- см. [[Планы]]')).toBe('см. Планы');
+    expect(noteSnippet(prose('см. [[Планы]]'))).toBe('см. Планы');
   });
 
   it('truncates a long line with an ellipsis', () => {
-    expect(noteSnippet('а'.repeat(50), 10)).toBe(`${'а'.repeat(10)}…`);
+    expect(noteSnippet(prose('а'.repeat(50)), 10)).toBe(`${'а'.repeat(10)}…`);
   });
 
   it('empty body has no label', () => {
-    expect(noteSnippet('\n  \n')).toBe('');
+    expect(noteSnippet(body(paragraph('  '), paragraph()))).toBe('');
+    expect(noteSnippet(EMPTY_BODY)).toBe('');
   });
 });
 
 describe(noteStats, () => {
-  it('counts words between any whitespace', () => {
-    expect(noteStats('раз два\nтри\tчетыре')).toMatchObject({ words: 4 });
+  it('counts words between any whitespace across blocks', () => {
+    expect(noteStats(body(paragraph('раз два'), paragraph('три\tчетыре')))).toMatchObject({ words: 4 });
   });
 
   it('empty body — zero and zero', () => {
-    expect(noteStats('')).toEqual({ words: 0, chars: 0 });
-    expect(noteStats('   \n  ')).toMatchObject({ words: 0 });
+    expect(noteStats(EMPTY_BODY)).toEqual({ words: 0, chars: 0 });
+    expect(noteStats(prose('   '))).toMatchObject({ words: 0 });
   });
 
   it('characters count as code points, not UTF-16 units', () => {
-    expect(noteStats('🙂').chars).toBe(1);
+    expect(noteStats(prose('🙂')).chars).toBe(1);
   });
 
   it('edge spaces add no words', () => {
-    expect(noteStats('  одно  ')).toMatchObject({ words: 1 });
+    expect(noteStats(prose('  одно  '))).toMatchObject({ words: 1 });
   });
 });

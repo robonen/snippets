@@ -17,40 +17,39 @@ import {
   isInlineContent,
   isTextSelection,
 } from '@robonen/writekit';
-import type { WritekitDocument, WritekitState } from '@robonen/writekit';
+import type { WritekitState } from '@robonen/writekit';
 import { Bold, Code, Highlighter, Italic, Strikethrough, Underline } from 'lucide-vue-next';
+import type { NoteBody } from '../entities/body';
 import type { Note } from '../entities/note';
 import { linkQueryAt } from '../lib/wikilink';
 import LinkPicker from '../screens/note/LinkPicker.vue';
 import EditorContext from './EditorContext.vue';
-import { parseMarkdown, serializeMarkdown } from './markdown';
 import { notesRegistry } from './registry';
 
 /**
  * Редактор тела заметки на `@robonen/writekit`.
  *
- * Снаружи — обычный `v-model` со строкой markdown: экран и ленд не знают о
- * документе редактора, а редактор не знает о ленде. Между ними — кодек
- * (`editor/markdown.ts`), и каждое изменение документа сразу уезжает наверх
- * строкой; задержку записи держит экран, как и раньше.
+ * Снаружи — обычный `v-model` с документом редактора: каждое изменение сразу
+ * уезжает наверх тем же объектом, что держит редактор; задержку записи в ленд
+ * держит экран. Никаких промежуточных форматов между ними нет.
  *
  * Экземпляр редактора — на одну заметку: экран монтирует компонент с
  * `:key="id"`, поэтому смена адреса даёт свежую историю отмены и свежий
  * документ, а не транзакцию `setDoc` поверх чужого прошлого.
  *
- * Подсказка `[[…]]` перенесена из `<textarea>` как есть: разбор строки под
- * курсором — тот же `lib/wikilink.ts`, только текст берётся из текущего блока,
+ * Подсказка `[[…]]` — та же, что была у `<textarea>`: разбор строки под
+ * курсором делает `lib/wikilink.ts`, только текст берётся из текущего блока,
  * а вставка идёт транзакцией редактора.
  */
 const { modelValue, notes } = defineProps<{
-  /** Тело заметки в markdown. */
-  modelValue: string;
+  /** Тело заметки — документ редактора. */
+  modelValue: NoteBody;
   /** Куда можно сослаться по `[[…]]`. */
   notes: readonly Note[];
 }>();
 
 const emit = defineEmits<{
-  'update:modelValue': [markdown: string];
+  'update:modelValue': [body: NoteBody];
 }>();
 
 const BUBBLE_MARKS = ['bold', 'italic', 'underline', 'strike', 'highlight', 'code'];
@@ -64,32 +63,30 @@ const MARK_TITLES: Record<string, string> = {
   code: 'Код (Ctrl+E)',
 };
 
-/** Документ из markdown; пустой текст — один пустой абзац, чтобы было куда встать курсору. */
-function documentOf(markdown: string): WritekitDocument {
-  const blocks = parseMarkdown(markdown);
-  return createDoc(blocks.length === 0 ? [createNode('paragraph', { content: [] })] : blocks);
+/** Документ хотя бы с одним абзацем: пустому телу нужно, куда встать курсору. */
+function documentOf(body: NoteBody): NoteBody {
+  return body.content.length === 0 ? createDoc([createNode('paragraph', { content: [] })]) : body;
 }
 
 const writekit = createWritekit({
   state: createWritekitState({ registry: notesRegistry, doc: documentOf(modelValue) }),
 });
 
-/** Последняя строка, которую мы отдали или получили: отсекает эхо собственных правок. */
+/** Последний документ, который мы отдали или получили: отсекает эхо собственных правок. */
 let last = modelValue;
 
 writekit.on('docChange', (next) => {
-  const markdown = serializeMarkdown(next.doc);
-  if (markdown === last) return;
-  last = markdown;
-  emit('update:modelValue', markdown);
+  if (next.doc === last) return;
+  last = next.doc;
+  emit('update:modelValue', next.doc);
 });
 
 // Значение снаружи сменилось не нашей правкой (например, отмена удаления
 // вернула снимок): заменить документ, не засоряя историю отмены.
-watch(() => modelValue, (markdown) => {
-  if (markdown === last) return;
-  last = markdown;
-  writekit.dispatch(createTransaction(writekit.state).setDoc(documentOf(markdown)).setMeta('addToHistory', false));
+watch(() => modelValue, (next) => {
+  if (next === last) return;
+  last = next;
+  writekit.dispatch(createTransaction(writekit.state).setDoc(documentOf(next)).setMeta('addToHistory', false));
 });
 
 onBeforeUnmount(() => {

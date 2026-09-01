@@ -1,4 +1,5 @@
 import { toISODate } from '@brain/std';
+import { toMarkdown } from '../editor/markdown';
 import { UNTITLED } from './note';
 import type { Note } from './note';
 
@@ -36,7 +37,7 @@ function metaLine(note: Note): string {
 
 export function noteToMarkdown(note: Note): string {
   const blocks = [`# ${exportTitle(note)}`, metaLine(note)];
-  const body = note.body.trim();
+  const body = toMarkdown(note.body).trim();
   if (body !== '') blocks.push(body);
   return blocks.join('\n\n');
 }

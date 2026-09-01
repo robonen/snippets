@@ -1,4 +1,5 @@
 import { extractLinks, linkKey } from '../lib/links';
+import { bodyText } from './body';
 import { sortNotes } from './note';
 import type { Note } from './note';
 
@@ -24,5 +25,5 @@ export function mentionsOf(note: Note, all: readonly Note[]): Note[] {
   return sortNotes(all.filter(other =>
     other.id !== note.id
     && !other.archived
-    && extractLinks(other.body).some(link => linkKey(link) === key)));
+    && extractLinks(bodyText(other.body)).some(link => linkKey(link) === key)));
 }

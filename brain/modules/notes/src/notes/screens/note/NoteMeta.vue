@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { noteStats } from '../../entities/note';
+import type { NoteBody } from '../../entities/body';
 import type { Note } from '../../entities/note';
 import { fmtDate, fmtWords } from '../../lib/format';
 
@@ -13,8 +14,8 @@ import { fmtDate, fmtWords } from '../../lib/format';
  */
 const { note, body } = defineProps<{
   note: Note;
-  /** Текст из формы, а не из снимка: счётчик обязан идти за набором. */
-  body: string;
+  /** Тело из формы, а не из снимка: счётчик обязан идти за набором. */
+  body: NoteBody;
 }>();
 
 const parts = computed(() => [

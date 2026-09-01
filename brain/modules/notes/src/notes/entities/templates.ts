@@ -1,4 +1,6 @@
 import { dayShort } from '@brain/std';
+import { EMPTY_BODY, body, bullet, heading, paragraph, run, todo } from './body';
+import type { NoteBody } from './body';
 
 /**
  * Заготовки новой заметки.
@@ -30,7 +32,7 @@ export const NOTE_TEMPLATES: readonly NoteTemplate[] = [
 
 export interface TemplateDraft {
   readonly title: string;
-  readonly body: string;
+  readonly body: NoteBody;
   /** Свой массив на каждый вызов: заготовка уходит прямо в заметку. */
   readonly tags: string[];
 }
@@ -48,26 +50,29 @@ export function templateDraft(id: TemplateId, date: string): TemplateDraft {
         // Заголовок заметки дня — ISO-дата: он стабилен и адресуем из текста
         // (`[[2026-08-24]]`), тогда как «Сегодня» назавтра стало бы враньём.
         title: date,
-        body: lines('## Планы', '', '-', '', '## Сделано', '', '-', '', '## Мысли', ''),
+        body: body(
+          heading(2, 'Планы'),
+          bullet(),
+          heading(2, 'Сделано'),
+          bullet(),
+          heading(2, 'Мысли'),
+          paragraph(),
+        ),
         tags: ['дневник'],
       };
 
     case 'meeting':
       return {
         title: `Встреча ${dayShort(date)}`,
-        body: lines(
-          `**Дата:** ${date}`,
-          '**Кто был:**',
-          '',
-          '## Повестка',
-          '-',
-          '',
-          '## Решения',
-          '-',
-          '',
-          '## Задачи',
-          '- [ ]',
-          '',
+        body: body(
+          paragraph(run('Дата:', 'bold'), ` ${date}`),
+          paragraph(run('Кто был:', 'bold')),
+          heading(2, 'Повестка'),
+          bullet(),
+          heading(2, 'Решения'),
+          bullet(),
+          heading(2, 'Задачи'),
+          todo(),
         ),
         tags: ['встреча'],
       };
@@ -77,15 +82,18 @@ export function templateDraft(id: TemplateId, date: string): TemplateDraft {
         // Заголовок пустой намеренно: идею называют, когда сформулировали, а
         // проставленное за человека «Идея 24.08» так и остаётся в списке.
         title: '',
-        body: lines('## Суть', '', '## Зачем', '', '## Что дальше', '- [ ]', ''),
+        body: body(
+          heading(2, 'Суть'),
+          paragraph(),
+          heading(2, 'Зачем'),
+          paragraph(),
+          heading(2, 'Что дальше'),
+          todo(),
+        ),
         tags: ['идея'],
       };
 
     default:
-      return { title: '', body: '', tags: [] };
+      return { title: '', body: EMPTY_BODY, tags: [] };
   }
-}
-
-function lines(...rows: readonly string[]): string {
-  return rows.join('\n');
 }
