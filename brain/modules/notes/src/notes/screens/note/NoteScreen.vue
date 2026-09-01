@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, useTemplateRef, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { debounce } from '@robonen/stdlib';
 import { dayTitle } from '@brain/std';
 import { BookOpen, Bookmark, ChevronLeft, Inbox, Plus, X } from 'lucide-vue-next';
@@ -16,15 +16,14 @@ import {
 import type { MenuAction, ToolbarAction } from '@brain/ui';
 import { useActions, useNotes } from '../../db/composables';
 import { blankNote } from '../../db/actions';
+import NoteEditor from '../../editor/NoteEditor.vue';
 import { noteToMarkdown } from '../../entities/export';
 import { mentionsOf } from '../../entities/mentions';
 import { noteLabel, sameContent } from '../../entities/note';
 import type { Note } from '../../entities/note';
 import { countTags } from '../../entities/tags';
 import { copyText } from '../../lib/download';
-import { insertLink, linkQueryAt } from '../../lib/wikilink';
 import LinkButton from '../LinkButton.vue';
-import LinkPicker from './LinkPicker.vue';
 import MentionsPanel from './MentionsPanel.vue';
 import NoteMeta from './NoteMeta.vue';
 import TagsField from './TagsField.vue';
@@ -40,6 +39,10 @@ import TagsField from './TagsField.vue';
  * Кнопки «Сохранить» нет и не будет: запись в ленд локальная и настоящая,
  * откатывать нечего, а значит и подтверждать нечего. Отменяются не записи, а
  * ПОТЕРИ — удаление и архив показывают сообщение с «Отменить».
+ *
+ * Тело редактирует `editor/NoteEditor.vue` (writekit); наружу он отдаёт ту же
+ * строку markdown, что и прежнее поле, поэтому запись, поиск, упоминания и
+ * выгрузка не заметили замены.
  */
 const { id } = defineProps<{ id: string }>();
 
@@ -61,15 +64,6 @@ const filled = ref<string | null>(null);
 
 const confirming = ref(false);
 const removed = ref(false);
-
-// ── Подсказка по «[[» ────────────────────────────────────────────────────────
-// Объявлена до первого наблюдателя намеренно: наполнение формы сбрасывает
-// подсказку, а наблюдатель с `immediate` бежит прямо здесь, в setup.
-
-const bodyField = useTemplateRef<HTMLTextAreaElement>('bodyField');
-const caret = ref(0);
-const linkQuery = ref<string | undefined>();
-const picking = ref(false);
 
 /**
  * Форма наполняется ОДИН раз на адрес — как только ленд может на него ответить.
@@ -93,9 +87,6 @@ watch([() => id, note, ready], () => {
   filled.value = id;
   removed.value = false;
   confirming.value = false;
-  picking.value = false;
-  caret.value = 0;
-  linkQuery.value = undefined;
 }, { immediate: true });
 
 const dailyLabel = computed(() => {
@@ -242,43 +233,6 @@ const menuActions = computed<MenuAction[]>(() => [
 /** Куда можно сослаться: у заметки должен быть заголовок, и это не она сама. */
 const linkTargets = computed(() => list.value.filter(item =>
   item.id !== id && !item.archived && item.title !== ''));
-
-function syncCaret(): void {
-  const field = bodyField.value;
-  if (field === null) return;
-  caret.value = field.selectionStart;
-  linkQuery.value = linkQueryAt(body.value, caret.value);
-}
-
-// Подсказка всплывает на переходе «снаружи → внутри [[»: держать её открытой
-// на каждой букве значило бы открывать её заново после каждого закрытия.
-watch(linkQuery, (now, before) => {
-  if (now !== undefined && before === undefined) picking.value = true;
-});
-
-// Фокус ушёл в подсказку — примитив ставит его на содержимое при открытии.
-// Вернуть его в текст обязан экран: он один знает позицию курсора.
-watch(picking, (open) => {
-  if (!open) focusBody(caret.value);
-});
-
-function insert(target: string): void {
-  const edit = insertLink(body.value, caret.value, target);
-  body.value = edit.text;
-  caret.value = edit.caret;
-  linkQuery.value = undefined;
-  picking.value = false;
-}
-
-function focusBody(at: number): void {
-  void nextTick(() => {
-    const field = bodyField.value;
-    if (field === null) return;
-    field.focus();
-    field.setSelectionRange(at, at);
-    linkQuery.value = linkQueryAt(body.value, at);
-  });
-}
 </script>
 
 <template>
@@ -337,6 +291,7 @@ function focusBody(at: number): void {
              растит поле по тексту, `rows="1"` держит начальную высоту в строку. -->
         <textarea
           v-model="title"
+          name="title"
           rows="1"
           aria-label="Заголовок заметки"
           placeholder="Без названия"
@@ -350,47 +305,17 @@ function focusBody(at: number): void {
         <TagsField v-model="tags" :known="knownTags" />
       </header>
 
-      <div class="flex max-w-[68ch] flex-col gap-3 pt-6">
-        <div class="flex items-end justify-between gap-2">
-          <p class="text-xs leading-relaxed text-text-faint">
-            Markdown. Ссылка на другую заметку — [[её заголовок]].
-          </p>
-          <LinkPicker
-            v-model:open="picking"
-            :notes="linkTargets"
-            :query="linkQuery ?? ''"
-            @pick="insert"
-          />
-        </div>
-
-        <!--
-          Поле без рамки и без своей поверхности: рамка вокруг текста делает
-          из заметки строку формы, а здесь текст и есть содержимое экрана.
-          Мера строки ограничена сверху (68ch) — и рядом со списком тоже: длина
-          строки нужна ГЛАЗУ, а не месту, и на возврате к началу строки длиннее
-          семидесяти знаков читатель теряет строку независимо от того, сколько
-          вокруг свободного экрана.
-
-          Гарнитура наследуется от документа (моноширинной здесь больше нет):
-          заметку читают как текст, а не как исходник, и разбор markdown
-          приедет вместе с редактором.
-
-          `field-sizing-content` растит поле под текст; там, где его нет,
-          остаются `rows` и ручная растяжка — поведение хуже, но не сломано.
-        -->
-        <textarea
-          ref="bodyField"
-          v-model="body"
-          rows="18"
-          aria-label="Текст заметки"
-          placeholder="Наберите [[ — и подскажем, на какую заметку сослаться."
-          class="field-sizing-content min-h-96 w-full resize-y bg-transparent text-[0.9375rem]
-                 leading-7 text-text caret-accent placeholder:text-text-faint"
-          @input="syncCaret()"
-          @keyup="syncCaret()"
-          @click="syncCaret()"
-        />
-      </div>
+      <!--
+        Редактор — на одну заметку (`:key="id"`): соседняя заметка получает
+        свежий документ и свою историю отмены. Мера строки ограничена самим
+        редактором (68ch): длина строки нужна ГЛАЗУ, а не месту.
+      -->
+      <NoteEditor
+        :key="id"
+        v-model="body"
+        :notes="linkTargets"
+        class="pt-6"
+      />
     </article>
   </Page>
 

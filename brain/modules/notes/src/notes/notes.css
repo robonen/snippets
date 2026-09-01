@@ -1,0 +1,311 @@
+/*
+ * Редактор заметок: оформление headless-`@robonen/writekit`.
+ *
+ * Пакет отдаёт поведение и DOM-хуки (`data-writekit-*`, `data-block-*`,
+ * `data-list`, `data-mark`…), но ни строчки стилей. Всё, что здесь, — цвета и
+ * отступы из токенов кита: редактор обязан выглядеть частью экрана, а не
+ * вставленным виджетом. Файл подключается оболочкой рядом с остальными
+ * модульными стилями (`apps/web/src/app/app.css`).
+ */
+
+.note-editor [data-writekit-root] {
+  position: relative;
+}
+
+.note-editor [data-writekit-content] {
+  min-height: 24rem;
+  outline: none;
+  font-size: 0.9375rem;
+  line-height: 1.75;
+  color: var(--color-text);
+  caret-color: var(--color-accent);
+  counter-reset: wk-ordered;
+  overflow-wrap: anywhere;
+}
+
+/* ── Блоки ─────────────────────────────────────────────────────────────────── */
+
+.note-editor [data-block-id] {
+  position: relative;
+  margin: 0 0 0.375rem;
+}
+
+.note-editor [data-block-content] {
+  position: relative;
+  white-space: pre-wrap;
+}
+
+/* Плейсхолдер пустого блока: `data-empty` ставит редактор, текст — из реестра. */
+.note-editor [data-block-content][data-empty][data-placeholder]::before {
+  content: attr(data-placeholder);
+  position: absolute;
+  inset: 0 auto auto 0;
+  color: var(--color-text-faint);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.note-editor h1,
+.note-editor h2,
+.note-editor h3,
+.note-editor h4,
+.note-editor h5,
+.note-editor h6 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  margin-top: 1.25em;
+  margin-bottom: 0.35em;
+}
+
+.note-editor h1 { font-size: 1.75rem; }
+.note-editor h2 { font-size: 1.375rem; }
+.note-editor h3 { font-size: 1.125rem; }
+.note-editor h4,
+.note-editor h5,
+.note-editor h6 { font-size: 1rem; }
+
+.note-editor blockquote {
+  margin: 0.5rem 0;
+  padding: 0.125rem 0 0.125rem 0.875rem;
+  border-left: 3px solid var(--color-line-strong);
+  color: var(--color-text-soft);
+}
+
+.note-editor pre[data-language],
+.note-editor [data-block-type='code-block'] [data-block-content] {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-control);
+  background: var(--color-sunken);
+  tab-size: 2;
+}
+
+.note-editor [data-callout] {
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-control);
+  border-left: 3px solid var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+.note-editor [data-callout='warning'] {
+  border-left-color: var(--color-warning);
+  background: color-mix(in oklab, var(--color-warning) 12%, transparent);
+}
+
+.note-editor [data-callout='danger'],
+.note-editor [data-callout='error'] {
+  border-left-color: var(--color-danger);
+  background: var(--color-danger-soft);
+}
+
+/* Разделитель и картинка — атомы: у них нет текста, только рамка выделения. */
+.note-editor hr,
+.note-editor [data-writekit-divider] {
+  border: 0;
+  border-top: 1px solid var(--color-line);
+  margin: 1.25rem 0;
+}
+
+.note-editor img {
+  max-width: 100%;
+  border-radius: var(--radius-control);
+}
+
+.note-editor [data-selected] {
+  outline: 2px solid var(--color-accent-soft);
+  outline-offset: 2px;
+  border-radius: var(--radius-control);
+}
+
+/* ── Списки ────────────────────────────────────────────────────────────────── */
+/* Каждый пункт — отдельный блок (writekit хранит списки плоско с `indent`),
+   поэтому маркеры рисуются псевдоэлементом, а нумерация — счётчиком. Сдвиг по
+   вложенности приходит инлайновым `margin-left` от самого редактора. */
+
+.note-editor [data-list] {
+  position: relative;
+  padding-left: 1.625rem;
+  list-style: none;
+}
+
+.note-editor [data-list]::before {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1.375rem;
+  text-align: center;
+  color: var(--color-text-faint);
+}
+
+.note-editor [data-list='bullet']::before {
+  content: '•';
+  font-size: 1.1em;
+}
+
+.note-editor [data-list='ordered'] {
+  counter-increment: wk-ordered;
+}
+
+.note-editor [data-list='ordered']::before {
+  content: counter(wk-ordered) '.';
+  font-variant-numeric: tabular-nums;
+  font-size: 0.875em;
+  top: 0.06em;
+}
+
+/* Нумерация начинается заново после любого другого блока. */
+.note-editor [data-block-id]:not(:has(> [data-list='ordered'])) {
+  counter-reset: wk-ordered;
+}
+
+.note-editor [data-list='todo']::before {
+  content: '';
+  top: 0.45em;
+  left: 0.2rem;
+  width: 0.95rem;
+  height: 0.95rem;
+  border: 1.5px solid var(--color-line-strong);
+  border-radius: 0.3rem;
+  background: var(--color-surface);
+  cursor: pointer;
+}
+
+.note-editor [data-list='todo'][data-checked='true']::before {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  /* Галочка — маска, чтобы красилась токеном, а не картинкой фиксированного цвета. */
+  mask: center / 70% no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12l5 5L20 7'/%3E%3C/svg%3E"), linear-gradient(#000 0 0);
+  mask-composite: exclude;
+}
+
+.note-editor [data-list='todo'][data-checked='true'] {
+  color: var(--color-text-faint);
+  text-decoration: line-through;
+  text-decoration-color: var(--color-line-strong);
+}
+
+/* ── Марки ─────────────────────────────────────────────────────────────────── */
+
+.note-editor [data-writekit-content] code,
+.note-editor [data-mark='code'] {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  padding: 0.1em 0.35em;
+  border-radius: 0.3rem;
+  background: var(--color-sunken);
+}
+
+.note-editor pre code {
+  padding: 0;
+  background: none;
+  font-size: inherit;
+}
+
+.note-editor mark,
+.note-editor [data-mark='highlight'] {
+  background: color-mix(in oklab, var(--color-warning) 30%, transparent);
+  color: inherit;
+  border-radius: 0.2rem;
+  padding: 0 0.1em;
+}
+
+.note-editor a[href] {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-decoration-color: var(--color-accent-soft);
+  text-underline-offset: 0.15em;
+}
+
+/* ── Меню ──────────────────────────────────────────────────────────────────── */
+/* Bubble-меню летает над выделением (позицию считает редактор), slash-меню
+   раскрывается под кареткой. Обоим — стекло кита и та же геометрия, что у
+   меню оболочки. */
+
+.note-editor [data-writekit-bubble-menu],
+.note-editor [data-writekit-slash-menu] {
+  z-index: 30;
+  border: 1px solid var(--color-glass-line);
+  border-radius: var(--radius-control);
+  background: var(--color-glass);
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  box-shadow: var(--shadow-float);
+}
+
+.note-editor [data-writekit-bubble-menu] {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+}
+
+.note-editor [data-writekit-bubble-menu] button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.875rem;
+  height: 1.875rem;
+  padding: 0 0.4rem;
+  border-radius: calc(var(--radius-control) - 3px);
+  color: var(--color-text-soft);
+  transition: background-color var(--duration-press), color var(--duration-press);
+}
+
+.note-editor [data-writekit-bubble-menu] button:hover {
+  background: var(--color-sunken);
+  color: var(--color-text);
+}
+
+.note-editor [data-writekit-bubble-menu] button[data-active] {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+.note-editor [data-writekit-slash-menu] {
+  min-width: 16rem;
+  max-width: 20rem;
+  max-height: 18rem;
+  overflow: auto;
+  padding: 0.25rem;
+}
+
+.note-editor [data-writekit-slash-menu] button,
+.note-editor [data-writekit-slash-menu] [role='option'] {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  padding: 0.4rem 0.625rem;
+  border-radius: calc(var(--radius-control) - 3px);
+  text-align: left;
+  font-size: 0.875rem;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.note-editor [data-writekit-slash-menu] [data-highlighted] {
+  background: var(--color-accent-soft);
+}
+
+.note-editor [data-writekit-slash-menu] small,
+.note-editor [data-writekit-slash-menu] [data-description] {
+  font-size: 0.75rem;
+  color: var(--color-text-faint);
+}
+
+.note-editor [data-writekit-slash-menu] [data-group],
+.note-editor [data-writekit-slash-menu] [role='group'] > :first-child {
+  padding: 0.35rem 0.625rem 0.15rem;
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-faint);
+}
+
+.note-editor [data-writekit-drag-handle] {
+  display: none;
+}

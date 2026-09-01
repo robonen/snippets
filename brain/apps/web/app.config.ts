@@ -8,7 +8,7 @@ import { defineLayerConfig } from 'vite-layers';
  *
  * Что это даёт сверх pnpm-workspace:
  *
- * 1. **Флаги фич выпиливают модуль из бандла.** `feature('finance')` —
+ * 1. **Флаги фич выпиливают модуль из бандла.** `feature('kcal')` —
  *    компайл-тайм макрос, а не рантайм-проверка: выключенный модуль не
  *    «перестаёт роутиться», его чанк не эмитится вовсе. Раньше все модули
  *    ехали в сборку всегда, и цена набора росла монотонно.
@@ -28,7 +28,6 @@ export default defineLayerConfig({
     '../../modules/tasks',
     '../../modules/kcal',
     '../../modules/bookmarks',
-    '../../modules/finance',
   ],
 
   /**
@@ -40,7 +39,6 @@ export default defineLayerConfig({
     tasks: true,
     kcal: true,
     bookmarks: true,
-    finance: true,
   },
 
   vite: {

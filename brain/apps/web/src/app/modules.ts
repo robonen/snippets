@@ -19,7 +19,6 @@ export async function loadModules(): Promise<BrainModule[]> {
     feature('tasks') ? import('@/tasks/module').then(m => m.tasksModule) : null,
     feature('kcal') ? import('@/kcal/module').then(m => m.kcalModule) : null,
     feature('bookmarks') ? import('@/bookmarks/module').then(m => m.bookmarksModule) : null,
-    feature('finance') ? import('@/finance/module').then(m => m.financeModule) : null,
   ]);
   return loaded.filter((module): module is BrainModule => module !== null);
 }

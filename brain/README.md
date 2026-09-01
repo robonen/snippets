@@ -22,7 +22,6 @@ modules/tasks/       задачи: GTD-корзины, проекты, дедл�
 modules/kcal/        дневник питания: записи, каталог, нормы
 modules/bookmarks/   ссылки на потом: статусы чтения, теги
 modules/trackers/    привычки, настроение, произвольные метрики
-modules/finance/     ручной учёт трат
 ```
 
 Как написать свой модуль — [docs/02-module-guide.md](docs/02-module-guide.md).

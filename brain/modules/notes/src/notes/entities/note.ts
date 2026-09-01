@@ -1,4 +1,5 @@
 import { dayTitle } from '@brain/std';
+import { plainText } from '../editor/markdown';
 
 /**
  * Заметка как доменный объект: плоская запись, с которой работают экраны,
@@ -172,12 +173,13 @@ const SNIPPET_LIMIT = 140;
 /**
  * Первая содержательная строка тела для списка.
  *
- * Разметка снимается грубо и только с начала строки: это подпись под
- * заголовком, а не рендер markdown — полноценный вывод приедет с редактором.
+ * Разметка снимается тем же кодеком, что кормит редактор (`editor/markdown`):
+ * подпись под заголовком показывает слова, а не звёздочки вокруг них. Скобки
+ * `[[…]]` остаются текстом для кодека, поэтому снимаются здесь.
  */
 export function noteSnippet(body: string, limit: number = SNIPPET_LIMIT): string {
-  for (const raw of body.split('\n')) {
-    const line = raw.replace(/^[\s>#*\-+]+/u, '').replaceAll(/\[\[|\]\]/gu, '').trim();
+  for (const raw of plainText(body).split('\n')) {
+    const line = raw.replaceAll(/\[\[|\]\]/gu, '').trim();
     if (line === '') continue;
     return line.length > limit ? `${line.slice(0, limit).trimEnd()}…` : line;
   }
@@ -197,6 +199,8 @@ export interface NoteStats {
  * человек набрал.
  */
 export function noteStats(body: string): NoteStats {
-  const words = body.split(/\s+/u).filter(word => word !== '').length;
-  return { words, chars: [...body].length };
+  // Считается текст без разметки: `**слово**` — одно слово, а не слово со звёздочками.
+  const plain = plainText(body);
+  const words = plain.split(/\s+/u).filter(word => word !== '').length;
+  return { words, chars: [...plain].length };
 }

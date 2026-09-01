@@ -1,9 +1,9 @@
 @import '@brain/ui/tokens.css';
 
 /* Домен-специфичные токены модулей: их темы дописываются к общей. */
+@import '@brain/notes/notes.css';
 @import '@brain/kcal/kcal.css';
 @import '@brain/bookmarks/bookmarks.css';
-@import '@brain/finance/finance.css';
 
 /* Кит и модули просматриваются на классы: без этого Tailwind видит только
    исходники приложения, а их компоненты приезжают без своих утилит. */

@@ -21,9 +21,9 @@ import DailyNoteCard from './widgets/DailyNoteCard.vue';
  * посев придумал бы за человека, о чём ему писать, и первое, что он сделал бы, —
  * удалил чужие заметки.
  *
- * Тело заметки пока хранится строкой markdown, а не документом
- * `@robonen/writekit` (docs/00-plan.md, Р6 и риск «два CRDT»): подробности и
- * цена решения — в шапке `db/models.ts`.
+ * Редактор тела — `@robonen/writekit` (`editor/`), но хранится тело по-прежнему
+ * строкой markdown, а не документом редактора (docs/00-plan.md, Р6 и риск
+ * «два CRDT»): подробности и цена решения — в шапке `db/models.ts`.
  */
 export const notesModule = defineModule({
   id: NOTES_ID,

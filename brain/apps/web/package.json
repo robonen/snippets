@@ -13,7 +13,6 @@
   "dependencies": {
     "@brain/auth": "workspace:*",
     "@brain/bookmarks": "workspace:*",
-    "@brain/finance": "workspace:*",
     "@brain/kcal": "workspace:*",
     "@brain/module-kit": "workspace:*",
     "@brain/notes": "workspace:*",

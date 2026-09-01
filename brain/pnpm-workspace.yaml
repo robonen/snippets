@@ -9,8 +9,8 @@ packages:
 catalog:
   vue: 3.6.0-rc.5
   vue-router: ^5.2.0
-  '@robonen/primitives': ^0.0.6
-  '@robonen/writekit': ^0.0.4
+  '@robonen/primitives': ^0.0.7
+  '@robonen/writekit': ^0.0.8
   '@robonen/crdt': ^0.0.1
   '@robonen/stdlib': ^0.0.12
   '@robonen/platform': ^0.0.5

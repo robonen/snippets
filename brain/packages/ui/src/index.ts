@@ -80,7 +80,6 @@ export {
   Sun as IconSun,
   Sun as IconToday,
   TriangleAlert as IconWarning,
-  Wallet as IconMoney,
   X as IconClose,
 } from 'lucide-vue-next';
 

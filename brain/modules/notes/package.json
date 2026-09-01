@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Блочные заметки на writekit: wikilinks, теги, заметка дня.",
   "exports": {
-    ".": "./src/notes/module.ts"
+    ".": "./src/notes/module.ts",
+    "./notes.css": "./src/notes/notes.css"
   },
   "scripts": {
     "typecheck": "vue-tsc --noEmit"

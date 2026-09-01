@@ -22,8 +22,8 @@ catalogs:
       specifier: ^0.0.5
       version: 0.0.5
     '@robonen/primitives':
-      specifier: ^0.0.6
-      version: 0.0.6
+      specifier: ^0.0.7
+      version: 0.0.7
     '@robonen/stdlib':
       specifier: ^0.0.12
       version: 0.0.12
@@ -34,8 +34,8 @@ catalogs:
       specifier: ^0.2.0
       version: 0.2.0
     '@robonen/writekit':
-      specifier: ^0.0.4
-      version: 0.0.4
+      specifier: ^0.0.8
+      version: 0.0.8
     '@tailwindcss/vite':
       specifier: ^4.3.3
       version: 4.3.3
@@ -135,9 +135,6 @@ importers:
       '@brain/bookmarks':
         specifier: workspace:*
         version: link:../../modules/bookmarks
-      '@brain/finance':
-        specifier: workspace:*
-        version: link:../../modules/finance
       '@brain/kcal':
         specifier: workspace:*
         version: link:../../modules/kcal
@@ -267,55 +264,6 @@ importers:
         specifier: 'catalog:'
         version: 3.3.11(typescript@6.0.3)
 
-  modules/finance:
-    dependencies:
-      '@brain/module-kit':
-        specifier: workspace:*
-        version: link:../../packages/module-kit
-      '@brain/std':
-        specifier: workspace:*
-        version: link:../../packages/std
-      '@brain/ui':
-        specifier: workspace:*
-        version: link:../../packages/ui
-      '@robonen/stdlib':
-        specifier: 'catalog:'
-        version: 0.0.12
-      '@robonen/vue':
-        specifier: 'catalog:'
-        version: 0.2.0(vue@3.6.0-rc.5(typescript@6.0.3))
-      '@sync/core':
-        specifier: link:../../../sync-crdt/packages/core
-        version: link:../../../sync-crdt/packages/core
-      '@sync/vue':
-        specifier: link:../../../sync-crdt/packages/vue
-        version: link:../../../sync-crdt/packages/vue
-      date-fns:
-        specifier: 'catalog:'
-        version: 4.4.0
-      lucide-vue-next:
-        specifier: 'catalog:'
-        version: 1.0.0(vue@3.6.0-rc.5(typescript@6.0.3))
-    devDependencies:
-      '@robonen/tsconfig':
-        specifier: 'catalog:'
-        version: 0.1.1
-      typescript:
-        specifier: 'catalog:'
-        version: 6.0.3
-      vite-layers:
-        specifier: link:../../../vite-layers
-        version: link:../../../vite-layers
-      vue:
-        specifier: 'catalog:'
-        version: 3.6.0-rc.5(typescript@6.0.3)
-      vue-router:
-        specifier: 'catalog:'
-        version: 5.2.0(@vue/compiler-sfc@3.5.41)(rolldown@1.2.5)(rollup@4.62.5)(vite@8.2.2(@types/node@26.2.0)(jiti@2.7.0)(terser@5.50.0)(yaml@2.9.0))(vue@3.6.0-rc.5(typescript@6.0.3))
-      vue-tsc:
-        specifier: 'catalog:'
-        version: 3.3.11(typescript@6.0.3)
-
   modules/kcal:
     dependencies:
       '@brain/module-kit':
@@ -390,7 +338,7 @@ importers:
         version: 0.2.0(vue@3.6.0-rc.5(typescript@6.0.3))
       '@robonen/writekit':
         specifier: 'catalog:'
-        version: 0.0.4(vue@3.6.0-rc.5(typescript@6.0.3))
+        version: 0.0.8(vue@3.6.0-rc.5(typescript@6.0.3))
       '@sync/core':
         specifier: link:../../../sync-crdt/packages/core
         version: link:../../../sync-crdt/packages/core
@@ -535,7 +483,7 @@ importers:
         version: 5.3.0
       '@robonen/primitives':
         specifier: 'catalog:'
-        version: 0.0.6(vue@3.6.0-rc.5(typescript@6.0.3))
+        version: 0.0.7(vue@3.6.0-rc.5(typescript@6.0.3))
       '@robonen/vue':
         specifier: 'catalog:'
         version: 0.2.0(vue@3.6.0-rc.5(typescript@6.0.3))
@@ -1232,8 +1180,8 @@ packages:
     resolution: {integrity: sha512-RrcW5V1oAUqCDVjjqQsc8ov0L+XUfcaaVKkD5USonDWE2M6VG4dQP+r1+S+OQOD6zKCrrCsH4Sat6Ye94D/RVQ==}
     engines: {node: '>=24.16.0'}
 
-  '@robonen/primitives@0.0.6':
-    resolution: {integrity: sha512-BGLGsgjK/L7pzyAmHqq6WKuZCb8yHJcyaiQn8973S20WIziU7eE33hIk+xEeJr4Yqw+IXwcXndbkaloC/yVa0w==}
+  '@robonen/primitives@0.0.7':
+    resolution: {integrity: sha512-xsUxeJfjI47Ndn9TT19RKls25UMo6oHoXOoBpwecRMBteif9dDhsKfTh3rO1rK8J5pVIpvUDrnom+qIItDsTMg==}
     engines: {node: '>=24.16.0'}
     peerDependencies:
       vue: ^3.5
@@ -1252,8 +1200,8 @@ packages:
     peerDependencies:
       vue: ^3.5
 
-  '@robonen/writekit@0.0.4':
-    resolution: {integrity: sha512-UNT+UK5LdNZWCYnCkoy2GB9YwkRR0m0YYgf6k1ldQ184g7tSQcHGxOTJw0kLTq8i+ECUCyPrT/llUCs4s16WqA==}
+  '@robonen/writekit@0.0.8':
+    resolution: {integrity: sha512-ZEHOEOKy8BN3yxMMBToJtNJMnVFYA0ehKe7jVTuDD2qJzMP4uZ99U97teTFpOHfJJxWEeJ+SruMF1otMrQCz6Q==}
     engines: {node: '>=24.16.0'}
     peerDependencies:
       vue: ^3.5
@@ -4790,7 +4738,7 @@ snapshots:
 
   '@robonen/platform@0.0.5': {}
 
-  '@robonen/primitives@0.0.6(vue@3.6.0-rc.5(typescript@6.0.3))':
+  '@robonen/primitives@0.0.7(vue@3.6.0-rc.5(typescript@6.0.3))':
     dependencies:
       '@floating-ui/vue': 2.0.1(vue@3.6.0-rc.5(typescript@6.0.3))
       '@robonen/encoding': 0.0.1
@@ -4810,11 +4758,11 @@ snapshots:
       '@robonen/stdlib': 0.0.12
       vue: 3.6.0-rc.5(typescript@6.0.3)
 
-  '@robonen/writekit@0.0.4(vue@3.6.0-rc.5(typescript@6.0.3))':
+  '@robonen/writekit@0.0.8(vue@3.6.0-rc.5(typescript@6.0.3))':
     dependencies:
       '@robonen/crdt': 0.0.1
       '@robonen/platform': 0.0.5
-      '@robonen/primitives': 0.0.6(vue@3.6.0-rc.5(typescript@6.0.3))
+      '@robonen/primitives': 0.0.7(vue@3.6.0-rc.5(typescript@6.0.3))
       '@robonen/stdlib': 0.0.12
       '@robonen/vue': 0.2.0(vue@3.6.0-rc.5(typescript@6.0.3))
       '@vue/shared': 3.5.41
