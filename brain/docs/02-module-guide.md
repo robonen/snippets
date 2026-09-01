@@ -154,7 +154,12 @@ space.edit(() => {
 
 SFC `<script setup lang="ts">`, компоненты из `@brain/ui`:
 `Button`, `Card`, `Sheet`, `TextField`, `SwitchField`, `Meter`,
-`EmptyState`, `PageHeader`, `Spinner`, иконки `Icon*`.
+`EmptyState`, `PageHeader`, `Spinner`, иконки `Icon*`. Поля ввода — тоже из
+кита, а не свои: дата — `DateField`, деньги — `MoneyField`, список коротких
+значений — `TagsField`, выбор из списка — `Select`/`Combobox`. Формы — на
+`useForm` из `@robonen/vue` (см. `modules/projects`), маски — `useMaskedInput`.
+Прежде чем писать свой элемент, посмотрите `@robonen/primitives` и composables
+`@robonen/vue`: почти всё уже есть.
 
 Оформление — только токены кита: `bg-surface`, `text-text-soft`,
 `border-line`, `text-accent`, `rounded-card`. Ни одного захардкоженного цвета:

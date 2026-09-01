@@ -28,6 +28,7 @@ export default defineLayerConfig({
     '../../modules/tasks',
     '../../modules/kcal',
     '../../modules/bookmarks',
+    '../../modules/projects',
   ],
 
   /**
@@ -39,6 +40,7 @@ export default defineLayerConfig({
     tasks: true,
     kcal: true,
     bookmarks: true,
+    projects: true,
   },
 
   vite: {

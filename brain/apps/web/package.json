@@ -16,6 +16,7 @@
     "@brain/kcal": "workspace:*",
     "@brain/module-kit": "workspace:*",
     "@brain/notes": "workspace:*",
+    "@brain/projects": "workspace:*",
     "@brain/std": "workspace:*",
     "@brain/tasks": "workspace:*",
     "@brain/ui": "workspace:*",

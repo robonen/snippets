@@ -28,6 +28,7 @@ const {
   min,
   max,
   step = 1,
+  snap = true,
   disabled = false,
   fractionDigits,
 } = defineProps<{
@@ -35,6 +36,13 @@ const {
   min?: number;
   max?: number;
   step?: number;
+  /**
+   * Подгонять набранное к шагу. Выключать там, где шаг — удобство кнопок «±»,
+   * а не ограничение значения: с шагом 500 примитив подгоняет ЧИСЛО НА КАЖДОМ
+   * НАЖАТИИ, и набрать «15 000» по цифрам невозможно — «1» тут же становится
+   * нулём.
+   */
+  snap?: boolean;
   /** Единица справа от числа: «г», «ккал», «₽». */
   unit?: string;
   placeholder?: string;
@@ -81,6 +89,7 @@ const STEPPER = 'pressable grid size-8 shrink-0 place-items-center rounded-contr
       :min="min"
       :max="max"
       :step="step"
+      :step-snapping="snap"
       :disabled="disabled"
       :format-options="formatOptions"
       class="flex h-10 w-full items-center gap-1 rounded-control border bg-surface px-1 transition-colors"

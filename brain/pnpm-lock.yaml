@@ -144,6 +144,9 @@ importers:
       '@brain/notes':
         specifier: workspace:*
         version: link:../../modules/notes
+      '@brain/projects':
+        specifier: workspace:*
+        version: link:../../modules/projects
       '@brain/std':
         specifier: workspace:*
         version: link:../../packages/std
@@ -348,6 +351,52 @@ importers:
       date-fns:
         specifier: 'catalog:'
         version: 4.4.0
+      lucide-vue-next:
+        specifier: 'catalog:'
+        version: 1.0.0(vue@3.6.0-rc.5(typescript@6.0.3))
+    devDependencies:
+      '@robonen/tsconfig':
+        specifier: 'catalog:'
+        version: 0.1.1
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+      vite-layers:
+        specifier: link:../../../vite-layers
+        version: link:../../../vite-layers
+      vue:
+        specifier: 'catalog:'
+        version: 3.6.0-rc.5(typescript@6.0.3)
+      vue-router:
+        specifier: 'catalog:'
+        version: 5.2.0(@vue/compiler-sfc@3.5.41)(rolldown@1.2.5)(rollup@4.62.5)(vite@8.2.2(@types/node@26.2.0)(jiti@2.7.0)(terser@5.50.0)(yaml@2.9.0))(vue@3.6.0-rc.5(typescript@6.0.3))
+      vue-tsc:
+        specifier: 'catalog:'
+        version: 3.3.11(typescript@6.0.3)
+
+  modules/projects:
+    dependencies:
+      '@brain/module-kit':
+        specifier: workspace:*
+        version: link:../../packages/module-kit
+      '@brain/std':
+        specifier: workspace:*
+        version: link:../../packages/std
+      '@brain/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
+      '@robonen/stdlib':
+        specifier: 'catalog:'
+        version: 0.0.12
+      '@robonen/vue':
+        specifier: 'catalog:'
+        version: 0.2.0(vue@3.6.0-rc.5(typescript@6.0.3))
+      '@sync/core':
+        specifier: link:../../../sync-crdt/packages/core
+        version: link:../../../sync-crdt/packages/core
+      '@sync/vue':
+        specifier: link:../../../sync-crdt/packages/vue
+        version: link:../../../sync-crdt/packages/vue
       lucide-vue-next:
         specifier: 'catalog:'
         version: 1.0.0(vue@3.6.0-rc.5(typescript@6.0.3))

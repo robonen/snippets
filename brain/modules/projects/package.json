@@ -1,0 +1,36 @@
+{
+  "name": "@brain/projects",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Проекты: статус и его история, период, стек, команда, оплаты, ссылки, журнал.",
+  "exports": {
+    ".": "./src/projects/module.ts",
+    "./projects.css": "./src/projects/projects.css"
+  },
+  "scripts": {
+    "typecheck": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "@brain/module-kit": "workspace:*",
+    "@brain/std": "workspace:*",
+    "@brain/ui": "workspace:*",
+    "@robonen/stdlib": "catalog:",
+    "@robonen/vue": "catalog:",
+    "@sync/core": "link:../../../sync-crdt/packages/core",
+    "@sync/vue": "link:../../../sync-crdt/packages/vue",
+    "lucide-vue-next": "catalog:"
+  },
+  "peerDependencies": {
+    "vue": "catalog:",
+    "vue-router": "catalog:"
+  },
+  "devDependencies": {
+    "@robonen/tsconfig": "catalog:",
+    "typescript": "catalog:",
+    "vite-layers": "link:../../../vite-layers",
+    "vue": "catalog:",
+    "vue-router": "catalog:",
+    "vue-tsc": "catalog:"
+  }
+}

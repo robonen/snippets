@@ -1,0 +1,39 @@
+/*
+ * Цвета статусов проекта. Живут в МОДУЛЕ, а не в ките: «в работе», «на паузе»,
+ * «завершён» и «отменён» — домен проектов, и общий кит, куда каждый модуль
+ * дописывает свои цвета, перестал бы быть общим.
+ *
+ * У каждого цвета две версии: на светлом фоне нужен тёмный тон, на тёмном —
+ * светлый. Статус несут ЦВЕТ И ПОДПИСЬ вместе: цвет усиливает слово, а не
+ * заменяет его, поэтому пары подобраны по контрасту, а не по яркости.
+ */
+:root {
+  --project-active: #2f6bd1;
+  --project-paused: #9a6a00;
+  --project-done: #0d7a63;
+  --project-dropped: #a33a3a;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --project-active: #7ea6ef;
+    --project-paused: #e0ad46;
+    --project-done: #45c3a5;
+    --project-dropped: #e07a7a;
+  }
+}
+
+:root[data-theme='dark'] {
+  --project-active: #7ea6ef;
+  --project-paused: #e0ad46;
+  --project-done: #45c3a5;
+  --project-dropped: #e07a7a;
+}
+
+/* Утилиты на те же переменные — для разметки, где статус известен заранее. */
+@theme inline {
+  --color-project-active: var(--project-active);
+  --color-project-paused: var(--project-paused);
+  --color-project-done: var(--project-done);
+  --color-project-dropped: var(--project-dropped);
+}
