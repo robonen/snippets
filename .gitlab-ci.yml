@@ -1,0 +1,45 @@
+# brain server image. Converted from .gitea/workflows/brain-image.yml.
+#
+# Two things the Gitea version needed disappear here:
+#
+#   * the manual "Packages -> brain -> Settings -> Link to repository" step.
+#     Gitea only auto-linked a package named after its repository, and this one
+#     is called brain inside snippets. GitLab's registry belongs to the project
+#     by construction, so there is nothing to link.
+#   * an explicit docker login with a hand-made token. $CI_REGISTRY_USER and
+#     $CI_REGISTRY_PASSWORD are injected per job and expire with it.
+#
+# The image path changes: git.robonen.ru/robonen/brain becomes
+# registry.robonen.ru/robonen/snippets/brain. The Proxmox "Pull from OCI
+# Registry" flow in brain/docs/04-server.md §3 must be updated to match.
+
+build-brain-image:
+  stage: build
+  image: docker:29-cli
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web"
+    - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - brain/**/*
+        - sync-crdt/**/*
+        - vite-layers/**/*
+        - .gitlab-ci.yml
+  # Replaces concurrency.cancel-in-progress: two pushes to main must not race
+  # for the shared :latest tag.
+  resource_group: brain-image
+  variables:
+    IMAGE: $CI_REGISTRY_IMAGE/brain
+  script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
+    # Only :latest, as before - the deploy always pulls the newest and the
+    # image history served no one.
+    # --provenance=false is required, not stylistic. Docker 29's BuildKit
+    # attaches a provenance attestation by default and wraps the result in an
+    # OCI manifest list; the GitLab registry rejects that with
+    #   error from registry: blob unknown to registry
+    # even though every layer uploads fine. Verified side by side on the same
+    # source: with the flag the push succeeds, without it, it does not.
+    # The cost is losing the provenance attestation, which this registry
+    # cannot store anyway.
+    - docker build -f brain/Dockerfile --provenance=false -t "$IMAGE:latest" .
+    - docker push "$IMAGE:latest"
