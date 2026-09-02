@@ -1,3 +1,5 @@
+import { plural } from '@brain/std';
+
 /**
  * Форматирование денег, месяцев и периодов — всё, что экраны показывают
  * человеку, но что не является расчётом (расчёты — в `entities/project.ts`).
@@ -88,19 +90,6 @@ export function fmtDay(iso: string): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/u.exec(iso);
   if (match === null) return iso;
   return dayNumeric.format(new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
-}
-
-/**
- * Русское склонение по числу. Считается по последним двум разрядам: у 11–14
- * окончание не такое, как у 1–4.
- */
-export function plural(count: number, one: string, few: string, many: string): string {
-  const abs = Math.abs(count) % 100;
-  if (abs >= 11 && abs <= 14) return many;
-  const last = abs % 10;
-  if (last === 1) return one;
-  if (last >= 2 && last <= 4) return few;
-  return many;
 }
 
 export function fmtProjects(count: number): string {

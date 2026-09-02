@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { Button, Sheet } from '@brain/ui';
+import { Button, NumberField, Sheet } from '@brain/ui';
 import { useActions, useEntries, useFoods } from '../../db/composables';
 import { portionNutrients } from '../../entities/nutrition';
 import { MEALS, MEAL_LABELS } from '../../entities/entry';
@@ -21,8 +21,9 @@ const entries = useEntries();
 const foods = useFoods();
 const actions = useActions();
 
-const amount = ref(100);
-const kcal = ref(0);
+/** Порция и калории — `null`, пока поле стёрто: сохранять такое нечего. */
+const amount = ref<number | null>(100);
+const kcal = ref<number | null>(0);
 const meal = ref<Meal>('breakfast');
 
 const entry = computed(() => entries.value.find(item => item.id === entryId) ?? null);
@@ -40,14 +41,16 @@ watch([open, entry], () => {
 }, { immediate: true });
 
 const preview = computed(() =>
-  (food.value === null ? null : portionNutrients(food.value, amount.value)));
+  (food.value === null || amount.value === null || amount.value <= 0
+    ? null
+    : portionNutrients(food.value, amount.value)));
 
 function save(): void {
   const current = entry.value;
   if (current === null) return;
 
-  const patch = preview.value === null
-    ? { meal: meal.value, kcal: Math.max(0, Math.round(kcal.value)) }
+  const patch = preview.value === null || amount.value === null
+    ? { meal: meal.value, kcal: Math.max(0, Math.round(kcal.value ?? 0)) }
     : { meal: meal.value, amountG: amount.value, ...preview.value };
 
   actions.updateEntry(current.id, patch);
@@ -75,38 +78,37 @@ function remove(): void {
         </Button>
       </div>
 
-      <div v-if="food !== null" class="flex items-center gap-2">
-        <input
-          v-model.number="amount"
-          type="number"
-          min="1"
-          step="10"
-          aria-label="Порция в граммах"
-          class="h-10 w-24 rounded-control border border-line bg-surface px-3 text-sm text-text"
-        >
-        <span class="text-sm text-text-soft">г</span>
-        <span v-if="preview" class="tnum ml-auto text-sm text-text-soft">
+      <div v-if="food !== null" class="flex items-end gap-2">
+        <NumberField
+          v-model="amount"
+          label="Порция"
+          unit="г"
+          :min="1"
+          :step="10"
+          :snap="false"
+          class="w-36 shrink-0"
+        />
+        <span v-if="preview" class="tnum ml-auto pb-2.5 text-sm text-text-soft">
           {{ fmtKcal(preview.kcal) }} ккал
         </span>
       </div>
 
-      <div v-else class="flex items-center gap-2">
-        <input
-          v-model.number="kcal"
-          type="number"
-          min="0"
-          step="10"
-          aria-label="Калорийность"
-          class="h-10 w-24 rounded-control border border-line bg-surface px-3 text-sm text-text"
-        >
-        <span class="text-sm text-text-soft">ккал</span>
-      </div>
+      <NumberField
+        v-else
+        v-model="kcal"
+        label="Калорийность"
+        unit="ккал"
+        :min="0"
+        :step="10"
+        :snap="false"
+        class="w-40"
+      />
     </div>
 
     <template #footer>
       <div class="flex gap-2">
         <Button tone="danger" @click="remove">Удалить</Button>
-        <Button tone="primary" block @click="save">Сохранить</Button>
+        <Button tone="primary" class="flex-1" @click="save">Сохранить</Button>
       </div>
     </template>
   </Sheet>

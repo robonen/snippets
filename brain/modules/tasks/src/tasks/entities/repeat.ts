@@ -1,6 +1,5 @@
 import { addDays, addMonths, addWeeks, isValid } from 'date-fns';
-import { parseISODate, toISODate } from '@brain/std';
-import { plural } from '../lib/format';
+import { parseISODate, plural, toISODate } from '@brain/std';
 
 /**
  * Повторяющиеся задачи: правило и вычисление следующего вхождения.
@@ -126,5 +125,5 @@ const UNIT_FORMS: Record<RepeatUnit, readonly [string, string, string]> = {
 /** «каждый день», «каждые 3 дня», «каждые 2 недели». */
 export function repeatLabel(rule: RepeatRule): string {
   if (rule.every === 1) return UNIT_ONCE[rule.unit];
-  return `каждые ${rule.every} ${plural(rule.every, UNIT_FORMS[rule.unit])}`;
+  return `каждые ${rule.every} ${plural(rule.every, ...UNIT_FORMS[rule.unit])}`;
 }

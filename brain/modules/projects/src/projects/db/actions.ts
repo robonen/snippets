@@ -1,7 +1,7 @@
+import { newId } from '@brain/module-kit';
 import type { Space } from '@sync/core';
 import { blankProject } from '../entities/project';
 import type { Project, ProjectStatus } from '../entities/project';
-import { newId } from '../lib/id';
 import type { ImportedProject } from '../lib/markdown';
 import { ProjectsModel, readProject, writeProject } from './models';
 

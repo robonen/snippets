@@ -2,8 +2,8 @@
 import { watch } from 'vue';
 import { useForm } from '@robonen/vue';
 import { Button, DateField, MoneyField, Sheet, TextField } from '@brain/ui';
+import { newId } from '@brain/module-kit';
 import type { Payment } from '../../entities/project';
-import { newId } from '../../lib/id';
 
 /**
  * Оплата: дата, сумма, моя доля, за что. Добавление и правка одним листом.

@@ -1,10 +1,9 @@
-import { defineModule } from '@brain/module-kit';
+import { defineModule, downloadText } from '@brain/module-kit';
 import { FolderKanban } from 'lucide-vue-next';
 import { listProjects } from './db/actions';
 import { STATUS_LABELS, UNTITLED, matchesQuery, sortProjects } from './entities/project';
-import { downloadText } from './lib/download';
 import { fmtPeriod } from './lib/format';
-import { requestAdd } from './lib/intent';
+import { addIntent } from './lib/intent';
 import { exportName, projectsToMarkdown } from './lib/markdown';
 import ProjectsScreen from './screens/list/ProjectsScreen.vue';
 import ProjectsWidget from './widgets/ProjectsWidget.vue';
@@ -43,7 +42,7 @@ export const projectsModule = defineModule({
       keywords: ['проект', 'project', 'заказ', 'создать'],
       icon: FolderKanban,
       run: () => {
-        requestAdd();
+        addIntent.request();
         // Заявку забирает экран проектов при монтировании — как у закладок.
         return '/projects';
       },
@@ -53,7 +52,7 @@ export const projectsModule = defineModule({
       title: 'Выгрузить проекты в markdown',
       keywords: ['проекты', 'export', 'markdown', 'md', 'выгрузка'],
       run: (ctx) => {
-        downloadText(exportName(new Date()), projectsToMarkdown(listProjects(ctx.space)));
+        downloadText(exportName(new Date()), projectsToMarkdown(listProjects(ctx.space)), 'text/markdown;charset=utf-8');
       },
     },
   ],

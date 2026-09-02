@@ -3,8 +3,8 @@ import { shallowRef } from 'vue';
 import { useForm } from '@robonen/vue';
 import { ExternalLink, Plus, X } from 'lucide-vue-next';
 import { Button, Card, TextField } from '@brain/ui';
+import { newId } from '@brain/module-kit';
 import type { Resource } from '../../entities/project';
-import { newId } from '../../lib/id';
 
 /**
  * Ссылки проекта: репозиторий, прод, макеты, документы.

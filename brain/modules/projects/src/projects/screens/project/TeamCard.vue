@@ -4,8 +4,8 @@ import { useForm } from '@robonen/vue';
 import { ExternalLink, Plus, X } from 'lucide-vue-next';
 import { Button, Card, Combobox, TextField } from '@brain/ui';
 import type { ComboboxOption } from '@brain/ui';
+import { newId } from '@brain/module-kit';
 import type { Member } from '../../entities/project';
-import { newId } from '../../lib/id';
 
 /**
  * Команда проекта: кто и в какой роли, со ссылкой на профиль.

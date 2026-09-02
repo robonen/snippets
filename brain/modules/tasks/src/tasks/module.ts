@@ -1,10 +1,9 @@
-import { defineModule } from '@brain/module-kit';
+import { defineModule, newId } from '@brain/module-kit';
 import { ListTodo } from 'lucide-vue-next';
 import { dayTitle, todayISO } from '@brain/std';
 import { MODULE_ID, TasksModel, readTask, writeTask } from './db/models';
 import { PRIORITY_LABELS, isNotable } from './entities/priority';
 import { parseQuickTask } from './entities/quick';
-import { newId } from './lib/id';
 import { progressOf } from './entities/step';
 import { BUCKETS, BUCKET_LABELS, bucketOf, createTask, matchesQuery, nextOrder, sortTasks } from './entities/task';
 import type { Task } from './entities/task';

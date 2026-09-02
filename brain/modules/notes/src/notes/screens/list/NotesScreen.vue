@@ -29,7 +29,6 @@ import { exportName, notesToMarkdown } from '../../entities/export';
 import { inScope, noteLabel, selectNotes } from '../../entities/note';
 import type { Note, NoteScope, NoteSort } from '../../entities/note';
 import { countTags } from '../../entities/tags';
-import { copyText, downloadText } from '../../lib/download';
 import { fmtNotes } from '../../lib/format';
 import { toggleTag } from '../../lib/tags';
 import LinkButton from '../LinkButton.vue';
@@ -38,7 +37,8 @@ import NewNoteSheet from './NewNoteSheet.vue';
 import NoteRow from './NoteRow.vue';
 import NotesSummary from './NotesSummary.vue';
 import TagFilter from './TagFilter.vue';
-import { useToday } from '@brain/module-kit';
+import { downloadText, useToday } from '@brain/module-kit';
+import { useClipboard } from '@robonen/vue';
 
 /**
  * Список заметок: срез, порядок, фильтр по тегам, поиск и действия над строкой.
@@ -65,6 +65,7 @@ const { list, ready } = useNotes();
 const actions = useActions();
 const route = useRoute();
 const router = useRouter();
+const { copy: writeClipboard, isSupported: clipboardReady } = useClipboard();
 const toast = useToast();
 
 /** Какая заметка открыта справа: строка списка обязана это показывать. */
@@ -196,9 +197,7 @@ const exportItems = computed<MenuAction[]>(() => [
     title: 'Скопировать markdown',
     icon: BookOpen,
     disabled: rows.value.length === 0,
-    onSelect: () => {
-      void copyShown();
-    },
+    onSelect: copyShown,
   },
   {
     id: 'file',
@@ -206,17 +205,30 @@ const exportItems = computed<MenuAction[]>(() => [
     icon: ArrowDown,
     disabled: rows.value.length === 0,
     onSelect: () => {
-      downloadText(exportName(new Date()), notesToMarkdown(rows.value));
+      downloadText(exportName(new Date()), notesToMarkdown(rows.value), 'text/markdown;charset=utf-8');
       toast.show({ title: 'Файл сохранён', description: fmtNotes(rows.value.length) });
     },
   },
 ]);
 
-async function copyShown(): Promise<void> {
-  const ok = await copyText(notesToMarkdown(rows.value));
-  toast.show(ok
-    ? { title: 'Скопировано', description: fmtNotes(rows.value.length) }
-    : { title: 'Буфер обмена недоступен', description: 'Браузер не дал доступа — попробуйте «Сохранить файлом».', tone: 'danger' });
+/**
+ * Буфер обмена доступен не всегда — только в защищённом контексте и по жесту.
+ * Отказа два: самого API может не быть (`isSupported`), и жест может не
+ * признать браузер (отказ промиса); оба показываются словами.
+ */
+function copyShown(): void {
+  if (!clipboardReady.value) {
+    denyCopy();
+    return;
+  }
+  void writeClipboard(notesToMarkdown(rows.value)).then(
+    () => toast.show({ title: 'Скопировано', description: fmtNotes(rows.value.length) }),
+    denyCopy,
+  );
+}
+
+function denyCopy(): void {
+  toast.show({ title: 'Буфер обмена недоступен', description: 'Браузер не дал доступа — попробуйте «Сохранить файлом».', tone: 'danger' });
 }
 
 function resetFilters(): void {

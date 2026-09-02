@@ -7,7 +7,7 @@ import { setStepDone } from '../entities/step';
 import { createTask, followUp, followUpSteps, nextOrder, sortTasks } from '../entities/task';
 import type { Project } from '../entities/project';
 import type { Task, TaskDraft } from '../entities/task';
-import { newId } from '../lib/id';
+import { newId } from '@brain/module-kit';
 import { TasksModel, readProject, readTask, writeProject, writeTask } from './models';
 
 /**

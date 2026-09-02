@@ -3,7 +3,7 @@ import { computed, ref, shallowRef } from 'vue';
 import { useRouter } from 'vue-router';
 import { useClipboard } from '@robonen/vue';
 import { FileDown, FileUp, Plus } from 'lucide-vue-next';
-import { useToday } from '@brain/module-kit';
+import { downloadText, useToday } from '@brain/module-kit';
 import {
   Button,
   ConfirmDialog,
@@ -35,9 +35,8 @@ import {
 import type { Project, ProjectSort, ProjectStatus } from '../../entities/project';
 import type { NewProject } from '../../db/actions';
 import { useActions, useProjects } from '../../db/composables';
-import { downloadText } from '../../lib/download';
 import { fmtMoney, fmtProjects } from '../../lib/format';
-import { onAddRequested } from '../../lib/intent';
+import { addIntent } from '../../lib/intent';
 import { exportName, projectsToMarkdown } from '../../lib/markdown';
 import type { ImportedProject } from '../../lib/markdown';
 import ImportSheet from './ImportSheet.vue';
@@ -74,7 +73,7 @@ const importing = shallowRef(false);
 const removing = shallowRef<Project | undefined>();
 const confirming = shallowRef(false);
 
-onAddRequested(() => {
+addIntent.onRequested(() => {
   sheet.value = true;
 });
 
@@ -169,7 +168,7 @@ function setStatus(project: Project, status: ProjectStatus): void {
 }
 
 function download(): void {
-  downloadText(exportName(new Date()), projectsToMarkdown(list.value));
+  downloadText(exportName(new Date()), projectsToMarkdown(list.value), 'text/markdown;charset=utf-8');
 }
 
 /**

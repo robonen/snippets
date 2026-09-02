@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue';
 import { debounce } from '@robonen/stdlib';
+import { useClipboard } from '@robonen/vue';
 import { dayTitle } from '@brain/std';
 import { BookOpen, Bookmark, ChevronLeft, Inbox, Plus, X } from 'lucide-vue-next';
 import {
@@ -10,6 +11,7 @@ import {
   Menu,
   Page,
   Spinner,
+  TagsField,
   Toolbar,
   useToast,
 } from '@brain/ui';
@@ -24,11 +26,10 @@ import { mentionsOf } from '../../entities/mentions';
 import { noteLabel, sameContent } from '../../entities/note';
 import type { Note } from '../../entities/note';
 import { countTags } from '../../entities/tags';
-import { copyText } from '../../lib/download';
+import { normalizeTag } from '../../lib/tags';
 import LinkButton from '../LinkButton.vue';
 import MentionsPanel from './MentionsPanel.vue';
 import NoteMeta from './NoteMeta.vue';
-import TagsField from './TagsField.vue';
 
 /**
  * Экран заметки: заголовок, теги, тело, упоминания и сведения.
@@ -50,6 +51,7 @@ const { id } = defineProps<{ id: string }>();
 const { list, ready } = useNotes();
 const actions = useActions();
 const toast = useToast();
+const { copy: writeClipboard, isSupported: clipboardReady } = useClipboard();
 
 const note = computed(() => list.value.find(item => item.id === id));
 
@@ -59,7 +61,7 @@ const base = computed<Note>(() => note.value ?? blankNote(id));
 const title = ref('');
 // Документ неизменяем: редактор отдаёт новый объект на каждую правку.
 const body = shallowRef<NoteBody>(EMPTY_BODY);
-const tags = ref<readonly string[]>([]);
+const tags = ref<string[]>([]);
 
 /** Адрес, форму которого уже наполнили. */
 const filled = ref<string | null>(null);
@@ -85,7 +87,7 @@ watch([() => id, note, ready], () => {
   const source = base.value;
   title.value = source.title;
   body.value = source.body;
-  tags.value = source.tags;
+  tags.value = [...source.tags];
   filled.value = id;
   removed.value = false;
   confirming.value = false;
@@ -168,11 +170,20 @@ function duplicate(): void {
   toast.show({ title: 'Копия создана', description: noteLabel(copy) });
 }
 
-async function copyMarkdown(): Promise<void> {
-  const ok = await copyText(noteToMarkdown(draftOf(base.value)));
-  toast.show(ok
-    ? { title: 'Скопировано', description: 'Заметка ушла в буфер обмена как markdown.' }
-    : { title: 'Буфер обмена недоступен', description: 'Браузер не дал доступа.', tone: 'danger' });
+/** Отказ буфера показывается словами: молчаливый пункт меню неотличим от сработавшего. */
+function copyMarkdown(): void {
+  if (!clipboardReady.value) {
+    denyCopy();
+    return;
+  }
+  void writeClipboard(noteToMarkdown(draftOf(base.value))).then(
+    () => toast.show({ title: 'Скопировано', description: 'Заметка ушла в буфер обмена как markdown.' }),
+    denyCopy,
+  );
+}
+
+function denyCopy(): void {
+  toast.show({ title: 'Буфер обмена недоступен', description: 'Браузер не дал доступа.', tone: 'danger' });
 }
 
 function remove(): void {
@@ -216,9 +227,7 @@ const menuActions = computed<MenuAction[]>(() => [
     id: 'copy',
     title: 'Скопировать markdown',
     icon: BookOpen,
-    onSelect: () => {
-      void copyMarkdown();
-    },
+    onSelect: copyMarkdown,
   },
   {
     id: 'remove',
@@ -304,7 +313,15 @@ const linkTargets = computed(() => list.value.filter(item =>
         />
 
         <NoteMeta :note="base" :body="body" />
-        <TagsField v-model="tags" :known="knownTags" />
+        <!-- Подсказки — теги остальных заметок: «идеи» рядом с «идея» делили
+             заметки надвое, и человек этого не замечал. -->
+        <TagsField
+          v-model="tags"
+          label="Теги"
+          placeholder="Найти тег или завести новый"
+          :suggestions="knownTags.map(item => item.tag)"
+          :normalize="normalizeTag"
+        />
       </header>
 
       <!--

@@ -3,13 +3,12 @@ import { computed, onBeforeUnmount, shallowRef, watch } from 'vue';
 import { debounce } from '@robonen/stdlib';
 import { useClipboard } from '@robonen/vue';
 import { ChevronLeft, FileDown, Trash2 } from 'lucide-vue-next';
-import { useToday } from '@brain/module-kit';
+import { downloadText, useToday } from '@brain/module-kit';
 import { Card, ConfirmDialog, EmptyState, Menu, Page, Spinner, TagsField, useToast } from '@brain/ui';
 import type { MenuAction } from '@brain/ui';
 import { useActions, useProjects } from '../../db/composables';
 import { UNTITLED, knownMembers, sameProject, stackCounts } from '../../entities/project';
 import type { Project } from '../../entities/project';
-import { downloadText } from '../../lib/download';
 import { projectToMarkdown } from '../../lib/markdown';
 import LinkButton from '../LinkButton.vue';
 import JournalCard from './JournalCard.vue';
@@ -132,7 +131,7 @@ function download(): void {
   if (draft.value === undefined) return;
   store.flush();
   const name = (draft.value.title.trim() || 'project').replaceAll(/[\\/:*?"<>|]+/gu, '-');
-  downloadText(`${name}.md`, `${projectToMarkdown(draft.value)}\n`);
+  downloadText(`${name}.md`, `${projectToMarkdown(draft.value)}\n`, 'text/markdown;charset=utf-8');
 }
 
 /** Отказ буфера показывается словами: молчаливый пункт меню неотличим от сработавшего. */

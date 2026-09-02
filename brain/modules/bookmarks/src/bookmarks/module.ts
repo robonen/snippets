@@ -2,7 +2,7 @@ import { defineModule } from '@brain/module-kit';
 import { Bookmark } from 'lucide-vue-next';
 import { BookmarksModel, readLink } from './db/models';
 import { domainOf, matchesQuery } from './entities/link';
-import { requestAdd } from './lib/intent';
+import { addIntent } from './lib/intent';
 import BookmarksScreen from './screens/list/BookmarksScreen.vue';
 import UnreadWidget from './widgets/UnreadWidget.vue';
 
@@ -31,7 +31,7 @@ export const bookmarksModule = defineModule({
       title: 'Добавить ссылку',
       keywords: ['закладка', 'ссылка', 'url', 'link'],
       run: () => {
-        requestAdd();
+        addIntent.request();
         // Заявку забирает экран закладок при монтировании — см. задачи.
         return '/bookmarks';
       },

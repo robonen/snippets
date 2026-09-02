@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, shallowRef } from 'vue';
 import { CalendarDays } from 'lucide-vue-next';
-import { Popover } from '@brain/ui';
+import { DateField, Popover } from '@brain/ui';
 import { dayTitle } from '@brain/std';
 import { scheduleOptions } from '../../entities/schedule';
 
@@ -58,16 +58,13 @@ function pick(next: string | null): void {
           </li>
         </ul>
 
-        <label class="flex flex-col gap-1.5 border-t border-line pt-3">
-          <span class="text-xs text-text-faint">Другой день</span>
-          <input
-            :value="dueAt"
-            type="date"
-            class="h-10 w-full rounded-control border border-line bg-surface px-3 text-sm text-text
-                   transition-colors hover:border-line-strong"
-            @change="pick((($event.target as HTMLInputElement).value) || null)"
-          >
-        </label>
+        <div class="border-t border-line pt-3">
+          <DateField
+            :model-value="dueAt"
+            label="Другой день"
+            @update:model-value="pick($event || null)"
+          />
+        </div>
       </div>
     </Popover>
   </div>

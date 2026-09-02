@@ -4,7 +4,8 @@ import { Meter } from '@brain/ui';
 import { dayProgress } from '../../entities/overview';
 import { isOverdue } from '../../entities/task';
 import type { Task } from '../../entities/task';
-import { dayHeading, plural } from '../../lib/format';
+import { plural } from '@brain/std';
+import { dayHeading } from '../../lib/format';
 
 /**
  * Опора экрана: сегодняшний день одним крупным числом.
@@ -41,7 +42,7 @@ const overdue = computed(() => tasks.reduce(
  */
 const label = computed(() => (day.value.total === 0
   ? 'дел на сегодня'
-  : `${plural(left.value, ['дело', 'дела', 'дел'])} осталось`));
+  : `${plural(left.value, 'дело', 'дела', 'дел')} осталось`));
 
 /** Курсор двигает пятно света по опоре — глубина без теней, которых в тёмной теме не видно. */
 function spot(event: PointerEvent): void {

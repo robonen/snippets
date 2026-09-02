@@ -7,7 +7,8 @@ import { MODULE_ID } from '../../db/models';
 import { dayProgress } from '../../entities/overview';
 import { progressOf } from '../../entities/step';
 import { bucketOf, isOverdue, sortTasks } from '../../entities/task';
-import { dueLabel, plural } from '../../lib/format';
+import { plural } from '@brain/std';
+import { dueLabel } from '../../lib/format';
 import { priorityStripe } from '../stripe';
 
 /**
@@ -62,10 +63,10 @@ const preview = computed(() => list.value.slice(0, PREVIEW).map(task => ({
     <div class="flex items-baseline gap-2">
       <span class="text-display text-3xl leading-none text-text">{{ list.length }}</span>
       <span class="text-xs text-text-soft">
-        {{ `${plural(list.length, ['дело', 'дела', 'дел'])} осталось` }}
+        {{ `${plural(list.length, 'дело', 'дела', 'дел')} осталось` }}
       </span>
       <span v-if="overdue > 0" class="tnum ml-auto text-xs text-danger">
-        {{ `${overdue} ${plural(overdue, ['просрочена', 'просрочены', 'просрочено'])}` }}
+        {{ `${overdue} ${plural(overdue, 'просрочена', 'просрочены', 'просрочено')}` }}
       </span>
     </div>
 

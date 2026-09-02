@@ -37,3 +37,8 @@ export function parseTags(input: string): string[] {
 export function formatTags(tags: readonly string[]): string {
   return tags.join(', ');
 }
+
+/** Один тег к каноническому виду — `normalizeTags` для одной строки. */
+export function normalizeTag(raw: string): string {
+  return normalizeTags([raw])[0] ?? '';
+}

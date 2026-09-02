@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import { computed, ref, shallowRef, useId, watch } from 'vue';
-import { X } from 'lucide-vue-next';
-import { Badge, Button, Combobox, Disclosure, SegmentedControl, Sheet, TextField } from '@brain/ui';
-import type { ComboboxOption, Segment } from '@brain/ui';
+import { newId } from '@brain/module-kit';
+import { Button, Disclosure, SegmentedControl, Sheet, TagsField, TextField } from '@brain/ui';
+import type { Segment } from '@brain/ui';
 import { LINK_STATUSES, STATUS_LABELS, draftLink, withStatus } from '../../entities/link';
 import type { Bookmark, LinkStatus } from '../../entities/link';
-import { parseTags } from '../../lib/tags';
+import { normalizeTag } from '../../lib/tags';
 import { parseUrl } from '../../lib/url';
-import { newId } from '../../lib/id';
 import { readingLabel } from '../../lib/reading';
 
 /**
@@ -19,8 +18,8 @@ import { readingLabel } from '../../lib/reading';
  */
 const { link, knownTags } = defineProps<{
   link?: Bookmark;
-  /** Теги, уже встречавшиеся в каталоге: их предлагает выпадающий список. */
-  knownTags: readonly ComboboxOption[];
+  /** Теги, уже встречавшиеся в каталоге, — подсказки под полем. */
+  knownTags: readonly string[];
 }>();
 
 const emit = defineEmits<{ save: [link: Bookmark] }>();
@@ -35,8 +34,6 @@ const note = ref('');
 /** Список тегов всегда заменяется целиком — глубокий реф ему не нужен. */
 const tags = shallowRef<string[]>([]);
 const status = ref<LinkStatus>('unread');
-/** Модель списка тегов: значение живёт до попадания тега в чипсы. */
-const pick = ref<string | undefined>();
 const noteOpen = shallowRef(false);
 
 const STATUS_SEGMENTS: Array<Segment<LinkStatus>> = LINK_STATUSES.map(item => ({
@@ -53,44 +50,17 @@ watch(open, (isOpen) => {
   note.value = link?.note ?? '';
   tags.value = [...(link?.tags ?? [])];
   status.value = link?.status ?? 'unread';
-  pick.value = undefined;
   // Заметка раскрыта только там, где она есть: пустое поле на три строки
   // отодвигает кнопку сохранения, ничего не показывая.
   noteOpen.value = (link?.note ?? '') !== '';
-});
-
-// Выбранный тег уезжает в чипсы, а поле освобождается под следующий.
-watch(pick, (value) => {
-  if (value !== undefined) addTag(value);
 });
 
 const parsed = computed(() => parseUrl(url.value));
 const dirty = computed(() => url.value.trim() !== '');
 const error = computed(() => (dirty.value && parsed.value === null ? 'Не похоже на адрес страницы' : undefined));
 
-/** Список предлагает только то, чего на закладке ещё нет. */
-const options = computed(() => knownTags.filter(option => !tags.value.includes(option.value)));
-
 /** Оценка чтения считается по тому, что уже набрано: она меняется вместе с заметкой. */
 const estimate = computed(() => readingLabel({ title: title.value || (parsed.value?.title ?? ''), note: note.value }));
-
-/**
- * Добавить тег из списка или из строки поиска. Строка разбирается целиком:
- * «vue, чтение» — привычный способ ввести теги, и заводить один тег с запятой
- * внутри значило бы поймать пользователя на его же привычке.
- *
- * Нормализация здесь, а не только на сохранении: «#Vue» и «vue» обязаны
- * схлопнуться до того, как превратятся в два разных чипса.
- */
-function addTag(raw: string): void {
-  const added = parseTags(raw).filter(tag => !tags.value.includes(tag));
-  if (added.length > 0) tags.value = [...tags.value, ...added];
-  pick.value = undefined;
-}
-
-function dropTag(tag: string): void {
-  tags.value = tags.value.filter(item => item !== tag);
-}
 
 function submit(): void {
   const now = Date.now();
@@ -138,33 +108,16 @@ function submit(): void {
 
       <SegmentedControl v-model="status" label="Статус чтения" :segments="STATUS_SEGMENTS" />
 
-      <div class="flex flex-col gap-2">
-        <Combobox
-          v-model="pick"
-          label="Теги"
-          :options="options"
-          placeholder="vue, чтение"
-          empty-text="Такого тега ещё нет"
-          allow-create
-          @create="addTag"
-        />
-
-        <div v-if="tags.length > 0" class="flex flex-wrap gap-1.5">
-          <button
-            v-for="tag in tags"
-            :key="tag"
-            type="button"
-            :aria-label="`Убрать тег ${tag}`"
-            class="pressable rounded-full"
-            @click="dropTag(tag)"
-          >
-            <Badge tone="accent">
-              {{ `#${tag}` }}
-              <X class="size-3" />
-            </Badge>
-          </button>
-        </div>
-      </div>
+      <!-- «vue, чтение» через запятую — привычный ввод, и поле само делит его
+           на чипсы; «#Vue» и «vue» схлопываются нормализацией до того, как
+           станут двумя разными тегами. -->
+      <TagsField
+        v-model="tags"
+        label="Теги"
+        placeholder="vue, чтение"
+        :suggestions="knownTags"
+        :normalize="normalizeTag"
+      />
 
       <!-- Заметка спрятана под раскрывашку: её пишут не всегда, а поле на три
            строки посреди формы отодвигает всё остальное вниз. -->

@@ -6,7 +6,7 @@ import { overviewOf } from '../../entities/overview';
 import type { ProjectStat } from '../../entities/overview';
 import type { Project } from '../../entities/project';
 import type { Task } from '../../entities/task';
-import { plural } from '../../lib/format';
+import { plural } from '@brain/std';
 import EmptyPanel from './EmptyPanel.vue';
 
 /**
@@ -75,7 +75,7 @@ function nameOf(stat: ProjectStat): string {
         <p class="flex items-baseline gap-2.5">
           <span class="text-display text-5xl leading-[0.8] text-text">{{ overview.open }}</span>
           <span class="text-sm text-text-soft">
-            {{ plural(overview.open, ['задача', 'задачи', 'задач']) }} открыто
+            {{ plural(overview.open, 'задача', 'задачи', 'задач') }} открыто
           </span>
         </p>
 

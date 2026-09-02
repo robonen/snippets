@@ -1,3 +1,4 @@
+import { downloadText } from '@brain/module-kit';
 import type { Space } from '@sync/core';
 import { MEALS } from '../entities/entry';
 import type { Entry, Meal } from '../entities/entry';
@@ -131,15 +132,9 @@ export function backupFileName(payload: BackupPayload): string {
   return `kcal-backup-${payload.exportedAt.slice(0, 10)}.json`;
 }
 
-/** Отдать снимок файлом. Живёт в браузере: ссылка на blob и клик по ней. */
+/** Отдать снимок файлом — общим механизмом скачивания из module-kit. */
 export function downloadBackupFile(payload: BackupPayload): void {
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = backupFileName(payload);
-  link.click();
-  URL.revokeObjectURL(url);
+  downloadText(backupFileName(payload), JSON.stringify(payload, null, 2), 'application/json');
 }
 
 // ── Чтение недоверенного JSON ────────────────────────────────────────────────

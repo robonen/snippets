@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import { Button, Sheet, TextField } from '@brain/ui';
+import { newId } from '@brain/module-kit';
+import { Button, NumberField, Sheet, TextField } from '@brain/ui';
 import { useActions } from '../../db/composables';
 import type { Food, FoodDraft } from '../../entities/food';
 
@@ -18,11 +19,12 @@ const actions = useActions();
 
 const name = ref('');
 const category = ref('');
-const kcal = ref(0);
-const protein = ref(0);
-const fat = ref(0);
-const carbs = ref(0);
-const pieceGrams = ref<number | undefined>(undefined);
+// Числа — `null`, пока поле стёрто: стёртое сохраняется нулём, а не мусором.
+const kcal = ref<number | null>(0);
+const protein = ref<number | null>(0);
+const fat = ref<number | null>(0);
+const carbs = ref<number | null>(0);
+const pieceGrams = ref<number | null>(null);
 const barcode = ref<string | undefined>(undefined);
 
 watch(open, (value) => {
@@ -33,7 +35,7 @@ watch(open, (value) => {
   protein.value = food?.protein ?? draft?.protein ?? 0;
   fat.value = food?.fat ?? draft?.fat ?? 0;
   carbs.value = food?.carbs ?? draft?.carbs ?? 0;
-  pieceGrams.value = food?.pieceGrams ?? draft?.pieceGrams;
+  pieceGrams.value = food?.pieceGrams ?? draft?.pieceGrams ?? null;
   barcode.value = food?.barcode ?? draft?.barcode;
 }, { immediate: true });
 
@@ -41,14 +43,14 @@ function save(): void {
   if (name.value.trim() === '') return;
   const now = Date.now();
   actions.upsertFood({
-    id: food?.id ?? crypto.randomUUID(),
+    id: food?.id ?? newId(),
     name: name.value.trim(),
     category: category.value.trim() === '' ? 'Прочее' : category.value.trim(),
-    kcal: Math.max(0, kcal.value),
-    protein: Math.max(0, protein.value),
-    fat: Math.max(0, fat.value),
-    carbs: Math.max(0, carbs.value),
-    ...(pieceGrams.value !== undefined && pieceGrams.value > 0 && { pieceGrams: pieceGrams.value }),
+    kcal: Math.max(0, kcal.value ?? 0),
+    protein: Math.max(0, protein.value ?? 0),
+    fat: Math.max(0, fat.value ?? 0),
+    carbs: Math.max(0, carbs.value ?? 0),
+    ...(pieceGrams.value !== null && pieceGrams.value > 0 && { pieceGrams: pieceGrams.value }),
     // Штрихкод переживает правку карточки: по нему повторное сканирование
     // находит этот продукт, а не заводит двойника.
     ...(barcode.value !== undefined && barcode.value !== '' && { barcode: barcode.value }),
@@ -73,16 +75,17 @@ function save(): void {
       <div class="col-span-2">
         <TextField v-model="category" label="Категория" />
       </div>
-      <TextField v-model.number="kcal" label="Ккал" type="number" inputmode="numeric" />
-      <TextField v-model.number="protein" label="Белки, г" type="number" inputmode="decimal" />
-      <TextField v-model.number="fat" label="Жиры, г" type="number" inputmode="decimal" />
-      <TextField v-model.number="carbs" label="Углеводы, г" type="number" inputmode="decimal" />
+      <NumberField v-model="kcal" label="Ккал" unit="ккал" :min="0" :snap="false" />
+      <NumberField v-model="protein" label="Белки" unit="г" :min="0" :step="0.1" :snap="false" />
+      <NumberField v-model="fat" label="Жиры" unit="г" :min="0" :step="0.1" :snap="false" />
+      <NumberField v-model="carbs" label="Углеводы" unit="г" :min="0" :step="0.1" :snap="false" />
       <div class="col-span-2">
-        <TextField
-          v-model.number="pieceGrams"
-          label="Вес штуки, г"
-          type="number"
-          inputmode="numeric"
+        <NumberField
+          v-model="pieceGrams"
+          label="Вес штуки"
+          unit="г"
+          :min="0"
+          :snap="false"
           hint="Включает ввод порции в штуках — для яиц, хлебцев, батончиков"
         />
       </div>
@@ -100,7 +103,7 @@ function save(): void {
         >
           Удалить
         </Button>
-        <Button tone="primary" block :disabled="name.trim() === ''" @click="save">
+        <Button tone="primary" class="flex-1" :disabled="name.trim() === ''" @click="save">
           Сохранить
         </Button>
       </div>

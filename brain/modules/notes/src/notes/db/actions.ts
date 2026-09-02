@@ -1,6 +1,6 @@
+import { newId } from '@brain/module-kit';
 import { todayISO } from '@brain/std';
 import type { Space } from '@sync/core';
-import { newId } from '../lib/id';
 import { EMPTY_BODY } from '../entities/body';
 import type { Note } from '../entities/note';
 import { NotesModel, readNote, writeNote } from './models';

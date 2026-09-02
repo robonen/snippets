@@ -9,3 +9,4 @@
 
 export { dayShort, dayTitle, lastDays, parseISODate, shiftISODate, toISODate, todayISO } from './dates';
 export { round1, roundTo } from './numbers';
+export { plural } from './text';

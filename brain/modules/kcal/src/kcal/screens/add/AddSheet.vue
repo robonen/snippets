@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { Button, Sheet } from '@brain/ui';
+import { newId } from '@brain/module-kit';
+import { Button, NumberField, Sheet } from '@brain/ui';
 import { todayISO } from '@brain/std';
 import { useActions, useFoods } from '../../db/composables';
 import { defaultAmount } from '../../entities/food';
@@ -25,7 +26,8 @@ const actions = useActions();
 
 const query = ref('');
 const picked = ref<Food | null>(null);
-const amount = ref(100);
+/** Порция в граммах; `null` — поле стёрто, записывать нечего. */
+const amount = ref<number | null>(100);
 
 watch(open, (value) => {
   if (!value) {
@@ -43,7 +45,9 @@ const matches = computed(() => {
 });
 
 const preview = computed(() =>
-  (picked.value === null ? null : portionNutrients(picked.value, amount.value)));
+  (picked.value === null || amount.value === null || amount.value <= 0
+    ? null
+    : portionNutrients(picked.value, amount.value)));
 
 function pick(food: Food): void {
   picked.value = food;
@@ -53,10 +57,10 @@ function pick(food: Food): void {
 function add(): void {
   const food = picked.value;
   const nutrients = preview.value;
-  if (food === null || nutrients === null) return;
+  if (food === null || nutrients === null || amount.value === null) return;
 
   actions.addEntry({
-    id: crypto.randomUUID(),
+    id: newId(),
     date,
     meal,
     foodId: food.id,
@@ -137,17 +141,17 @@ const quickKcal = computed(() => {
         <p class="mt-0.5 text-xs text-text-faint">на 100 г: {{ fmtKcal(picked.kcal) }} ккал</p>
       </div>
 
-      <div class="flex items-center gap-2">
-        <input
-          v-model.number="amount"
-          type="number"
-          min="1"
-          step="10"
-          aria-label="Порция в граммах"
-          class="h-10 w-24 rounded-control border border-line bg-surface px-3 text-sm text-text"
-        >
-        <span class="text-sm text-text-soft">г</span>
-        <div class="flex gap-1.5">
+      <div class="flex items-end gap-2">
+        <NumberField
+          v-model="amount"
+          label="Порция"
+          unit="г"
+          :min="1"
+          :step="10"
+          :snap="false"
+          class="w-36 shrink-0"
+        />
+        <div class="flex gap-1.5 pb-0.5">
           <Button
             v-for="step in [50, 100, 150, 200]"
             :key="step"
@@ -174,8 +178,10 @@ const quickKcal = computed(() => {
 
     <template v-if="picked !== null" #footer>
       <div class="flex gap-2">
-        <Button block @click="picked = null">Назад</Button>
-        <Button tone="primary" block :disabled="amount <= 0" @click="add">Добавить</Button>
+        <!-- `flex-1`, а не `block`: две кнопки на всю ширину в одном ряду не
+             ужимаются (у кнопки `shrink-0`) и вылезали за край листа. -->
+        <Button class="flex-1" @click="picked = null">Назад</Button>
+        <Button tone="primary" class="flex-1" :disabled="preview === null" @click="add">Добавить</Button>
       </div>
     </template>
   </Sheet>

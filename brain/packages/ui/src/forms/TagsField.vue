@@ -29,6 +29,7 @@ const {
   max = 0,
   disabled = false,
   placeholder = 'Введите и нажмите Enter',
+  normalize = (raw: string) => raw.trim(),
 } = defineProps<{
   label: string;
   placeholder?: string;
@@ -39,6 +40,12 @@ const {
   /** Предел числа значений; 0 — без предела. */
   max?: number;
   disabled?: boolean;
+  /**
+   * Привести набранное к каноническому виду до того, как оно станет чипсом:
+   * «#Vue» и «vue» обязаны схлопнуться в одно значение. Пустой результат
+   * отбрасывается.
+   */
+  normalize?: (raw: string) => string;
 }>();
 
 const tags = defineModel<string[]>({ required: true });
@@ -60,7 +67,7 @@ const describedBy = computed(() => {
 });
 
 function has(name: string): boolean {
-  const needle = name.trim().toLowerCase();
+  const needle = name.toLowerCase();
   return tags.value.some(tag => tag.toLowerCase() === needle);
 }
 
@@ -72,12 +79,18 @@ const shown = computed(() => {
     .slice(0, SUGGESTED);
 });
 
+/** Список от примитива — уже через `normalize`; пустое и повторы не проходят. */
 function onUpdate(next: string[] | null | undefined): void {
-  tags.value = next ?? [];
+  const clean: string[] = [];
+  for (const name of next ?? []) {
+    if (name !== '' && !clean.some(item => item.toLowerCase() === name.toLowerCase())) clean.push(name);
+  }
+  tags.value = clean;
 }
 
-function add(name: string): void {
-  if (disabled || has(name)) return;
+function add(raw: string): void {
+  const name = normalize(raw);
+  if (disabled || name === '' || has(name)) return;
   if (max > 0 && tags.value.length >= max) return;
   tags.value = [...tags.value, name];
   draft.value = '';
@@ -97,7 +110,7 @@ function onDraft(event: Event): void {
       :model-value="tags"
       :max="max"
       :disabled="disabled"
-      :convert-value="(raw: string) => raw.trim()"
+      :convert-value="normalize"
       add-on-blur
       add-on-paste
       class="flex min-h-10 w-full flex-wrap items-center gap-1.5 rounded-control border bg-surface px-2 py-1.5

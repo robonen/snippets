@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, ref, shallowRef, watch } from 'vue';
+import { computed, shallowRef } from 'vue';
 import { useClipboard } from '@robonen/vue';
-import { Plus, X } from 'lucide-vue-next';
-import { Badge, Button, Combobox, ConfirmDialog, Page, PageHeader, Tabs, Toolbar, useToast } from '@brain/ui';
-import type { ComboboxOption, Tab, ToolbarAction } from '@brain/ui';
+import { Plus } from 'lucide-vue-next';
+import { Button, ConfirmDialog, Page, PageHeader, Tabs, TagsField, Toolbar, useToast } from '@brain/ui';
+import type { Tab, ToolbarAction } from '@brain/ui';
 import {
   LINK_SORTS,
   LINK_STATUSES,
@@ -16,7 +16,7 @@ import {
 } from '../../entities/link';
 import type { Bookmark, LinkSort, LinkStatus } from '../../entities/link';
 import { useActions, useLinks } from '../../db/composables';
-import { onAddRequested } from '../../lib/intent';
+import { addIntent } from '../../lib/intent';
 import LinkList from './LinkList.vue';
 import LinkSheet from './LinkSheet.vue';
 import ReadingQueue from './ReadingQueue.vue';
@@ -52,8 +52,6 @@ const grouped = shallowRef(false);
  * массив в прокси ради правок, которых здесь не бывает.
  */
 const tags = shallowRef<string[]>([]);
-/** Модель выпадающего списка тегов: живёт до попадания тега в фильтр. */
-const pick = ref<string | undefined>();
 
 const sheet = shallowRef(false);
 const editing = shallowRef<Bookmark | undefined>();
@@ -61,7 +59,7 @@ const editing = shallowRef<Bookmark | undefined>();
 const removing = shallowRef<Bookmark | undefined>();
 const confirming = shallowRef(false);
 
-onAddRequested(() => {
+addIntent.onRequested(() => {
   editing.value = undefined;
   sheet.value = true;
 });
@@ -104,21 +102,8 @@ const toolbar = computed<ToolbarAction[]>(() => [
   },
 ]);
 
-/** Все теги каталога — их же предлагает форма закладки. */
-const known = computed<ComboboxOption[]>(() => tagCounts(links.value)
-  .map(item => ({ value: item.tag, label: `#${item.tag}`, hint: String(item.count) })));
-
-/** Для фильтра — без тех, что уже выбраны: предлагать выбранное незачем. */
-const options = computed<ComboboxOption[]>(() =>
-  known.value.filter(item => !tags.value.includes(item.value)));
-
-// Выбранный тег уезжает в фильтр, а поле освобождается под следующий: список
-// тегов — не «одно значение», а способ набрать выборку.
-watch(pick, (value) => {
-  if (value === undefined) return;
-  if (!tags.value.includes(value)) tags.value = [...tags.value, value];
-  pick.value = undefined;
-});
+/** Все теги каталога, частые первыми, — подсказки фильтра и формы закладки. */
+const knownNames = computed(() => tagCounts(links.value).map(item => item.tag));
 
 /** Сузили ли выдачу: выбранный тег или вкладка статуса. */
 function narrowed(value: StatusTab): boolean {
@@ -147,10 +132,6 @@ function emptyOf(value: StatusTab): { title: string; description: string } {
 function showAll(): void {
   tags.value = [];
   tab.value = 'all';
-}
-
-function dropTag(tag: string): void {
-  tags.value = tags.value.filter(item => item !== tag);
 }
 
 function addTag(tag: string): void {
@@ -255,37 +236,15 @@ function confirmRemove(): void {
         <div class="flex flex-col gap-2">
           <Toolbar label="Порядок и вид списка" :actions="toolbar" class="overflow-x-auto" />
 
-          <Combobox
-            v-if="options.length > 0 || tags.length > 0"
-            v-model="pick"
+          <!-- Фильтр — тот же список тегов, что и на закладке: набор сужает
+               выборку, подсказки — теги каталога, частые первыми. -->
+          <TagsField
+            v-if="knownNames.length > 0 || tags.length > 0"
+            v-model="tags"
             label="Фильтр по тегам"
-            :options="options"
             placeholder="Тег"
-            empty-text="Таких тегов на ссылках нет"
+            :suggestions="knownNames"
           />
-
-          <div v-if="tags.length > 0" class="flex flex-wrap items-center gap-1.5">
-            <button
-              v-for="tag in tags"
-              :key="tag"
-              type="button"
-              :aria-label="`Убрать из фильтра тег ${tag}`"
-              class="pressable rounded-full"
-              @click="dropTag(tag)"
-            >
-              <Badge tone="accent">
-                {{ `#${tag}` }}
-                <X class="size-3" />
-              </Badge>
-            </button>
-            <button
-              type="button"
-              class="pressable rounded-control px-1.5 py-0.5 text-xs text-text-faint hover:text-text"
-              @click="tags = []"
-            >
-              сбросить
-            </button>
-          </div>
         </div>
       </div>
 
@@ -319,7 +278,7 @@ function confirmRemove(): void {
     <LinkSheet
       v-model:open="sheet"
       :link="editing"
-      :known-tags="known"
+      :known-tags="knownNames"
       @save="actions.saveLink"
     />
 

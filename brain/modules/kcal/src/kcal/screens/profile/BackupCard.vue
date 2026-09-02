@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, useTemplateRef } from 'vue';
+import { ref } from 'vue';
+import { useFileDialog } from '@robonen/vue';
 import { useSpace } from '@sync/vue';
 import { Button, Card } from '@brain/ui';
 import { downloadBackupFile, exportBackup, importBackup, parseBackup } from '../../features/backup';
@@ -14,10 +15,22 @@ import { downloadBackupFile, exportBackup, importBackup, parseBackup } from '../
  */
 const space = useSpace();
 
-const fileInput = useTemplateRef<HTMLInputElement>('file');
 const busy = ref(false);
 const notice = ref('');
 const error = ref('');
+
+// Диалог выбора файла — composable: скрытый `<input type=file>` он держит сам,
+// а `reset` даёт выбрать тот же файл повторно.
+const { open: pickFile, onChange } = useFileDialog({
+  accept: 'application/json,.json',
+  multiple: false,
+  reset: true,
+});
+
+onChange((files) => {
+  const file = files?.[0];
+  if (file !== undefined) void restore(file);
+});
 
 function save(): void {
   error.value = '';
@@ -27,13 +40,7 @@ function save(): void {
   notice.value = `Сохранено: ${payload.foods.length} продуктов, ${payload.entries.length} записей.`;
 }
 
-async function restore(event: Event): Promise<void> {
-  const input = event.target as HTMLInputElement;
-  const file = input.files?.[0];
-  // Тот же файл, выбранный второй раз, не поднимает `change` без сброса значения.
-  input.value = '';
-  if (file === undefined) return;
-
+async function restore(file: File): Promise<void> {
   busy.value = true;
   error.value = '';
   notice.value = '';
@@ -57,14 +64,7 @@ async function restore(event: Event): Promise<void> {
   <Card title="Бэкап">
     <div class="flex flex-wrap gap-2">
       <Button @click="save">Выгрузить в файл</Button>
-      <Button :loading="busy" @click="fileInput?.click()">Восстановить из файла</Button>
-      <input
-        ref="file"
-        type="file"
-        accept="application/json,.json"
-        class="sr-only"
-        @change="value => void restore(value)"
-      >
+      <Button :loading="busy" @click="pickFile()">Восстановить из файла</Button>
     </div>
 
     <p v-if="notice !== ''" class="mt-3 text-xs text-text-soft">{{ notice }}</p>

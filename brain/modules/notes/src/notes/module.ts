@@ -1,4 +1,4 @@
-import { defineModule } from '@brain/module-kit';
+import { defineModule, downloadText } from '@brain/module-kit';
 import { todayISO } from '@brain/std';
 import { BookOpen, CalendarDays, Plus } from 'lucide-vue-next';
 import type { ModuleContext, SearchHit } from '@brain/module-kit';
@@ -8,7 +8,6 @@ import { exportName, notesToMarkdown } from './entities/export';
 import { noteLabel, selectNotes } from './entities/note';
 import type { Note } from './entities/note';
 import { templateDraft } from './entities/templates';
-import { downloadText } from './lib/download';
 import NotesLayout from './screens/NotesLayout.vue';
 import PickNoteScreen from './screens/PickNoteScreen.vue';
 import DailyNoteCard from './widgets/DailyNoteCard.vue';
@@ -93,7 +92,7 @@ export const notesModule = defineModule({
         const notes = allNotes(ctx);
         // Выгрузка из палитры берёт активные заметки: экранных фильтров у
         // команды нет, а архив — это ровно то, что человек убрал с глаз.
-        downloadText(exportName(new Date()), notesToMarkdown(selectNotes(notes)));
+        downloadText(exportName(new Date()), notesToMarkdown(selectNotes(notes)), 'text/markdown;charset=utf-8');
       },
     },
   ],

@@ -1,4 +1,4 @@
-import { newId } from '../lib/id';
+import { newId } from '@brain/module-kit';
 import { parseMonth } from '../lib/format';
 
 /**

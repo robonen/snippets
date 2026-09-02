@@ -19,6 +19,11 @@ export type {
 
 export { useToday } from './today';
 
+export { newId } from './id';
+export { createIntent } from './intent';
+export type { Intent } from './intent';
+export { downloadText } from './download';
+
 export { devicePeer, landId, wallClock } from './land';
 
 export { openSpaces } from './spaces';

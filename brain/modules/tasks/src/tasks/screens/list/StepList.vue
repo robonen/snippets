@@ -4,8 +4,8 @@ import { Plus, X } from 'lucide-vue-next';
 import { Button, Checkbox, Meter } from '@brain/ui';
 import { addStep, progressOf, removeStep, setStepDone, sortSteps } from '../../entities/step';
 import type { Step } from '../../entities/step';
+import { newId } from '@brain/module-kit';
 import { stepsLabel } from '../../lib/format';
-import { newId } from '../../lib/id';
 
 /**
  * Чек-лист внутри формы правки.

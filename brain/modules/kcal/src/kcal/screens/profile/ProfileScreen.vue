@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { TriangleAlert } from 'lucide-vue-next';
-import { Button, Page, PageHeader, RadioCards, SegmentedControl, TextField } from '@brain/ui';
+import { Button, NumberField, Page, PageHeader, RadioCards, SegmentedControl } from '@brain/ui';
 import type { RadioCard, Segment } from '@brain/ui';
 import { todayISO } from '@brain/std';
 import { useActions, useProfile, useWeights } from '../../db/composables';
@@ -31,14 +31,23 @@ const weights = useWeights();
 const actions = useActions();
 
 const sex = ref<Sex>('male');
-const age = ref(30);
-const heightCm = ref(175);
-const weightKg = ref(70);
+// Числовые поля — `null`, пока стёрты; в расчёт и в запись идёт последнее
+// осмысленное значение, а не NaN.
+const age = ref<number | null>(30);
+const heightCm = ref<number | null>(175);
+const weightKg = ref<number | null>(70);
 const activity = ref(1.375);
 const goal = ref<Goal>('maintain');
 
 const manual = ref<{ kcal: number; protein: number; fat: number; carbs: number } | null>(null);
-const weightInput = ref<number | undefined>(undefined);
+const weightInput = ref<number | null>(null);
+
+/** Параметры тела для формулы: стёртое поле считается как прежнее сохранённое. */
+const body = computed(() => ({
+  age: age.value ?? profile.data.value?.age ?? 30,
+  heightCm: heightCm.value ?? profile.data.value?.heightCm ?? 175,
+  weightKg: weightKg.value ?? profile.data.value?.weightKg ?? 70,
+}));
 
 const SEX_SEGMENTS: ReadonlyArray<Segment<Sex>> = [
   { value: 'male', label: 'Мужской' },
@@ -79,9 +88,7 @@ const activityKey = computed({
 
 const computed_ = computed(() => computeTargets({
   sex: sex.value,
-  age: age.value,
-  heightCm: heightCm.value,
-  weightKg: weightKg.value,
+  ...body.value,
   activity: activity.value,
   goal: goal.value,
 }));
@@ -100,9 +107,7 @@ function save(): void {
   const now = Date.now();
   actions.saveProfile({
     sex: sex.value,
-    age: age.value,
-    heightCm: heightCm.value,
-    weightKg: weightKg.value,
+    ...body.value,
     activity: activity.value,
     goal: goal.value,
     targetKcal: targets.value.kcal,
@@ -117,12 +122,12 @@ function save(): void {
 
 function logWeight(): void {
   const kg = weightInput.value;
-  if (kg === undefined || !Number.isFinite(kg) || kg <= 0) return;
+  if (kg === null || !Number.isFinite(kg) || kg <= 0) return;
   const date = todayISO();
   // id совпадает с датой: замер один на день, повторный переписывает прежний.
   actions.logWeight({ id: date, date, kg, createdAt: Date.now() });
   weightKg.value = kg;
-  weightInput.value = undefined;
+  weightInput.value = null;
 }
 
 const lastWeights = computed(() => weights.value.slice(-7).reverse());
@@ -176,9 +181,9 @@ const lastWeights = computed(() => weights.value.slice(-7).reverse());
         <SegmentedControl v-model="sex" label="Пол" :segments="SEX_SEGMENTS" />
 
         <div class="mt-3 grid grid-cols-3 gap-2">
-          <TextField v-model.number="age" label="Возраст" type="number" inputmode="numeric" />
-          <TextField v-model.number="heightCm" label="Рост, см" type="number" inputmode="numeric" />
-          <TextField v-model.number="weightKg" label="Вес, кг" type="number" inputmode="decimal" />
+          <NumberField v-model="age" label="Возраст" unit="лет" :min="1" :max="120" :snap="false" />
+          <NumberField v-model="heightCm" label="Рост" unit="см" :min="50" :max="250" :snap="false" />
+          <NumberField v-model="weightKg" label="Вес" unit="кг" :min="20" :max="400" :step="0.1" :snap="false" />
         </div>
       </section>
 
@@ -200,17 +205,18 @@ const lastWeights = computed(() => weights.value.slice(-7).reverse());
           <div class="p-4">
             <h2 class="mb-3 text-xs font-medium tracking-wide text-text-faint uppercase">Вес</h2>
 
-            <form class="flex gap-2" @submit.prevent="logWeight">
-              <input
-                v-model.number="weightInput"
-                type="number"
-                step="0.1"
-                inputmode="decimal"
+            <form class="flex items-end gap-2" @submit.prevent="logWeight">
+              <NumberField
+                v-model="weightInput"
+                label="Сегодня"
+                unit="кг"
+                :min="20"
+                :max="400"
+                :step="0.1"
+                :snap="false"
                 placeholder="кг"
-                aria-label="Вес сегодня"
-                class="tnum h-10 w-24 rounded-control border border-line bg-surface px-3 text-sm text-text
-                       transition-colors focus:border-accent focus:outline-none"
-              >
+                class="w-36 shrink-0"
+              />
               <Button tone="primary" type="submit">Записать</Button>
             </form>
 

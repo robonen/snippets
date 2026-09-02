@@ -1,38 +1,17 @@
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { dayShort, parseISODate, shiftISODate } from '@brain/std';
+import { dayShort, parseISODate, plural, shiftISODate } from '@brain/std';
 
 /**
- * Форматирование, у которого нет домена: русские формы числительных и подписи
- * дней.
+ * Подписи дней и счётчиков, у которых нет домена.
  *
  * Живёт в `lib`, а не в `entities`: слой самый нижний, он не знает ни про
  * задачи, ни про повторы, и именно поэтому им пользуются оба.
  */
 
-const RU_PLURAL = new Intl.PluralRules('ru-RU');
-
-/**
- * Категория CLDR → номер формы. Таблицей, а не `if`-ами: у русского пять
- * категорий из шести, и молча забытая `many` дала бы «5 задачи».
- */
-const FORM_INDEX: Record<Intl.LDMLPluralRule, 0 | 1 | 2> = {
-  one: 0,
-  two: 1,
-  few: 1,
-  many: 2,
-  other: 2,
-  zero: 2,
-};
-
-/** Форма по числу: `['день', 'дня', 'дней']` — «один / два / пять». */
-export function plural(count: number, forms: readonly [string, string, string]): string {
-  return forms[FORM_INDEX[RU_PLURAL.select(count)]];
-}
-
 /** «3 задачи» — счётчик со словом. */
 export function tasksLabel(count: number): string {
-  return `${count} ${plural(count, ['задача', 'задачи', 'задач'])}`;
+  return `${count} ${plural(count, 'задача', 'задачи', 'задач')}`;
 }
 
 /** «2 из 5» — прогресс чек-листа в строке. */

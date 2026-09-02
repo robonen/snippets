@@ -4,8 +4,8 @@ import { useForm } from '@robonen/vue';
 import { X } from 'lucide-vue-next';
 import { Button, Card, DateField } from '@brain/ui';
 import type { Entry } from '../../entities/project';
+import { newId } from '@brain/module-kit';
 import { fmtDay } from '../../lib/format';
-import { newId } from '../../lib/id';
 
 /**
  * Журнал проекта: что решили, что случилось, когда сменился статус.
